@@ -1830,6 +1830,20 @@ function cwCard(it) {
   };
 }
 window.__SC_CW_CARD__ = cwCard;
+/* "Up next · S2 E6", "S2 E5 · 12 min left" or "48 min left" under a Continue Watching title */
+function cwSubtitle(it) {
+  var ep = '';
+  if (it.videoId && it.videoId.indexOf(':') > 0) {
+    var pp = it.videoId.split(':');
+    if (pp.length >= 3) {
+      if (it.upNext) return tx('cwUpNext', pp[pp.length - 2], pp[pp.length - 1]);
+      if (it.fresh) return tx('newEpisodeTag', pp[pp.length - 2], pp[pp.length - 1]);
+      ep = tx('cwEpisode', pp[pp.length - 2], pp[pp.length - 1]);
+    }
+  }
+  var left = it.minutesLeft ? tx('cwLeft', it.minutesLeft) : '';
+  return ep && left ? ep + '  ·  ' + left : ep || left;
+}
 /* As in Stremio, an item removed from the library stays only while it is temporary */
 function cwItems(limit) {
   var out = [],
@@ -3503,6 +3517,8 @@ window.__logic = {
   allLib: allLib,
   authKey: authKey,
   bestSource: bestSource,
+  bgOf: bgOf,
+  bgSmall: bgSmall,
   buildEpisodeModel: buildEpisodeModel,
   checkNewEpisodes: checkNewEpisodes,
   clearContinueWatching: clearContinueWatching,
@@ -3510,6 +3526,7 @@ window.__logic = {
   compactSourcePool: compactSourcePool,
   cwItems: cwItems,
   cwCard: cwCard,
+  cwSubtitle: cwSubtitle,
   discoverCatalogs: discoverCatalogs,
   discoverGenres: discoverGenres,
   discoverTypes: discoverTypes,
@@ -3521,11 +3538,13 @@ window.__logic = {
   homeDefs: homeDefs,
   homeLibraryRows: homeLibraryRows,
   isNuvioAccount: isNuvioAccount,
+  itemWatched: itemWatched,
   libGridItems: libGridItems,
   libHas: libHas,
   libToggle: libToggle,
   newEpisodeItems: newEpisodeItems,
   nuvioCollections: nuvioCollections,
+  posterOf: posterOf,
   pullLib: pullLib,
   removeFromCw: removeFromCw,
   setEpisodesWatched: setEpisodesWatched,

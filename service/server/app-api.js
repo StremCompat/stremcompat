@@ -38,11 +38,27 @@ function strings(req, res) {
   sendJson(res, logic().uiText());
 }
 
+/* what a card shows, as the web interface decides it: its picture (a poster, or a landscape
+   picture on wide cards), the backdrop behind the focused title, and the line under a Continue
+   Watching title or the watched badge */
+function decorate(items, wide) {
+  var L = logic();
+  for (var i = 0; i < items.length; i++) {
+    var it = items[i];
+    it.art = wide ? L.bgSmall(it) : L.posterOf(it);
+    it.backdrop = L.bgOf(it);
+    if (wide) it.subtitle = L.cwSubtitle(it);
+    else it.watched = !!L.itemWatched(it);
+  }
+  return items;
+}
+
 /* ---------- Home: the library rows, then the catalogs, each fetched on its own ---------- */
 function home(req, res) {
   var L = logic(),
     rows = L.homeLibraryRows(),
     defs = L.homeDefs();
+  for (var r = 0; r < rows.length; r++) decorate(rows[r].items, rows[r].wide);
   for (var i = 0; i < defs.length; i++) {
     var d = defs[i];
     if (d.tiles) rows.push({ title: d.title, items: d.tiles, wide: true, collection: true });
@@ -58,7 +74,7 @@ function catalog(req, res, q) {
   logic().getCatalogUrl(q.url, q.key, q.type || '', function (items, cached) {
     if (answered) return;
     answered = true;
-    sendJson(res, { items: items, cached: !!cached });
+    sendJson(res, { items: decorate(items, false), cached: !!cached });
   });
 }
 
