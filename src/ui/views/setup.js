@@ -1,8 +1,5 @@
 // The first start of 4.0: how the app is used (simple or complete) and how it looks (standard or
 // light). Both stay in Settings; skipping keeps everything as it was.
-function simpleMode() {
-  return lsRaw('uiMode', 'full') === 'simple';
-}
 /* Light: no animations or effects, smaller backgrounds and the small-TV caches. */
 function applyLook() {
   var light = uiLook() === 'light';

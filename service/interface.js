@@ -2041,7 +2041,7 @@ function smoothnessLine() {
   var late = smooth.frames ? Math.round((smooth.late / (smooth.frames + smooth.late)) * 100) : 0;
   return tx('diagRemote', w[Math.floor(w.length / 2)], w[w.length - 1], late);
 }
-// Poster, backdrop and icon URLs, and the look that decides their sizes.
+// Poster, backdrop and icon URLs, the look that decides their sizes, and the Simple mode.
 /* the look this TV had before anyone chose: light on the TVs the profile already treats as small.
    The modern look of the 4.0 tests is gone: a TV that chose it has the standard one. */
 var PROFILE_LOW_MEMORY = !!TV_PROFILE.lowMemory;
@@ -2049,6 +2049,10 @@ function uiLook() {
   return lsRaw('uiLook', '') === 'light' || (!lsRaw('uiLook', '') && PROFILE_LOW_MEMORY)
     ? 'light'
     : 'standard';
+}
+/* Simple: fewer choices on screen (Settings) */
+function simpleMode() {
+  return lsRaw('uiMode', 'full') === 'simple';
 }
 function isImdb(id) {
   return String(id || '').indexOf('tt') === 0;
@@ -5089,6 +5093,86 @@ function setEpisodesWatched(it, vids, watched, cb) {
     );
   })();
 }
+// What the title screen says, apart from how it is drawn: the facts line, the first action and
+// the episode to land on, and each episode's line and badge. Shared with the native interface.
+/* The title's details on one line: who directed it (when the line above names the cast), the
+   country and the release date, as Cinemeta gives them. */
+function titleFacts(m, castShown) {
+  var parts = [];
+  if (castShown && m.director && m.director.length)
+    parts.push(tx('directedBy', m.director.slice(0, 2).join(', ')));
+  if (m.country) parts.push(String(m.country).split(',')[0]);
+  var released = m.released ? new Date(m.released) : null;
+  if (released && !isNaN(released.getTime()))
+    try {
+      parts.push(released.toLocaleDateString(UI_LANG, { day: 'numeric', month: 'short', year: 'numeric' }));
+    } catch (e) {
+      parts.push(String(released.getFullYear()));
+    }
+  return parts.join('  ·  ');
+}
+/* saved progress worth offering, in the Continue Watching card shape (account.js) */
+function resumeInfoFor(id) {
+  var lib = lsJson(PRE + id),
+    s = lib && lib.state;
+  if (!s) return null;
+  var c = cwCard(lib);
+  if (c.upNext) return c;
+  if (!(s.timeOffset > 60000) || watchFinished(s.timeOffset, s.duration)) return null;
+  return c;
+}
+function resumeLabel(c) {
+  var pp = String(c.videoId || '').split(':'),
+    ep = pp.length >= 3 ? [pp[pp.length - 2], pp[pp.length - 1]] : null;
+  if (c.upNext) return ep ? tx('playEpisode', ep[0], ep[1]) : tx('watch');
+  var left = c.minutesLeft ? '  ·  ' + tx('cwLeft', c.minutesLeft) : '';
+  return (ep ? tx('continueEpisode', ep[0], ep[1]) : tx('continueLabel')) + left;
+}
+/* the first released episode not watched yet; once everything released was watched,
+   the latest released one (not S1E1, and never an episode that has not aired) */
+function firstUnwatched(seasons, watchedMap) {
+  var now = Date.now(),
+    latest = null;
+  for (var s = 0; s < seasons.length; s++) {
+    if (seasons[s].n === 0) continue;
+    var eps = seasons[s].eps;
+    for (var e = 0; e < eps.length; e++) {
+      if (!episodeReleased(eps[e], now)) continue;
+      if (!watchedMap[eps[e].id]) return eps[e].id;
+      latest = eps[e].id;
+    }
+  }
+  if (latest) return latest;
+  return seasons[0] && seasons[0].eps[0] ? seasons[0].eps[0].id : null;
+}
+/* an air date in the viewer's language, "10 Mar 2008" */
+function episodeDay(at) {
+  try {
+    return new Date(at).toLocaleDateString(UI_LANG, { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch (e) {
+    return new Date(at).toISOString().slice(0, 10);
+  }
+}
+/* the focused episode: numbering, air date, length and whether it has aired yet */
+function episodeMetaLine(cv) {
+  var bits = [
+      cv._stremAbsolute
+        ? tx('seasonAbsoluteEpisode', cv._stremSeason, cv._stremSeasonEpisode, cv._stremAbsolute)
+        : tx('seasonEpisode', cv._stremSeason, cv._stremSeasonEpisode)
+    ],
+    at = releasedTime(cv);
+  if (at) bits.push(episodeDay(at));
+  if (cv.runtime) bits.push(cv.runtime);
+  if (at > Date.now()) bits.push(tx('badgeSoon'));
+  return bits.join('  ·  ');
+}
+/* Coming soon before release, New during the first week */
+function episodeBadge(v, now) {
+  var at = releasedTime(v);
+  if (!at) return '';
+  if (at > now) return tx('badgeSoon');
+  return now - at < 7 * 86400000 ? tx('badgeNew') : '';
+}
 // Long-press OK side menu available on every card.
 /* ================= unified long-press side menu (any card) ================= */
 var cwMenu = {
@@ -5770,22 +5854,6 @@ function checkNewEpisodes(done) {
   next();
 }
 // Title detail screen: actions, seasons, episode ranges and episode list.
-/* The title's details on one line: who directed it (when the line above names the cast), the
-   country and the release date, as Cinemeta gives them. */
-function titleFacts(m, castShown) {
-  var parts = [];
-  if (castShown && m.director && m.director.length)
-    parts.push(tx('directedBy', m.director.slice(0, 2).join(', ')));
-  if (m.country) parts.push(String(m.country).split(',')[0]);
-  var released = m.released ? new Date(m.released) : null;
-  if (released && !isNaN(released.getTime()))
-    try {
-      parts.push(released.toLocaleDateString(UI_LANG, { day: 'numeric', month: 'short', year: 'numeric' }));
-    } catch (e) {
-      parts.push(String(released.getFullYear()));
-    }
-  return parts.join('  ·  ');
-}
 var detail = {
   meta: null,
   type: '',
@@ -5910,20 +5978,20 @@ var detail = {
       av =
         this.vid ||
         (lib && lib.state && (upNextPointer(lib) || (lib.state.timeOffset > 60000 && lib.state.video_id))) ||
-        this.firstUnwatched();
+        firstUnwatched(this.seasons, this.watchedMap);
       this.vid = null;
     }
     /* The first button continues or starts what the viewer most likely wants, in one press:
        "Continue S2 E5 · 12 min left", "Play S1 E9" or, for a film, "Continue · 48 min left". */
-    var resume = this.resumeInfo(),
+    var resume = resumeInfoFor(this.id),
       primary = resume && (this.type !== 'series' || !av || resume.videoId === av) ? resume : null;
     if (primary)
-      this.addBtn(this.resumeLabel(primary), function () {
+      this.addBtn(resumeLabel(primary), function () {
         self.playFrom(primary);
       });
     else if (this.type === 'series' && av) {
       var first = { videoId: av, upNext: true };
-      this.addBtn(this.resumeLabel(first), function () {
+      this.addBtn(resumeLabel(first), function () {
         self.openStreams(av);
       });
     }
@@ -5993,23 +6061,6 @@ var detail = {
         if (SCR === 'detail' && detail.meta === m && !streamsUI.open) self.openStreams(self.id);
       }, 250);
     }
-  },
-  /* saved progress worth offering, in the Continue Watching card shape (account.js) */
-  resumeInfo: function () {
-    var lib = lsJson(PRE + this.id),
-      s = lib && lib.state;
-    if (!s) return null;
-    var c = cwCard(lib);
-    if (c.upNext) return c;
-    if (!(s.timeOffset > 60000) || watchFinished(s.timeOffset, s.duration)) return null;
-    return c;
-  },
-  resumeLabel: function (c) {
-    var pp = String(c.videoId || '').split(':'),
-      ep = pp.length >= 3 ? [pp[pp.length - 2], pp[pp.length - 1]] : null;
-    if (c.upNext) return ep ? tx('playEpisode', ep[0], ep[1]) : tx('watch');
-    var left = c.minutesLeft ? '  ·  ' + tx('cwLeft', c.minutesLeft) : '';
-    return (ep ? tx('continueEpisode', ep[0], ep[1]) : tx('continueLabel')) + left;
   },
   /* the same source when it was remembered, otherwise the source list for that video */
   playFrom: function (c) {
@@ -6288,23 +6339,6 @@ detail.markWatched = function () {
     }
   }
 };
-/* the first released episode not watched yet; once everything released was watched,
-   the latest released one (not S1E1, and never an episode that has not aired) */
-detail.firstUnwatched = function () {
-  var now = Date.now(),
-    latest = null;
-  for (var s = 0; s < this.seasons.length; s++) {
-    if (this.seasons[s].n === 0) continue;
-    var eps = this.seasons[s].eps;
-    for (var e = 0; e < eps.length; e++) {
-      if (!episodeReleased(eps[e], now)) continue;
-      if (!this.watchedMap[eps[e].id]) return eps[e].id;
-      latest = eps[e].id;
-    }
-  }
-  if (latest) return latest;
-  return this.seasons[0] && this.seasons[0].eps[0] ? this.seasons[0].eps[0].id : null;
-};
 detail.buildSeasons = function () {
   var model = buildEpisodeModel((this.meta && this.meta.videos) || []);
   this.seasons = model.seasons;
@@ -6399,34 +6433,6 @@ detail.buildSeasonControls = function () {
   );
   if (this.seasonControlIdx >= this.seasonEls.length) this.seasonControlIdx = 0;
 };
-/* an air date in the viewer's language, "10 Mar 2008" */
-function episodeDay(at) {
-  try {
-    return new Date(at).toLocaleDateString(UI_LANG, { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch (e) {
-    return new Date(at).toISOString().slice(0, 10);
-  }
-}
-/* the focused episode: numbering, air date, length and whether it has aired yet */
-function episodeMetaLine(cv) {
-  var bits = [
-      cv._stremAbsolute
-        ? tx('seasonAbsoluteEpisode', cv._stremSeason, cv._stremSeasonEpisode, cv._stremAbsolute)
-        : tx('seasonEpisode', cv._stremSeason, cv._stremSeasonEpisode)
-    ],
-    at = releasedTime(cv);
-  if (at) bits.push(episodeDay(at));
-  if (cv.runtime) bits.push(cv.runtime);
-  if (at > Date.now()) bits.push(tx('badgeSoon'));
-  return bits.join('  ·  ');
-}
-/* Coming soon before release, New during the first week */
-function episodeBadge(v, now) {
-  var at = releasedTime(v);
-  if (!at) return '';
-  if (at > now) return tx('badgeSoon');
-  return now - at < 7 * 86400000 ? tx('badgeNew') : '';
-}
 detail.buildEps = function () {
   var se = this.seasons[this.seasonIdx],
     start = this.rangeIdx * 50;
@@ -6642,9 +6648,6 @@ var episodeJump = {
 window.__SC_EPISODE_JUMP__ = episodeJump;
 // The first start of 4.0: how the app is used (simple or complete) and how it looks (standard or
 // light). Both stay in Settings; skipping keeps everything as it was.
-function simpleMode() {
-  return lsRaw('uiMode', 'full') === 'simple';
-}
 /* Light: no animations or effects, smaller backgrounds and the small-TV caches. */
 function applyLook() {
   var light = uiLook() === 'light';

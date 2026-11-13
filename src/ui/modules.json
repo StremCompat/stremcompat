@@ -30,6 +30,7 @@
   "views/board-loaders.js",
   "features/trailers.js",
   "data/library-actions.js",
+  "data/title.js",
   "views/card-menu.js",
   "views/similar.js",
   "data/episodes.js",

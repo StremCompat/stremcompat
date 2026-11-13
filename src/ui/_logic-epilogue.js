@@ -18,6 +18,12 @@ window.__logic = {
   discoverGenres: discoverGenres,
   discoverTypes: discoverTypes,
   enrichEpisodeMetadata: enrichEpisodeMetadata,
+  episodeBadge: episodeBadge,
+  episodeDay: episodeDay,
+  episodeFallback: episodeFallback,
+  episodeImage: episodeImage,
+  episodeMetaLine: episodeMetaLine,
+  firstUnwatched: firstUnwatched,
   fetchStreams: fetchStreams,
   getCatalogUrl: getCatalogUrl,
   getMeta: getMeta,
@@ -28,17 +34,26 @@ window.__logic = {
   itemWatched: itemWatched,
   libGridItems: libGridItems,
   libHas: libHas,
+  libItem: function (id) {
+    return lsJson(PRE + id);
+  },
   libToggle: libToggle,
   newEpisodeItems: newEpisodeItems,
   nuvioCollections: nuvioCollections,
   posterOf: posterOf,
   pullLib: pullLib,
+  releasedTime: releasedTime,
+  resumeInfoFor: resumeInfoFor,
+  resumeLabel: resumeLabel,
+  setting: lsRaw,
+  simpleMode: simpleMode,
   removeFromCw: removeFromCw,
   setEpisodesWatched: setEpisodesWatched,
   setItemWatched: setItemWatched,
   sourceTags: sourceTags,
   syncAddons: syncAddons,
   syncCollections: syncCollections,
+  titleFacts: titleFacts,
   tx: tx,
   uiLanguage: function () {
     return UI_LANG;
@@ -46,6 +61,9 @@ window.__logic = {
   uiText: function () {
     return { lang: UI_TEXT[UI_LANG] || {}, fallback: UI_TEXT['en-US'] };
   },
-  user: user
+  upNextPointer: upNextPointer,
+  user: user,
+  watchedFromBits: watchedFromBits,
+  watchFinished: watchFinished
 };
 })();

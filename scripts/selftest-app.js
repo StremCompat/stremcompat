@@ -192,6 +192,26 @@ async function main() {
     assert.strictEqual(title.json.meta.name, 'Test Show', 'the title did not come');
     assert.ok(title.json.episodes, 'the episodes were not arranged');
 
+    /* the title page: seasons, episodes, the episode it opens on and its buttons */
+    var page = (await request('/app/title?type=series&id=tst1')).json.title;
+    assert.strictEqual(
+      page.series.seasons[0].episodes.length,
+      2,
+      'the episodes of the title page are missing'
+    );
+    assert.strictEqual(
+      page.series.landing,
+      'tst1:1:1',
+      'the page does not open on the first unwatched episode'
+    );
+    assert.deepStrictEqual(
+      page.actions.map(function (a) {
+        return a.kind;
+      }),
+      ['episode', 'best', 'similar', 'library'],
+      'the title buttons are not the web interface ones'
+    );
+
     /* sources: asked again with the version in hand until every addon answered */
     var have = 0,
       found = null;
@@ -216,7 +236,7 @@ async function main() {
     assert.strictEqual(nothing.status, 404, '/app/img read something other than a web address');
 
     console.log(
-      'OK: storage handed over, account, texts, Home rows, catalog, title with episodes, sources as they arrive, pictures.'
+      'OK: storage handed over, account, texts, Home rows, catalog, title with episodes, title page, sources as they arrive, pictures.'
     );
   } catch (e) {
     console.error(log.slice(-3000));

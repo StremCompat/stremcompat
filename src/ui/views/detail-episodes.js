@@ -55,23 +55,6 @@ detail.markWatched = function () {
     }
   }
 };
-/* the first released episode not watched yet; once everything released was watched,
-   the latest released one (not S1E1, and never an episode that has not aired) */
-detail.firstUnwatched = function () {
-  var now = Date.now(),
-    latest = null;
-  for (var s = 0; s < this.seasons.length; s++) {
-    if (this.seasons[s].n === 0) continue;
-    var eps = this.seasons[s].eps;
-    for (var e = 0; e < eps.length; e++) {
-      if (!episodeReleased(eps[e], now)) continue;
-      if (!this.watchedMap[eps[e].id]) return eps[e].id;
-      latest = eps[e].id;
-    }
-  }
-  if (latest) return latest;
-  return this.seasons[0] && this.seasons[0].eps[0] ? this.seasons[0].eps[0].id : null;
-};
 detail.buildSeasons = function () {
   var model = buildEpisodeModel((this.meta && this.meta.videos) || []);
   this.seasons = model.seasons;
@@ -166,34 +149,6 @@ detail.buildSeasonControls = function () {
   );
   if (this.seasonControlIdx >= this.seasonEls.length) this.seasonControlIdx = 0;
 };
-/* an air date in the viewer's language, "10 Mar 2008" */
-function episodeDay(at) {
-  try {
-    return new Date(at).toLocaleDateString(UI_LANG, { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch (e) {
-    return new Date(at).toISOString().slice(0, 10);
-  }
-}
-/* the focused episode: numbering, air date, length and whether it has aired yet */
-function episodeMetaLine(cv) {
-  var bits = [
-      cv._stremAbsolute
-        ? tx('seasonAbsoluteEpisode', cv._stremSeason, cv._stremSeasonEpisode, cv._stremAbsolute)
-        : tx('seasonEpisode', cv._stremSeason, cv._stremSeasonEpisode)
-    ],
-    at = releasedTime(cv);
-  if (at) bits.push(episodeDay(at));
-  if (cv.runtime) bits.push(cv.runtime);
-  if (at > Date.now()) bits.push(tx('badgeSoon'));
-  return bits.join('  ·  ');
-}
-/* Coming soon before release, New during the first week */
-function episodeBadge(v, now) {
-  var at = releasedTime(v);
-  if (!at) return '';
-  if (at > now) return tx('badgeSoon');
-  return now - at < 7 * 86400000 ? tx('badgeNew') : '';
-}
 detail.buildEps = function () {
   var se = this.seasons[this.seasonIdx],
     start = this.rangeIdx * 50;

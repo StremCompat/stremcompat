@@ -1,20 +1,4 @@
 // Title detail screen: actions, seasons, episode ranges and episode list.
-/* The title's details on one line: who directed it (when the line above names the cast), the
-   country and the release date, as Cinemeta gives them. */
-function titleFacts(m, castShown) {
-  var parts = [];
-  if (castShown && m.director && m.director.length)
-    parts.push(tx('directedBy', m.director.slice(0, 2).join(', ')));
-  if (m.country) parts.push(String(m.country).split(',')[0]);
-  var released = m.released ? new Date(m.released) : null;
-  if (released && !isNaN(released.getTime()))
-    try {
-      parts.push(released.toLocaleDateString(UI_LANG, { day: 'numeric', month: 'short', year: 'numeric' }));
-    } catch (e) {
-      parts.push(String(released.getFullYear()));
-    }
-  return parts.join('  ·  ');
-}
 var detail = {
   meta: null,
   type: '',
@@ -139,20 +123,20 @@ var detail = {
       av =
         this.vid ||
         (lib && lib.state && (upNextPointer(lib) || (lib.state.timeOffset > 60000 && lib.state.video_id))) ||
-        this.firstUnwatched();
+        firstUnwatched(this.seasons, this.watchedMap);
       this.vid = null;
     }
     /* The first button continues or starts what the viewer most likely wants, in one press:
        "Continue S2 E5 · 12 min left", "Play S1 E9" or, for a film, "Continue · 48 min left". */
-    var resume = this.resumeInfo(),
+    var resume = resumeInfoFor(this.id),
       primary = resume && (this.type !== 'series' || !av || resume.videoId === av) ? resume : null;
     if (primary)
-      this.addBtn(this.resumeLabel(primary), function () {
+      this.addBtn(resumeLabel(primary), function () {
         self.playFrom(primary);
       });
     else if (this.type === 'series' && av) {
       var first = { videoId: av, upNext: true };
-      this.addBtn(this.resumeLabel(first), function () {
+      this.addBtn(resumeLabel(first), function () {
         self.openStreams(av);
       });
     }
@@ -222,23 +206,6 @@ var detail = {
         if (SCR === 'detail' && detail.meta === m && !streamsUI.open) self.openStreams(self.id);
       }, 250);
     }
-  },
-  /* saved progress worth offering, in the Continue Watching card shape (account.js) */
-  resumeInfo: function () {
-    var lib = lsJson(PRE + this.id),
-      s = lib && lib.state;
-    if (!s) return null;
-    var c = cwCard(lib);
-    if (c.upNext) return c;
-    if (!(s.timeOffset > 60000) || watchFinished(s.timeOffset, s.duration)) return null;
-    return c;
-  },
-  resumeLabel: function (c) {
-    var pp = String(c.videoId || '').split(':'),
-      ep = pp.length >= 3 ? [pp[pp.length - 2], pp[pp.length - 1]] : null;
-    if (c.upNext) return ep ? tx('playEpisode', ep[0], ep[1]) : tx('watch');
-    var left = c.minutesLeft ? '  ·  ' + tx('cwLeft', c.minutesLeft) : '';
-    return (ep ? tx('continueEpisode', ep[0], ep[1]) : tx('continueLabel')) + left;
   },
   /* the same source when it was remembered, otherwise the source list for that video */
   playFrom: function (c) {

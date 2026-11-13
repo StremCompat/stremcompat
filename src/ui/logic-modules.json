@@ -19,5 +19,6 @@
   "data/episodes.js",
   "data/new-episodes.js",
   "data/library-actions.js",
+  "data/title.js",
   "_logic-epilogue.js"
 ]
