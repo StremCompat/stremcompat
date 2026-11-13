@@ -3714,11 +3714,15 @@ window.__logic = {
   homeDefs: homeDefs,
   homeLibraryRows: homeLibraryRows,
   isNuvioAccount: isNuvioAccount,
+  knownArtwork: knownArtwork,
   langFilterName: langFilterName,
   languageChoices: languageChoices,
   itemWatched: itemWatched,
   libGridItems: libGridItems,
   libHas: libHas,
+  libKey: function (id) {
+    return PRE + id;
+  },
   libItem: function (id) {
     return lsJson(PRE + id);
   },
@@ -3728,6 +3732,7 @@ window.__logic = {
   orderedSources: orderedSources,
   posterOf: posterOf,
   pullLib: pullLib,
+  pushLib: pushLib,
   qualityChips: qualityChips,
   releasedTime: releasedTime,
   resumeInfoFor: resumeInfoFor,
@@ -3740,6 +3745,7 @@ window.__logic = {
   sourceHeading: sourceHeading,
   sourceTags: sourceTags,
   sourceText: sourceText,
+  streamRefBody: streamRefBody,
   syncAddons: syncAddons,
   syncCollections: syncCollections,
   titleFacts: titleFacts,

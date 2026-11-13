@@ -5,6 +5,7 @@ var { APP_VERSION, PROFILE } = require('./config');
 var { readJsonBody, sendJson } = require('./http-util');
 var { appImage } = require('./app-images');
 var { title } = require('./app-title');
+var playback = require('./app-playback');
 var runtime = require('./app-runtime');
 
 var STREAM_WAIT_MS = 8000;
@@ -216,12 +217,16 @@ module.exports = {
     '/app/home': home,
     '/app/img': appImage,
     '/app/meta': meta,
+    '/app/play': function (req, res, q) {
+      playback.play(req, res, q, searches);
+    },
     '/app/state': state,
     '/app/streams': streams,
     '/app/strings': strings,
     '/app/title': title
   },
   postRoutes: {
-    '/app/migrate': migrate
+    '/app/migrate': migrate,
+    '/app/progress': playback.progress
   }
 };

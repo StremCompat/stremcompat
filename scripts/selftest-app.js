@@ -248,13 +248,42 @@ async function main() {
     ).json;
     assert.strictEqual(only4k.items.length, 1, 'the quality chip did not filter the sources');
 
+    /* playing a source, then reports up to 70 % really played: watched, as in the web player */
+    var started = (
+      await request(
+        '/app/play?type=series&id=tst1&vid=' + encodeURIComponent('tst1:1:1') + '&seq=' + found.items[0].seq
+      )
+    ).json;
+    assert.ok(/^http/.test(started.info.URL) && started.ref, 'the chosen source did not start');
+    var again = await request(
+      '/app/play?type=series&id=tst1&vid=' + encodeURIComponent('tst1:1:1') + '&resume=1'
+    );
+    assert.strictEqual(again.json.ref, started.ref, 'the last source was not offered again');
+    for (var t = 0; t <= 80000; t += 10000)
+      await request('/app/progress', {
+        type: 'series',
+        id: 'tst1',
+        vid: 'tst1:1:1',
+        name: 'Test Show',
+        time: t,
+        duration: 100000,
+        event: 'tick'
+      });
+    await wait(700);
+    var kept = JSON.parse(fs.readFileSync(path.join(home, '.stremcompat', 'app-state.json'), 'utf8'));
+    var item = JSON.parse(kept.lib_u1_tst1 || 'null');
+    assert.ok(
+      item && item.state.flaggedWatched === 1 && item.state.timeOffset === 80000,
+      'the progress was not kept like the web player keeps it'
+    );
+
     var poster = await request('/app/img?u=' + encodeURIComponent(meta.poster));
     assert.ok(poster.status === 200 && poster.text.length > 0, 'a JPEG did not pass through /app/img');
     var nothing = await request('/app/img?u=' + encodeURIComponent('file:///etc/passwd'));
     assert.strictEqual(nothing.status, 404, '/app/img read something other than a web address');
 
     console.log(
-      'OK: storage handed over, account, texts, Home rows, catalog, title with episodes, title page, sources as they arrive, pictures.'
+      'OK: storage handed over, account, texts, Home rows, catalog, title with episodes, title page, sources as they arrive, playing and progress, pictures.'
     );
   } catch (e) {
     console.error(log.slice(-3000));
