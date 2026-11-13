@@ -26,8 +26,23 @@ function writeItem(L, item) {
 function answerStream(res, q, ref) {
   var stream = getStreamRef(ref);
   if (!stream) return fail(res, 404, 'gone');
+  var L = runtime.logic(),
+    it = L.libItem(q.id),
+    s = (it && it.state) || {},
+    /* where this video was left, unless that was its last half minute (web: tryResume) */
+    resume =
+      s.video_id === (q.vid || q.id) &&
+      s.timeOffset > 5000 &&
+      (!s.duration || s.timeOffset < s.duration - 30000)
+        ? s.timeOffset
+        : 0;
   playerContext(stream, { type: q.type, id: q.id, vid: q.vid, ref: ref }, function (context) {
-    sendJson(res, { ref: ref, info: playerConstants(stream, context) });
+    sendJson(res, {
+      ref: ref,
+      info: playerConstants(stream, context),
+      resume: resume,
+      seekStep: parseInt(L.setting('seekStep', '10'), 10) || 10
+    });
   });
 }
 
