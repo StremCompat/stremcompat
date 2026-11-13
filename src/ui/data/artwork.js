@@ -1,4 +1,12 @@
-// Poster, backdrop and icon URLs.
+// Poster, backdrop and icon URLs, and the look that decides their sizes.
+/* the look this TV had before anyone chose: light on the TVs the profile already treats as small.
+   The modern look of the 4.0 tests is gone: a TV that chose it has the standard one. */
+var PROFILE_LOW_MEMORY = !!TV_PROFILE.lowMemory;
+function uiLook() {
+  return lsRaw('uiLook', '') === 'light' || (!lsRaw('uiLook', '') && PROFILE_LOW_MEMORY)
+    ? 'light'
+    : 'standard';
+}
 function isImdb(id) {
   return String(id || '').indexOf('tt') === 0;
 }

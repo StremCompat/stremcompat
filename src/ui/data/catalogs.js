@@ -174,6 +174,62 @@ function homeCatalogs() {
   }
   return out;
 }
+/* HOME rows = YOUR addon catalogs (in order); Cinemeta defaults if none configured */
+function homeDefs() {
+  var tiles = collectionTileDefs();
+  /* with Nuvio Collections, Home is those collections only, as in Nuvio's own apps */
+  if (tiles.length) return tiles;
+  var cats = homeCatalogs();
+  if (!cats.length)
+    cats = [
+      {
+        title: tx('popularMovies'),
+        type: 'movie',
+        url: CIN + '/catalog/movie/top.json',
+        key: 'cin_m_top',
+        ranked: true
+      },
+      { title: tx('popularSeries'), type: 'series', url: CIN + '/catalog/series/top.json', key: 'cin_s_top' },
+      { title: tx('topMovies'), type: 'movie', url: CIN + '/catalog/movie/imdbRating.json', key: 'cin_m_ir' },
+      {
+        title: tx('topSeries'),
+        type: 'series',
+        url: CIN + '/catalog/series/imdbRating.json',
+        key: 'cin_s_ir'
+      }
+    ];
+  /* an addon's own "popular" catalog ranks its first ten too */
+  for (var i = 0; i < cats.length; i++)
+    if (/\/catalog\/[^\/]+\/top\.json$/.test(cats[i].url || '')) {
+      cats[i].ranked = true;
+      break;
+    }
+  return cats;
+}
+/* The rows Home starts with, from this TV's library: Continue Watching, then the new episodes
+   of followed series and the titles added to the library, which otherwise only appear in the
+   Library section. wide rows show landscape cards. */
+function homeLibraryRows() {
+  var rows = [],
+    cw = cwItems(),
+    cwMapped = [];
+  for (var c = 0; c < cw.length; c++) cwMapped.push(cwCard(cw[c]));
+  if (cwMapped.length) rows.push({ title: tx('continueWatching'), items: cwMapped, wide: true });
+  var fresh = newEpisodeItems();
+  if (fresh.length) rows.push({ title: tx('newEpisodes'), items: fresh, wide: true });
+  var mine = libGridItems().slice(0, 20),
+    mineMapped = [];
+  for (var mi = 0; mi < mine.length; mi++)
+    mineMapped.push({
+      id: mine[mi]._id,
+      type: mine[mi].type,
+      name: mine[mi].name,
+      poster: mine[mi].poster,
+      background: mine[mi].background
+    });
+  if (mineMapped.length) rows.push({ title: tx('myList'), items: mineMapped, wide: false });
+  return rows;
+}
 function discoverCatalogs(type) {
   var out = [],
     seen = {},
@@ -224,6 +280,14 @@ function discoverCatalogs(type) {
   }
   return out;
 }
+/* DISCOVER rows = trending + top + a spread of genres */
+var DGEN = [
+  ['Action', 'genreAction'],
+  ['Comedy', 'genreComedy'],
+  ['Sci-Fi', 'genreSciFi'],
+  ['Drama', 'genreDrama'],
+  ['Horror', 'genreHorror']
+];
 function discoverGenres(cat) {
   var out = [],
     values = cat && cat.genres && cat.genres.length ? cat.genres : null;

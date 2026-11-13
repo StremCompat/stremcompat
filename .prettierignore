@@ -11,3 +11,5 @@ node_modules/
 # Fragments that open and close the interface IIFE are not standalone programs
 src/ui/_prelude.js
 src/ui/_epilogue.js
+src/ui/_logic-prelude.js
+src/ui/_logic-epilogue.js

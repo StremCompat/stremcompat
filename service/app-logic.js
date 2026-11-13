@@ -1,0 +1,3545 @@
+// The interface's data logic without its screens, for the native interface: the local server
+// runs it (server/app-runtime.js) with its own localStorage, XMLHttpRequest and window, so
+// both interfaces share one tested copy of accounts, addons, catalogs, sources and library.
+(function () {
+'use strict';
+/* What the data code tells the screens when something changed. The native interface asks the
+   server again instead, so these stand in for the web screens. */
+function invalidateBoards() {}
+var search = {};
+// Service endpoints, the build profile, viewport metrics and DOM/event helpers.
+/* ================= utils ================= */
+var CIN = 'https://v3-cinemeta.strem.io';
+var API = 'https://api.strem.io';
+/* Injected by local-server.js from the build profile; the fallback is the webOS 4 1920x1080 profile. */
+var TV_PROFILE = window.__SC_PROFILE__ || {
+  id: 'um4-armv7',
+  serviceId: 'io.github.alexesmm.legacytv.server',
+  lowMemory: false,
+  sourceCap: 60,
+  libraryCap: 60,
+  catalogCap: 16,
+  catalogRowsCap: 24,
+  discoverCap: 80
+};
+function $(id) {
+  return document.getElementById(id);
+}
+function viewportWidth() {
+  var d = document.documentElement;
+  return Math.max(640, (d && d.clientWidth) || window.innerWidth || 1920);
+}
+function contentWidth() {
+  var d = document.documentElement,
+    h = (d && d.clientHeight) || window.innerHeight || 1080;
+  return viewportWidth() - (h <= 800 ? 112 : 176);
+}
+function on(target, name, handler, capture) {
+  if (!target) return false;
+  try {
+    if (typeof target.addEventListener === 'function') {
+      target.addEventListener(name, handler, !!capture);
+      return true;
+    }
+    if (typeof target.attachEvent === 'function') {
+      target.attachEvent('on' + name, function () {
+        handler(window.event);
+      });
+      return true;
+    }
+    target['on' + name] = handler;
+    return true;
+  } catch (e) {
+    try {
+      target['on' + name] = handler;
+      return true;
+    } catch (ignore) {
+      return false;
+    }
+  }
+}
+function bodyHas(name) {
+  return (' ' + document.body.className + ' ').indexOf(' ' + name + ' ') >= 0;
+}
+function bodyAdd(name) {
+  if (!bodyHas(name)) document.body.className += (document.body.className ? ' ' : '') + name;
+}
+function bodyRemove(name) {
+  document.body.className = (' ' + document.body.className + ' ')
+    .replace(new RegExp(' ' + name + ' ', 'g'), ' ')
+    .replace(/^\s+|\s+$/g, '');
+}
+// What differs between TV platforms, LG webOS here. src/platform/tizen has the same functions;
+// the build picks one folder per platform, in both the interface and the player.
+/* FFmpeg and FFprobe run on this platform: reduced artwork, technical badges, seek previews
+   and subtitle extraction are available */
+var HAS_MEDIA_TOOLS = true;
+/* where a path of the app really is; on webOS the pages come from the local server */
+function appUrl(path) {
+  return path;
+}
+/* Back on the remote, for text boxes too (where 8 is the Delete key of the keyboard) */
+function isRemoteBack(k) {
+  return k === 461 || k === 27;
+}
+function isBackKey(k) {
+  return isRemoteBack(k) || k === 8;
+}
+/* cb(true) when the system answered, cb(false) if it did not; the service may need a moment
+   more before it listens */
+function startService(serviceId, cb) {
+  var done = false,
+    bridge = null;
+  function finish(ok) {
+    if (done) return;
+    done = true;
+    bridge = null;
+    cb(ok);
+  }
+  try {
+    if (typeof PalmServiceBridge === 'undefined') {
+      finish(false);
+      return;
+    }
+    bridge = new PalmServiceBridge();
+    bridge.onservicecallback = function () {
+      finish(true);
+    };
+    bridge.call('luna://' + serviceId + '/start', '{}');
+    setTimeout(function () {
+      finish(false);
+    }, 2600);
+  } catch (e) {
+    finish(false);
+  }
+}
+// XHR helpers. Addon GETs and Stremio API POSTs go through the local bridges in local-server.js.
+function xhrGetUrl(u) {
+  return /^https?:\/\//i.test(String(u || '')) ? '/addon?u=' + encodeURIComponent(u) : u;
+}
+/* cb(json, failure, status): failure is null on success, otherwise 'timeout', 'offline'
+   (the local service did not answer), 'unavailable' (HTTP error, e.g. the addon
+   bridge's 502) or 'invalid' (the body was not JSON); status is the HTTP status. */
+function xhrJson(u, cb, tmo) {
+  var done = false;
+  try {
+    var x = new XMLHttpRequest();
+    x.open('GET', xhrGetUrl(u), true);
+    x.onreadystatechange = function () {
+      if (x.readyState === 4 && !done) {
+        done = true;
+        var j = null,
+          failure = null;
+        if (!x.status) failure = 'offline';
+        else if (x.status >= 400) failure = 'unavailable';
+        try {
+          j = JSON.parse(x.responseText);
+        } catch (e) {
+          failure = failure || 'invalid';
+        }
+        cb(failure ? null : j, failure, x.status);
+      }
+    };
+    x.send();
+    setTimeout(function () {
+      if (!done) {
+        done = true;
+        try {
+          x.abort();
+        } catch (e) {}
+        cb(null, 'timeout');
+      }
+    }, tmo || 14000);
+    return x;
+  } catch (e) {
+    cb(null, 'offline');
+    return null;
+  }
+}
+/* After a request failed: asks the local server whether Stremio answers at all, so the
+   screen can say the TV has no connection instead of a vague error. cb(code) gets the
+   network error (such as ENOTFOUND or ETIMEDOUT), or '' when Stremio is reachable or
+   the local server itself did not answer. Never runs while things work. */
+function checkConnection(cb) {
+  xhrJson(
+    '/netcheck',
+    function (j) {
+      cb(j && j.ok === false ? String(j.code || 'ERROR') : '');
+    },
+    15000
+  );
+}
+function apiPostUrl(u) {
+  var p = API + '/api/';
+  return String(u || '').indexOf(p) === 0
+    ? '/stremioapi?path=' + encodeURIComponent(String(u).slice(API.length))
+    : u;
+}
+function postJson(u, body, cb, tmo) {
+  var done = false;
+  try {
+    var x = new XMLHttpRequest();
+    x.open('POST', apiPostUrl(u), true);
+    x.setRequestHeader('Content-Type', 'application/json');
+    x.onreadystatechange = function () {
+      if (x.readyState === 4 && !done) {
+        done = true;
+        var j = null;
+        try {
+          j = JSON.parse(x.responseText);
+        } catch (e) {}
+        cb(j);
+      }
+    };
+    x.send(JSON.stringify(body));
+    setTimeout(function () {
+      if (!done) {
+        done = true;
+        try {
+          x.abort();
+        } catch (e) {}
+        cb(null);
+      }
+    }, tmo || 14000);
+  } catch (e) {
+    cb(null);
+  }
+}
+// localStorage access that never throws (storage can be unavailable on old webOS).
+function lsJson(k) {
+  try {
+    return JSON.parse(localStorage.getItem(k) || 'null');
+  } catch (e) {
+    return null;
+  }
+}
+function lsSet(k, v) {
+  try {
+    localStorage.setItem(k, JSON.stringify(v));
+  } catch (e) {}
+}
+function lsRaw(k, d) {
+  try {
+    var v = localStorage.getItem(k);
+    return v == null ? d : v;
+  } catch (e) {
+    return d;
+  }
+}
+function lsRawSet(k, v) {
+  try {
+    localStorage.setItem(k, v);
+  } catch (e) {}
+}
+function storageKeys() {
+  var out = [];
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k != null) out.push(k);
+    }
+  } catch (e) {}
+  return out;
+}
+// Interface and player strings, shared by both bundles. English and Portuguese are built in; the
+// others are service/lang/<code>.json, read only when chosen, so a TV holds just its own language.
+/* Adding a language means adding its file and its name in UI_LANGUAGES: the interface reads it
+   with tx(), the player through playerText() in src/player/strings.js. */
+/* Interface language is deliberately local to the television. It does not follow
+   the Stremio account and it does not change subtitle/audio preferences. English is
+   the reliable first-run and fallback language; Portuguese remains an explicit choice. */
+var UI_LANG_KEY = 'uiLanguage';
+var UI_TEXT = {
+  'en-US': {
+    navSearch: 'Search',
+    navHome: 'Home',
+    navDiscover: 'Discover',
+    navLibrary: 'Library',
+    navAddons: 'Addons',
+    navSettings: 'Settings',
+    searchPlaceholder: 'Search movies and series',
+    searchHint: 'Type with the keyboard; results appear as you type',
+    searching: 'Searching…',
+    noResults: 'No results for “{0}”',
+    movies: 'Movies',
+    series: 'Series',
+    anime: 'Anime',
+    movie: 'Movie',
+    seriesOne: 'Series',
+    other: 'Other',
+    all: 'All',
+    recent: 'Recent',
+    recentSearches: 'Recent searches',
+    seeAll: 'See all ›',
+    seeAllHint: 'Open the whole catalog in Discover',
+    keySpace: 'space',
+    keyDelete: 'delete',
+    keyClear: 'clear',
+    clearHistory: 'Clear history',
+    removeFromCw: 'Remove from Continue watching',
+    exitTitle: 'Leave StremCompat?',
+    exitSub: 'Choose an option',
+    exitStay: 'Stay',
+    exitLeave: 'Leave the app',
+    removedFromCw: 'Removed from Continue watching',
+    torrentsNeedServer: 'This TV cannot run torrents by itself. Set a server in Settings > Streaming server.',
+    serverAddress: 'Address',
+    serverHere: 'This TV',
+    serverTitle: 'Streaming server address',
+    serverHint: 'Used for torrents. Example: 192.168.0.10:11470',
+    serverDelete: 'Delete',
+    serverClear: 'Clear',
+    serverUseTv: 'Use this TV',
+    serverSave: 'Test and save',
+    serverTesting: 'Testing the connection…',
+    serverSaved: 'Streaming server saved',
+    serverLocal: 'Using the server on this TV',
+    serverInvalid: 'Check the address',
+    serverUnreachable: 'No streaming server answered at this address',
+    serverDisk: 'Could not save the address',
+    historyGroup: 'History',
+    noHistory: 'Do not save history',
+    episodeAirDates: 'Air dates on episodes',
+    clearSearches: 'Clear recent searches',
+    clearCw: 'Clear Continue watching',
+    confirmAgain: 'Press OK again to confirm',
+    searchesCleared: 'Recent searches cleared',
+    cwCleared: 'Continue watching cleared ({0})',
+    nothingToClear: 'Nothing to clear',
+    holdOkHint: 'Tip: hold OK on a title for more options',
+    discoverTitle: 'Discover',
+    popular: 'Popular',
+    topRated: 'Top rated',
+    allGenres: 'All genres',
+    popularMovies: 'Popular · Movies',
+    popularSeries: 'Popular · Series',
+    topMovies: 'Top rated · Movies',
+    topSeries: 'Top rated · Series',
+    trendingMovies: 'Trending · Movies',
+    trendingSeries: 'Trending · Series',
+    continueWatching: 'Continue watching',
+    myList: 'My list',
+    newEpisodes: 'New episodes',
+    newEpisodeTag: 'New · S{0} E{1}',
+    cwUpNext: 'Up next · S{0} E{1}',
+    cwEpisode: 'S{0} E{1}',
+    cwLeft: '{0} min left',
+    badgeSoon: 'Coming soon',
+    badgeNew: 'New',
+    emptyLibraryTitle: 'Your library is empty',
+    emptyLibraryHint: 'Hold OK on any title and choose Add to Library.',
+    nothingFoundHint: 'Try another catalog or genre.',
+    similarEmptyHint: 'This title has no similar suggestions yet.',
+    noResultsHint: 'Try another name, fewer words or the original title.',
+    interfaceTextSize: 'Interface text',
+    textNormal: 'Normal',
+    textLarge: 'Larger',
+    loadingTrailer: 'Loading trailer…',
+    trailerUnavailable: 'Trailer unavailable',
+    trailerInYoutube: 'Opening the trailer in the YouTube app',
+    noTrailer: 'No trailer available',
+    continueLabel: 'Continue',
+    continueEpisode: 'Continue S{0} E{1}',
+    playEpisode: 'Play S{0} E{1}',
+    watch: 'Watch',
+    details: 'Details',
+    similarTitles: 'More like this',
+    trailer: 'Trailer',
+    markWatched: 'Mark as watched',
+    markedWatched: 'Marked as watched',
+    markUnwatched: 'Mark as unwatched',
+    markedUnwatched: 'Marked as unwatched',
+    markSeasonWatched: 'Mark season as watched',
+    markSeasonUnwatched: 'Mark season as unwatched',
+    removeLibrary: 'Remove from Library',
+    addLibrary: 'Add to Library',
+    removedLibrary: 'Removed from Library',
+    addedLibrary: 'Added to Library',
+    inLibrary: 'In Library',
+    libraryButton: 'Library',
+    similar: 'Similar',
+    similarTo: 'More like {0}',
+    findingSimilar: 'Finding similar titles…',
+    nothingFound: 'Nothing found.',
+    couldNotLoad: 'Could not load title',
+    specials: 'Specials',
+    season: 'Season {0}',
+    episode: 'Episode {0}',
+    seasonEpisode: 'Season {0} · Episode {1}',
+    absoluteEpisode: 'Episode {0} overall',
+    seasonAbsoluteEpisode: 'Season {0} · Episode {1} · Episode {2} overall',
+    seasonOrder: 'By season',
+    continuousOrder: 'Continuous order',
+    previous: 'Previous',
+    next: 'Next',
+    episodeRange: 'Episodes {0}–{1}',
+    goToEpisode: 'Go to episode',
+    episodeNumberPrompt: 'Enter the overall episode number',
+    episodeNotFound: 'Episode not found',
+    jumpDelete: 'Delete',
+    jumpGo: 'Go',
+    jumpHint: 'Use the arrows and OK. Back cancels.',
+    sources: 'Sources',
+    findingSources: 'Finding sources…',
+    noSources: 'No sources found.',
+    noSourcesQuality: 'No sources in this quality.',
+    addonsNoAnswer: 'No answer from: {0}',
+    tryingNextSource: 'Trying the next source…',
+    noOtherSource: 'No other source to try',
+    catalogsFailed: 'No catalog could be loaded. Check the connection and your addons.',
+    playBest: 'Best source',
+    directedBy: 'Directed by {0}',
+    sourceLanguageRow: 'Audio: {0}',
+    bestAudioHint: 'Sources with {0} audio first. Subtitles are chosen later, in the player.',
+    bestAudioAny: 'Any audio language. Subtitles are chosen later, in the player.',
+    audioLanguageTitle: 'Audio language',
+    audioLanguageSub:
+      'Sources dubbed in this language come first. Subtitles are chosen later, in the player.',
+    anyAudioLanguage: 'Any language',
+    sourcesButton: 'All sources',
+    seeDetails: 'See details',
+    playingBest: 'Playing the best source: {0}',
+    updateAvailable: 'StremCompat {0} is available. Update it in the Homebrew Channel.',
+    updateNav: 'Update',
+    updateTitle: 'StremCompat {0} is available',
+    updateSub: 'It installs over this version and keeps your account and settings.',
+    updateNow: 'Update now',
+    updateLater: 'Later',
+    updateStarting: 'Downloading the update…',
+    updateProgress: 'Downloading the update… {0}%',
+    updateInstalling: 'Installing the update. StremCompat will close and open again.',
+    updateElsewhere: 'Could not update from here. Update StremCompat in the Homebrew Channel.',
+    whatsNew: 'Updated to StremCompat {0}.',
+    lastStartStopped:
+      'The last time, StremCompat stopped while starting (step {0}). If it happens again, mention this step in your report.',
+    setupUseQuestion: 'How do you want to use StremCompat?',
+    modeSimple: 'Simple',
+    modeSimpleHint: 'Only the essentials in Settings and in the player. The best source in one press.',
+    modeFull: 'Complete',
+    modeFullHint: 'Every option, as before.',
+    setupLookQuestion: 'Which look?',
+    lookLight: 'Light',
+    lookLightHint: 'No effects and smaller images. Best for webOS 3 and TVs with little memory.',
+    setupSkip: 'Skip',
+    setupHint: 'You can change this later in Settings.',
+    uiModeLabel: 'How the app is used',
+    uiLookLabel: 'Look',
+    lookStandard: 'Standard',
+    lookStandardHint: 'Recommended for most TVs. The look of earlier versions.',
+    providerNuvio: 'Nuvio (experimental)',
+    whoIsWatching: 'Who is watching?',
+    profileNumber: 'Profile {0}',
+    profileLocked: 'Protected with a PIN, not available in StremCompat yet',
+    addProfile: 'Add profile',
+    editProfile: 'Edit profile',
+    profileName: 'Name',
+    profileNameNeeded: 'Give the profile a name',
+    profileNotSaved: 'Could not save the profile on Nuvio',
+    profilesHint: 'OK chooses · Down edits the profile',
+    profileEditHint: 'OK on the name opens the keyboard · Back returns',
+    hideNewEpisodes: 'Hide from New episodes',
+    newEpisodesHidden: 'This series no longer appears in New episodes',
+    showHiddenNewEpisodes: 'Bring back series removed from New episodes',
+    newEpisodesShown: '{0} series back in New episodes',
+    save: 'Save',
+    cancel: 'Cancel',
+    saving: 'Saving…',
+    nuvioProfile: 'Nuvio profile',
+    profilesUnavailable: 'Could not read the Nuvio profiles',
+    becauseYouWatched: 'Because you watched {0}',
+    syncSiteNote: 'Copy addons and library between Stremio and Nuvio: addons-sync.vercel.app',
+    recommendedSource: 'Likely the best choice',
+    pressOkRetry: 'Press OK to try again',
+    noConnection:
+      "Can't reach Stremio. Check the TV's internet connection. If other apps work, turn off IPv6 in the TV's network settings. ({0})",
+    noConnectionShort: 'No connection to Stremio',
+    evNoNetwork: 'Stremio could not be reached',
+    lastSource: 'Last source',
+    continuePlayback: 'Continue playback',
+    sameSource: 'The same source used previously',
+    seeders: 'seeders',
+    seedsTag: '{0} seeds',
+    compatibilityCheck: 'Check compatibility: {0}',
+    sourcePrepareFailed: 'Could not prepare this source. Please try again.',
+    runtimeRestoring: 'Restoring the local service…',
+    runtimeUnavailable: 'Could not restore the local service',
+    interfaceGroup: 'Interface',
+    interfaceLanguage: 'Interface language',
+    english: 'English',
+    portugueseBrazil: 'Português (Brasil)',
+    maintenanceGroup: 'Recovery',
+    reloadApp: 'Reload StremCompat',
+    diagnostics: 'Diagnostics',
+    diagLoading: 'Reading…',
+    diagUnavailable: 'The local service did not answer',
+    diagServer: 'Local server: {0} MB in use (JS {1} MB) · running for {2} min',
+    diagTv: 'Television: {0} MB free of {1} MB · CPU load {2}',
+    diagDisk: 'Storage: {0} MB free of {1} MB',
+    diagStreaming: 'Streaming server: {0}',
+    diagStreamFailed: 'not available ({0})',
+    torrentsUnavailable:
+      'The torrent engine is not available on this TV. Debrid and direct sources still work.',
+    diagEngineReady: 'Ready, starts with the first torrent',
+    torrentsNoRoom: 'Not enough free space on the TV for torrents. Debrid and direct sources still work.',
+    assStyle: 'ASS subtitle styling (position, italic, colour)',
+    diagOnUsb: 'on the USB drive',
+    diagCache: 'cache {0} of {1} MB',
+    clearTorrentCache: 'Clear torrent cache',
+    torrentsOnUsb: 'Always keep torrents on the USB drive',
+    cacheCleared: '{0} MB of torrent cache cleared',
+    cacheInUse: 'A torrent is playing. Try again when it stops.',
+    testConnection: 'Test connection',
+    testingConnection: 'Testing the connection…',
+    connectionLatency: 'Stremio answers in {0} ms',
+    connectionSpeed: 'last source {0} Mbit/s ({1})',
+    connectionFailed: 'Stremio did not answer ({0})',
+    diagRunning: 'running',
+    diagStopped: 'stopped',
+    diagInterface: 'Interface: {0} MB of JS · Home on screen in {1} s · catalogs in {2} s',
+    diagPeak: 'Since start: local server peak {0} MB · lowest TV free memory {1} MB',
+    diagRemote: 'Remote: {0} ms typical · {1} ms slowest · {2} % of frames late',
+    diagRecent: 'Recent problems:',
+    diagNoProblems: 'No problems recorded since start',
+    evMediaError: 'Source would not play',
+    evSlowStart: 'Source was slow to start, retried',
+    evPrepareFailed: 'Source could not be prepared',
+    evPlayRejected: 'Playback was refused',
+    evAddonDown: 'Addon did not answer',
+    reloadingApp: 'Reloading StremCompat…',
+    supportGroup: 'Support',
+    supportCoffee: 'Buy me a coffee',
+    supportText:
+      'StremCompat is free and made by one person. If it helps you, a coffee keeps it going. Scan the code with your phone:',
+    preferredQuality: 'Preferred quality',
+    qualityAsk: 'Ask',
+    whichQuality: 'Which quality?',
+    preferredLanguage: 'Audio language of sources',
+    anyLanguage: 'Any',
+    langFilter: 'Audio: {0}',
+    subsFilter: 'Subtitles: {0}',
+    langChipAll: 'Filter by language',
+    langFilterTitle: 'Filter by language',
+    langFilterSub: 'Audio: the source is dubbed in that language. Subtitles: only the subtitles come in it.',
+    filterByAudio: 'By audio (dubbed)',
+    filterBySubs: 'By embedded subtitles',
+    clearLangFilter: 'Remove the filter (show all sources)',
+    langAll: 'All',
+    langOther: 'Other',
+    subsTag: 'SUBS',
+    automatic: 'Automatic',
+    subtitlesGroup: 'Subtitles',
+    subtitleSize: 'Subtitle size',
+    defaultLanguage: 'Default language',
+    backupLanguage: 'Backup language',
+    subtitleColor: 'Subtitle color',
+    subtitleOutline: 'Subtitle outline',
+    subtitleBackground: 'Subtitle background',
+    embeddedSubtitles: 'Embedded subtitles',
+    audioGroup: 'Audio',
+    autoAudio: 'Select audio automatically',
+    defaultAudio: 'Default audio language',
+    playbackGroup: 'Playback',
+    seekInterval: 'Seek interval',
+    nextEpisode: 'Play next episode',
+    backgroundTrailers: 'Background trailers',
+    scrubPreview: 'Seek preview',
+    addonsGroup: 'Addons',
+    addonsHelp: 'Addons synchronized with your Stremio account',
+    syncAddons: 'Sync addons now',
+    syncShort: 'Sync',
+    noAddons: 'No addons are installed in this account.',
+    accountGroup: 'Account',
+    signOut: 'Sign out',
+    disabled: 'Disabled',
+    enabled: 'Enabled',
+    white: 'White',
+    yellow: 'Yellow',
+    cyan: 'Cyan',
+    black: 'Black',
+    none: 'None',
+    solid: 'Solid',
+    transparent: 'Transparent',
+    extractRecommended: 'Extract (recommended)',
+    tvNative: 'TV native',
+    french: 'French',
+    spanish: 'Spanish',
+    italian: 'Italian',
+    german: 'German',
+    arabic: 'Arabic',
+    russian: 'Russian',
+    turkish: 'Turkish',
+    polish: 'Polish',
+    dutch: 'Dutch',
+    swedish: 'Swedish',
+    hebrew: 'Hebrew',
+    hindi: 'Hindi',
+    japanese: 'Japanese',
+    korean: 'Korean',
+    chinese: 'Chinese',
+    connectedAccount: 'Connected account',
+    freeAccount: 'Free account',
+    nuvioAccountLabel: 'Nuvio account',
+    premiumUntil: 'Premium until {0}',
+    settingsHint: 'Press OK to edit · Left returns to the menu',
+    settingsEditing: 'Left/Right changes · OK confirms · Back cancels',
+    syncing: 'Syncing…',
+    addonsUpdated: 'Addons updated',
+    addonsCurrent: 'Addons are already up to date',
+    signingOut: 'Signing out…',
+    phoneSignIn: 'Sign in with your phone',
+    scanCode: 'Scan the code with your camera',
+    generatingCode: 'Generating code',
+    emailSignIn: 'Or use your email',
+    email: 'Email',
+    password: 'Password',
+    signIn: 'Sign in',
+    qrUnavailable: 'QR unavailable — use email',
+    waitingPhone: 'Waiting for your phone',
+    usePhoneCode: 'Use the access code on your phone',
+    enterCredentials: 'Enter your email and password',
+    signingIn: 'Signing in',
+    signInFailed: 'Could not sign in',
+    accountNote: 'No account? Create one for free at stremio.com/register or nuvio.tv',
+    unofficialNote: 'Unofficial client. Not affiliated with Stremio, Nuvio or LG.',
+    accountConnected: 'Account connected! Loading',
+    genreAction: 'Action',
+    genreComedy: 'Comedy',
+    genreSciFi: 'Sci-Fi',
+    genreDrama: 'Drama',
+    genreHorror: 'Horror',
+    player: {
+      paused: 'Paused',
+      nextEpisode: 'Next episode',
+      playNext: 'Play next',
+      playNextIn: 'Next episode in {0}',
+      sourceFailed: 'This source could not be played',
+      tryAnother: 'Try another source',
+      failHint: 'OK: try another · Back: leave',
+      countdownHint: 'OK: play now · Back: cancel',
+      stillWatching: 'Are you still watching?',
+      keepWatching: 'Continue watching',
+      dismissHint: 'Up: select · Back: dismiss',
+      liked: 'Liked this?',
+      similar: 'Watch something similar',
+      findSimilar: 'Find similar',
+      playbackError: 'Playback error',
+      retrying: 'Retrying this source…',
+      resuming: 'Resuming from ',
+      restartHint: 'OK: start over',
+      fromStart: 'Playing from the start',
+      nextLoading: 'Next episode…',
+      moreLanguages: 'More languages',
+      higher: 'Move up',
+      lower: 'Move down',
+      opacity: 'Opacity',
+      episodes: 'Episodes',
+      chapters: 'Chapters',
+      files: 'Files in this torrent',
+      picture: 'Picture',
+      pictureFit: 'Whole picture',
+      pictureZoom: 'Fill the screen',
+      skipIntro: 'Skip intro',
+      skipRecap: 'Skip recap',
+      audioSubs: 'Audio and subtitles',
+      sources: 'Sources',
+      speed: 'Speed',
+      speedRefused: 'This TV does not change the speed of this video',
+      subtitlesReady: 'Subtitles ready',
+      subtitleFailed: 'Subtitle extraction failed',
+      nativeSubs: 'Native subtitles on',
+      noNative: 'No native track — extracting…',
+      preparingSubs: 'Preparing subtitles…',
+      loadingSubtitle: 'Loading subtitles…',
+      noHistoryOn: 'History is not being saved',
+      noEmbedded: 'No embedded subtitles',
+      defaultAudio: 'Default',
+      off: 'Off',
+      embedded: 'Embedded',
+      external: 'External',
+      selected: 'Selected',
+      settings: 'Settings',
+      audio: 'Audio',
+      subtitles: 'Subtitles',
+      none: 'None',
+      readingTracks: 'Reading tracks…',
+      noneInFile: 'None in this file',
+      tracksStillLoading: 'The file is still loading. Try again in a few seconds.',
+      tryAgain: 'Try again',
+      style: 'Style',
+      delay: 'Delay',
+      later: 'Later (+0.1s)',
+      earlier: 'Earlier (-0.1s)',
+      reset: 'Reset',
+      bigger: 'Text bigger',
+      smaller: 'Text smaller',
+      colour: 'Colour',
+      background: 'Background',
+      on: 'On',
+      white: 'White',
+      yellow: 'Yellow',
+      couldNotResume: 'Could not resume playback',
+      controlUnavailable: 'Playback control unavailable',
+      inactive: 'Playback paused while the TV was inactive',
+      restoring: 'Restoring the local service…',
+      restoreFailed: 'Could not restore the local service',
+      ready: 'Subtitles ready',
+      loaded: 'Subtitles loaded',
+      extracting: 'extracting',
+      language: 'language'
+    }
+  },
+  'pt-BR': {
+    navSearch: 'Buscar',
+    navHome: 'Início',
+    navDiscover: 'Descobrir',
+    navLibrary: 'Biblioteca',
+    navAddons: 'Addons',
+    navSettings: 'Ajustes',
+    searchPlaceholder: 'Buscar filmes e séries',
+    searchHint: 'Digite pelo teclado; os resultados aparecem enquanto você digita',
+    searching: 'Buscando…',
+    noResults: 'Nenhum resultado para “{0}”',
+    movies: 'Filmes',
+    series: 'Séries',
+    anime: 'Anime',
+    movie: 'Filme',
+    seriesOne: 'Série',
+    other: 'Outras',
+    all: 'Todas',
+    recent: 'Recente',
+    recentSearches: 'Buscas recentes',
+    seeAll: 'Ver tudo ›',
+    seeAllHint: 'Abrir o catálogo completo em Descobrir',
+    keySpace: 'espaço',
+    keyDelete: 'apagar',
+    keyClear: 'limpar',
+    clearHistory: 'Limpar histórico',
+    removeFromCw: 'Remover de Continuar assistindo',
+    exitTitle: 'Sair do StremCompat?',
+    exitSub: 'Escolha uma opção',
+    exitStay: 'Continuar no app',
+    exitLeave: 'Sair do app',
+    removedFromCw: 'Removido de Continuar assistindo',
+    torrentsNeedServer:
+      'Esta TV não roda torrents sozinha. Defina um servidor em Configurações > Servidor de streaming.',
+    serverAddress: 'Endereço',
+    serverHere: 'Esta TV',
+    serverTitle: 'Endereço do servidor de streaming',
+    serverHint: 'Usado para torrents. Exemplo: 192.168.0.10:11470',
+    serverDelete: 'Apagar',
+    serverClear: 'Limpar',
+    serverUseTv: 'Usar esta TV',
+    serverSave: 'Testar e salvar',
+    serverTesting: 'Testando a conexão…',
+    serverSaved: 'Servidor de streaming salvo',
+    serverLocal: 'Usando o servidor desta TV',
+    serverInvalid: 'Confira o endereço',
+    serverUnreachable: 'Nenhum servidor de streaming respondeu nesse endereço',
+    serverDisk: 'Não foi possível salvar o endereço',
+    historyGroup: 'Histórico',
+    noHistory: 'Não salvar histórico',
+    episodeAirDates: 'Datas de exibição nos episódios',
+    clearSearches: 'Limpar buscas recentes',
+    clearCw: 'Limpar Continuar assistindo',
+    confirmAgain: 'Pressione OK de novo para confirmar',
+    searchesCleared: 'Buscas recentes apagadas',
+    cwCleared: 'Continuar assistindo limpo ({0})',
+    nothingToClear: 'Nada para limpar',
+    holdOkHint: 'Dica: segure OK em um título para mais opções',
+    discoverTitle: 'Descobrir',
+    popular: 'Populares',
+    topRated: 'Mais bem avaliados',
+    allGenres: 'Todos os gêneros',
+    popularMovies: 'Populares · Filmes',
+    popularSeries: 'Populares · Séries',
+    topMovies: 'Mais bem avaliados · Filmes',
+    topSeries: 'Mais bem avaliadas · Séries',
+    trendingMovies: 'Em alta · Filmes',
+    trendingSeries: 'Em alta · Séries',
+    continueWatching: 'Continuar assistindo',
+    myList: 'Minha lista',
+    newEpisodes: 'Novos episódios',
+    newEpisodeTag: 'Novo · T{0} E{1}',
+    cwUpNext: 'Próximo · T{0} E{1}',
+    cwEpisode: 'T{0} E{1}',
+    cwLeft: 'faltam {0} min',
+    badgeSoon: 'Em breve',
+    badgeNew: 'Novo',
+    emptyLibraryTitle: 'Sua biblioteca está vazia',
+    emptyLibraryHint: 'Segure OK em qualquer título e escolha Adicionar à Biblioteca.',
+    nothingFoundHint: 'Tente outro catálogo ou gênero.',
+    similarEmptyHint: 'Este título ainda não tem sugestões parecidas.',
+    noResultsHint: 'Tente outro nome, menos palavras ou o título original.',
+    interfaceTextSize: 'Texto da interface',
+    textNormal: 'Normal',
+    textLarge: 'Maior',
+    loadingTrailer: 'Carregando trailer…',
+    trailerUnavailable: 'Trailer indisponível',
+    trailerInYoutube: 'Abrindo o trailer no app do YouTube',
+    noTrailer: 'Trailer indisponível',
+    continueLabel: 'Continuar',
+    continueEpisode: 'Continuar T{0} E{1}',
+    playEpisode: 'Assistir T{0} E{1}',
+    watch: 'Assistir',
+    details: 'Detalhes',
+    similarTitles: 'Ver títulos parecidos',
+    trailer: 'Trailer',
+    markWatched: 'Marcar como assistido',
+    markedWatched: 'Marcado como assistido',
+    markUnwatched: 'Marcar como não assistido',
+    markedUnwatched: 'Marcado como não assistido',
+    markSeasonWatched: 'Marcar temporada como assistida',
+    markSeasonUnwatched: 'Marcar temporada como não assistida',
+    removeLibrary: 'Remover da Biblioteca',
+    addLibrary: 'Adicionar à Biblioteca',
+    removedLibrary: 'Removido da Biblioteca',
+    addedLibrary: 'Adicionado à Biblioteca',
+    inLibrary: 'Na Biblioteca',
+    libraryButton: 'Biblioteca',
+    similar: 'Parecidos',
+    similarTo: 'Parecidos com {0}',
+    findingSimilar: 'Buscando títulos parecidos…',
+    nothingFound: 'Nada encontrado.',
+    couldNotLoad: 'Não foi possível carregar o título',
+    specials: 'Especiais',
+    season: 'Temporada {0}',
+    episode: 'Episódio {0}',
+    seasonEpisode: 'Temporada {0} · Episódio {1}',
+    absoluteEpisode: 'Episódio geral {0}',
+    seasonAbsoluteEpisode: 'Temporada {0} · Episódio {1} · Episódio geral {2}',
+    seasonOrder: 'Por temporada',
+    continuousOrder: 'Ordem contínua',
+    previous: 'Anterior',
+    next: 'Próximo',
+    episodeRange: 'Episódios {0}–{1}',
+    goToEpisode: 'Ir para episódio',
+    episodeNumberPrompt: 'Digite o número geral do episódio',
+    episodeNotFound: 'Episódio não encontrado',
+    jumpDelete: 'Apagar',
+    jumpGo: 'Ir',
+    jumpHint: 'Use as setas e OK. Voltar cancela.',
+    sources: 'Fontes',
+    findingSources: 'Buscando fontes…',
+    noSources: 'Nenhuma fonte encontrada.',
+    noSourcesQuality: 'Nenhuma fonte nesta qualidade.',
+    addonsNoAnswer: 'Sem resposta de: {0}',
+    tryingNextSource: 'Tentando a próxima fonte…',
+    noOtherSource: 'Não há outra fonte para tentar',
+    catalogsFailed: 'Nenhum catálogo pôde ser carregado. Verifique a conexão e seus addons.',
+    playBest: 'Melhor fonte',
+    directedBy: 'Direção: {0}',
+    sourceLanguageRow: 'Áudio: {0}',
+    bestAudioHint: 'Fontes com áudio em {0} primeiro. A legenda você escolhe depois, no player.',
+    bestAudioAny: 'Qualquer idioma de áudio. A legenda você escolhe depois, no player.',
+    audioLanguageTitle: 'Idioma do áudio',
+    audioLanguageSub: 'Fontes dubladas nesse idioma vêm primeiro. A legenda você escolhe depois, no player.',
+    anyAudioLanguage: 'Qualquer idioma',
+    sourcesButton: 'Todas as fontes',
+    seeDetails: 'Ver detalhes',
+    playingBest: 'Tocando a melhor fonte: {0}',
+    updateAvailable: 'StremCompat {0} disponível. Atualize pelo Homebrew Channel.',
+    updateNav: 'Atualizar',
+    updateTitle: 'O StremCompat {0} está disponível',
+    updateSub: 'Ele é instalado por cima desta versão e mantém sua conta e seus ajustes.',
+    updateNow: 'Atualizar agora',
+    updateLater: 'Depois',
+    updateStarting: 'Baixando a atualização…',
+    updateProgress: 'Baixando a atualização… {0}%',
+    updateInstalling: 'Instalando a atualização. O StremCompat vai fechar e abrir de novo.',
+    updateElsewhere: 'Não foi possível atualizar por aqui. Atualize o StremCompat no Homebrew Channel.',
+    whatsNew: 'Atualizado para o StremCompat {0}.',
+    lastStartStopped:
+      'Da última vez, o StremCompat parou enquanto abria (etapa {0}). Se acontecer de novo, cite essa etapa no seu relato.',
+    setupUseQuestion: 'Como você quer usar o StremCompat?',
+    modeSimple: 'Simples',
+    modeSimpleHint: 'Só o essencial nas configurações e no player. A melhor fonte em um botão.',
+    modeFull: 'Completo',
+    modeFullHint: 'Todas as opções, como até agora.',
+    setupLookQuestion: 'Qual visual?',
+    lookLight: 'Leve',
+    lookLightHint: 'Sem efeitos e com imagens menores. Melhor para webOS 3 e TVs com pouca memória.',
+    setupSkip: 'Pular',
+    setupHint: 'Dá para mudar depois em Configurações.',
+    uiModeLabel: 'Modo de uso',
+    uiLookLabel: 'Visual',
+    lookStandard: 'Padrão',
+    lookStandardHint: 'Recomendado para a maioria das TVs. O visual das versões anteriores.',
+    providerNuvio: 'Nuvio (experimental)',
+    whoIsWatching: 'Quem está assistindo?',
+    profileNumber: 'Perfil {0}',
+    profileLocked: 'Protegido por PIN, ainda não disponível no StremCompat',
+    addProfile: 'Adicionar perfil',
+    editProfile: 'Editar perfil',
+    profileName: 'Nome',
+    profileNameNeeded: 'Dê um nome ao perfil',
+    profileNotSaved: 'Não foi possível salvar o perfil no Nuvio',
+    profilesHint: 'OK escolhe · Para baixo edita o perfil',
+    profileEditHint: 'OK no nome abre o teclado · Voltar retorna',
+    hideNewEpisodes: 'Não mostrar em Novos episódios',
+    newEpisodesHidden: 'Esta série não aparece mais em Novos episódios',
+    showHiddenNewEpisodes: 'Trazer de volta séries tiradas de Novos episódios',
+    newEpisodesShown: '{0} série(s) de volta em Novos episódios',
+    save: 'Salvar',
+    cancel: 'Cancelar',
+    saving: 'Salvando…',
+    nuvioProfile: 'Perfil do Nuvio',
+    profilesUnavailable: 'Não foi possível ler os perfis do Nuvio',
+    becauseYouWatched: 'Porque você assistiu {0}',
+    syncSiteNote: 'Copie addons e biblioteca entre Stremio e Nuvio: addons-sync.vercel.app',
+    recommendedSource: 'Provável melhor opção',
+    pressOkRetry: 'Pressione OK para tentar de novo',
+    noConnection:
+      'Não foi possível conectar ao Stremio. Verifique a internet da TV. Se outros apps funcionam, desative o IPv6 nas configurações de rede da TV. ({0})',
+    noConnectionShort: 'Sem conexão com o Stremio',
+    evNoNetwork: 'O Stremio não pôde ser alcançado',
+    lastSource: 'Última fonte',
+    continuePlayback: 'Continuar reprodução',
+    sameSource: 'A mesma fonte usada anteriormente',
+    seeders: 'seeders',
+    seedsTag: '{0} seeds',
+    compatibilityCheck: 'Verifique a compatibilidade: {0}',
+    sourcePrepareFailed: 'Não foi possível preparar esta fonte. Tente novamente.',
+    runtimeRestoring: 'Restaurando o serviço local…',
+    runtimeUnavailable: 'Não foi possível restaurar o serviço local',
+    interfaceGroup: 'Interface',
+    interfaceLanguage: 'Idioma da interface',
+    english: 'English',
+    portugueseBrazil: 'Português (Brasil)',
+    maintenanceGroup: 'Recuperação',
+    reloadApp: 'Recarregar StremCompat',
+    diagnostics: 'Diagnóstico',
+    diagLoading: 'Lendo…',
+    diagUnavailable: 'O serviço local não respondeu',
+    diagServer: 'Servidor local: {0} MB em uso (JS {1} MB) · ativo há {2} min',
+    diagTv: 'TV: {0} MB livres de {1} MB · carga da CPU {2}',
+    diagDisk: 'Armazenamento: {0} MB livres de {1} MB',
+    diagStreaming: 'Servidor de streaming: {0}',
+    diagStreamFailed: 'indisponível ({0})',
+    torrentsUnavailable:
+      'O motor de torrents não está disponível nesta TV. Fontes debrid e diretas continuam funcionando.',
+    diagEngineReady: 'Pronto, inicia com o primeiro torrent',
+    torrentsNoRoom:
+      'Não há espaço livre suficiente na TV para torrents. Fontes debrid e diretas continuam funcionando.',
+    assStyle: 'Estilo das legendas ASS (posição, itálico, cor)',
+    diagOnUsb: 'no pendrive',
+    diagCache: 'cache {0} de {1} MB',
+    clearTorrentCache: 'Limpar cache de torrents',
+    torrentsOnUsb: 'Guardar torrents sempre no pen drive',
+    cacheCleared: '{0} MB de cache de torrents apagados',
+    cacheInUse: 'Um torrent está tocando. Tente de novo quando ele parar.',
+    testConnection: 'Testar conexão',
+    testingConnection: 'Testando a conexão…',
+    connectionLatency: 'O Stremio responde em {0} ms',
+    connectionSpeed: 'última fonte {0} Mbit/s ({1})',
+    connectionFailed: 'O Stremio não respondeu ({0})',
+    diagRunning: 'ativo',
+    diagStopped: 'parado',
+    diagInterface: 'Interface: {0} MB de JS · Início na tela em {1} s · catálogos em {2} s',
+    diagPeak: 'Desde o início: pico do servidor local {0} MB · menor memória livre da TV {1} MB',
+    diagRemote: 'Controle: {0} ms normalmente · {1} ms no pior caso · {2} % dos quadros atrasados',
+    diagRecent: 'Problemas recentes:',
+    diagNoProblems: 'Nenhum problema registrado desde o início',
+    evMediaError: 'A fonte não reproduziu',
+    evSlowStart: 'A fonte demorou a iniciar, tentou de novo',
+    evPrepareFailed: 'A fonte não pôde ser preparada',
+    evPlayRejected: 'A reprodução foi recusada',
+    evAddonDown: 'O addon não respondeu',
+    reloadingApp: 'Recarregando o StremCompat…',
+    supportGroup: 'Apoiar',
+    supportCoffee: 'Pague um café ao desenvolvedor',
+    supportText:
+      'O StremCompat é gratuito e feito por uma pessoa só. Se ele te ajuda, um café ajuda a continuar. Aponte a câmera do celular para o código:',
+    preferredQuality: 'Qualidade preferida',
+    qualityAsk: 'Perguntar',
+    whichQuality: 'Qual qualidade?',
+    preferredLanguage: 'Idioma do áudio das fontes',
+    anyLanguage: 'Qualquer',
+    langFilter: 'Áudio: {0}',
+    subsFilter: 'Legenda: {0}',
+    langChipAll: 'Filtrar idioma',
+    langFilterTitle: 'Filtrar por idioma',
+    langFilterSub: 'Áudio: a fonte é dublada nesse idioma. Legenda: só a legenda vem nesse idioma.',
+    filterByAudio: 'Por áudio (dublagem)',
+    filterBySubs: 'Por legenda embutida',
+    clearLangFilter: 'Tirar o filtro (mostrar todas as fontes)',
+    langAll: 'Todos',
+    langOther: 'Outros',
+    subsTag: 'LEG',
+    automatic: 'Automática',
+    subtitlesGroup: 'Legendas',
+    subtitleSize: 'Tamanho da legenda',
+    defaultLanguage: 'Idioma padrão',
+    backupLanguage: 'Idioma de reserva',
+    subtitleColor: 'Cor da legenda',
+    subtitleOutline: 'Contorno da legenda',
+    subtitleBackground: 'Fundo da legenda',
+    embeddedSubtitles: 'Legendas incorporadas',
+    audioGroup: 'Áudio',
+    autoAudio: 'Selecionar áudio automaticamente',
+    defaultAudio: 'Idioma de áudio padrão',
+    playbackGroup: 'Reprodução',
+    seekInterval: 'Intervalo de avanço',
+    nextEpisode: 'Reproduzir próximo episódio',
+    backgroundTrailers: 'Trailers em segundo plano',
+    scrubPreview: 'Prévia ao avançar',
+    addonsGroup: 'Addons',
+    addonsHelp: 'Addons sincronizados com sua conta Stremio',
+    syncAddons: 'Sincronizar addons agora',
+    syncShort: 'Sincronizar',
+    noAddons: 'Nenhum addon instalado nesta conta.',
+    accountGroup: 'Conta',
+    signOut: 'Sair',
+    disabled: 'Desativado',
+    enabled: 'Ativado',
+    white: 'Branco',
+    yellow: 'Amarelo',
+    cyan: 'Ciano',
+    black: 'Preto',
+    none: 'Nenhum',
+    solid: 'Sólido',
+    transparent: 'Transparente',
+    extractRecommended: 'Extrair (recomendado)',
+    tvNative: 'Nativo da TV',
+    french: 'Francês',
+    spanish: 'Espanhol',
+    italian: 'Italiano',
+    german: 'Alemão',
+    arabic: 'Árabe',
+    russian: 'Russo',
+    turkish: 'Turco',
+    polish: 'Polonês',
+    dutch: 'Holandês',
+    swedish: 'Sueco',
+    hebrew: 'Hebraico',
+    hindi: 'Hindi',
+    japanese: 'Japonês',
+    korean: 'Coreano',
+    chinese: 'Chinês',
+    connectedAccount: 'Conta conectada',
+    freeAccount: 'Conta gratuita',
+    nuvioAccountLabel: 'Conta Nuvio',
+    premiumUntil: 'Premium até {0}',
+    settingsHint: 'Pressione OK para editar · esquerda volta ao menu',
+    settingsEditing: 'Esquerda/direita altera · OK confirma · Voltar cancela',
+    syncing: 'Sincronizando…',
+    addonsUpdated: 'Addons atualizados',
+    addonsCurrent: 'Addons já estão atualizados',
+    signingOut: 'Saindo…',
+    phoneSignIn: 'Entrar pelo celular',
+    scanCode: 'Escaneie o código com a câmera',
+    generatingCode: 'Gerando código',
+    emailSignIn: 'Ou use seu e-mail',
+    email: 'Email',
+    password: 'Senha',
+    signIn: 'Entrar',
+    qrUnavailable: 'QR indisponível — use o e-mail',
+    waitingPhone: 'Aguardando seu celular',
+    usePhoneCode: 'Use o código de acesso pelo celular',
+    enterCredentials: 'Digite e-mail e senha',
+    signingIn: 'Entrando',
+    signInFailed: 'Não foi possível entrar',
+    accountNote: 'Não tem conta? Crie grátis em stremio.com/register ou nuvio.tv',
+    unofficialNote: 'Cliente não oficial. Sem vínculo com o Stremio, o Nuvio ou a LG.',
+    accountConnected: 'Conta conectada! Carregando',
+    genreAction: 'Ação',
+    genreComedy: 'Comédia',
+    genreSciFi: 'Ficção científica',
+    genreDrama: 'Drama',
+    genreHorror: 'Terror',
+    player: {
+      paused: 'Pausado',
+      nextEpisode: 'Próximo episódio',
+      playNext: 'Reproduzir próximo',
+      playNextIn: 'Próximo episódio em {0}',
+      sourceFailed: 'Não foi possível reproduzir esta fonte',
+      tryAnother: 'Tentar outra fonte',
+      failHint: 'OK: tentar outra · Voltar: sair',
+      countdownHint: 'OK: assistir agora · Voltar: cancelar',
+      stillWatching: 'Você ainda está assistindo?',
+      keepWatching: 'Continuar assistindo',
+      dismissHint: 'Cima: selecionar · Voltar: fechar',
+      liked: 'Gostou?',
+      similar: 'Ver algo parecido',
+      findSimilar: 'Encontrar parecidos',
+      playbackError: 'Erro de reprodução',
+      retrying: 'Tentando iniciar a fonte novamente…',
+      resuming: 'Continuando de ',
+      restartHint: 'OK: recomeçar',
+      fromStart: 'Reproduzindo do início',
+      nextLoading: 'Próximo episódio…',
+      moreLanguages: 'Mais idiomas',
+      higher: 'Mais para cima',
+      lower: 'Mais para baixo',
+      opacity: 'Opacidade',
+      episodes: 'Episódios',
+      chapters: 'Capítulos',
+      files: 'Arquivos deste torrent',
+      picture: 'Imagem',
+      pictureFit: 'Imagem inteira',
+      pictureZoom: 'Preencher a tela',
+      skipIntro: 'Pular abertura',
+      skipRecap: 'Pular recapitulação',
+      audioSubs: 'Áudio e legendas',
+      sources: 'Fontes',
+      speed: 'Velocidade',
+      speedRefused: 'Esta TV não muda a velocidade deste vídeo',
+      subtitlesReady: 'Legendas prontas',
+      subtitleFailed: 'Falha ao extrair legendas',
+      nativeSubs: 'Legendas nativas ativadas',
+      noNative: 'Faixa nativa indisponível — extraindo…',
+      preparingSubs: 'Preparando legendas…',
+      loadingSubtitle: 'Carregando legenda…',
+      noHistoryOn: 'O histórico não está sendo salvo',
+      noEmbedded: 'Nenhuma legenda incorporada',
+      defaultAudio: 'Padrão',
+      off: 'Desativadas',
+      embedded: 'Incorporadas',
+      external: 'Externas',
+      selected: 'Selecionada',
+      settings: 'Ajustes',
+      audio: 'Áudio',
+      subtitles: 'Legendas',
+      none: 'Nenhuma',
+      readingTracks: 'Lendo faixas…',
+      noneInFile: 'Nenhuma neste arquivo',
+      tracksStillLoading: 'O arquivo ainda está carregando. Tente de novo em alguns segundos.',
+      tryAgain: 'Tentar de novo',
+      style: 'Estilo',
+      delay: 'Atraso',
+      later: 'Mais tarde (+0,1s)',
+      earlier: 'Mais cedo (-0,1s)',
+      reset: 'Redefinir',
+      bigger: 'Aumentar texto',
+      smaller: 'Diminuir texto',
+      colour: 'Cor',
+      background: 'Fundo',
+      on: 'Ativado',
+      white: 'Branco',
+      yellow: 'Amarelo',
+      couldNotResume: 'Não foi possível continuar',
+      controlUnavailable: 'Controle de reprodução indisponível',
+      inactive: 'Reprodução pausada enquanto a TV estava inativa',
+      restoring: 'Restaurando o serviço local…',
+      restoreFailed: 'Não foi possível restaurar o serviço local',
+      ready: 'Prontas',
+      loaded: 'Legendas carregadas',
+      extracting: 'extraindo',
+      language: 'idioma'
+    }
+  }
+};
+/* in the language itself, whichever one the interface is in */
+var UI_LANGUAGES = {
+  'en-US': 'English',
+  'pt-BR': 'Português (Brasil)',
+  es: 'Español (España)',
+  'es-419': 'Español (Latinoamérica)',
+  fr: 'Français',
+  de: 'Deutsch',
+  it: 'Italiano',
+  ru: 'Русский',
+  ko: '한국어',
+  ja: '日本語',
+  zh: '中文（简体）'
+};
+function normalizeUILanguage(value) {
+  return Object.prototype.hasOwnProperty.call(UI_LANGUAGES, value) ? value : 'en-US';
+}
+/* the TV's language, when the app has it */
+function tvLanguage() {
+  var full = String((typeof navigator !== 'undefined' && navigator.language) || '').toLowerCase(),
+    base = full.split('-')[0];
+  if (base === 'pt') return 'pt-BR';
+  /* Spanish outside Spain is the Latin American one */
+  if (base === 'es') return full === 'es' || full === 'es-es' ? 'es' : 'es-419';
+  return base;
+}
+/* what the file does not have, or a file that cannot be read, falls back to English */
+function loadUILanguage(code) {
+  if (UI_TEXT[code]) return;
+  try {
+    var request = new XMLHttpRequest();
+    request.open('GET', '/lang/' + code + '.json', false);
+    request.send();
+    if (request.status === 200) UI_TEXT[code] = JSON.parse(request.responseText);
+  } catch (e) {}
+}
+var UI_LANG = normalizeUILanguage(
+  (function () {
+    try {
+      return localStorage.getItem(UI_LANG_KEY) || tvLanguage();
+    } catch (e) {
+      return tvLanguage();
+    }
+  })()
+);
+loadUILanguage(UI_LANG);
+/* the language of audio and subtitles until the viewer picks one */
+function defaultMediaLanguage() {
+  return (
+    {
+      'pt-BR': 'por',
+      es: 'spa',
+      'es-419': 'spa',
+      fr: 'fre',
+      de: 'ger',
+      it: 'ita',
+      ru: 'rus',
+      ko: 'kor',
+      ja: 'jpn',
+      zh: 'chi'
+    }[UI_LANG] || 'eng'
+  );
+}
+function tx(key) {
+  var args = arguments,
+    text = (UI_TEXT[UI_LANG] && UI_TEXT[UI_LANG][key]) || UI_TEXT['en-US'][key] || key;
+  return String(text).replace(/\{(\d+)\}/g, function (all, index) {
+    var at = parseInt(index, 10) + 1;
+    return args[at] == null ? '' : String(args[at]);
+  });
+}
+// When a title counts as finished, shared by the interface and the player.
+/* As the official Stremio apps (stremio-core): finished once the position passes 90 %,
+   where credits usually start. Continue Watching, the resume offer and the next episode
+   all use this rule; the player marks a video watched at 70 % really played. */
+var CREDITS_THRESHOLD = 0.9;
+function watchFinished(offsetMs, durationMs) {
+  return durationMs > 0 && offsetMs > durationMs * CREDITS_THRESHOLD;
+}
+// Which installed addons answer stream requests; shared by the interface and the player.
+function addonBase(a) {
+  return String(a.transportUrl || '').replace(/\/manifest\.json.*$/, '');
+}
+/* Whatever follows /manifest.json in the installed link (a ?key=... some addons give each
+   user). Official Stremio replaces only /manifest.json when it builds a request, so the
+   query string reaches every catalog, meta and stream request (stremio-core
+   http_transport.rs); dropping it made such addons answer nothing here. */
+function addonQuery(a) {
+  var m = String((a && a.transportUrl) || '').match(/\/manifest\.json(\?[^#]*)/);
+  return m ? m[1] : '';
+}
+/* The installed addons that answer `resource` ('stream', 'subtitles') for `type`, as Stremio
+   picks them: the resource may be a name (manifest types apply) or an object with its own
+   types and idPrefixes. With an `id`, idPrefixes are checked too (a subtitle addon for IMDb
+   ids is not asked about a Kitsu episode). */
+function addonsFor(a, resource, type, id) {
+  var out = [];
+  a = a || [];
+  for (var i = 0; i < a.length; i++) {
+    var m = a[i] && a[i].manifest;
+    if (!m) continue;
+    var res = m.resources || [],
+      entry = null;
+    for (var r = 0; r < res.length; r++) {
+      var rr = res[r];
+      if (rr === resource || (rr && rr.name === resource)) entry = rr;
+    }
+    if (!entry) continue;
+    var types = m.types || [],
+      own = typeof entry === 'object' ? entry.types || [] : null;
+    /* the manifest types, or the resource object's own types; an object with no types
+       means "any type" */
+    if (types.length && types.indexOf(type) < 0 && !(own && (!own.length || own.indexOf(type) >= 0)))
+      continue;
+    var prefixes = (typeof entry === 'object' && entry.idPrefixes) || m.idPrefixes;
+    if (id && prefixes && prefixes.length) {
+      var okId = false;
+      for (var p = 0; p < prefixes.length; p++) if (String(id).indexOf(prefixes[p]) === 0) okId = true;
+      if (!okId) continue;
+    }
+    out.push({ name: m.name || 'Addon', base: addonBase(a[i]), query: addonQuery(a[i]) });
+  }
+  return out;
+}
+function streamAddonsIn(a, type) {
+  return addonsFor(a, 'stream', type);
+}
+/* <base>/<resource>/<type>/<id>[/<extra>].json<query>, extra as Stremio encodes it:
+   videoHash=..&videoSize=..&filename=.. */
+function addonResourceUrl(ad, resource, type, id, extra) {
+  var parts = [];
+  for (var k in extra || {})
+    if (Object.prototype.hasOwnProperty.call(extra, k) && extra[k] !== '' && extra[k] != null)
+      parts.push(k + '=' + encodeURIComponent(extra[k]));
+  return (
+    ad.base +
+    '/' +
+    resource +
+    '/' +
+    type +
+    '/' +
+    encodeURIComponent(id) +
+    (parts.length ? '/' + parts.join('&') : '') +
+    '.json' +
+    (ad.query || '')
+  );
+}
+function streamUrl(ad, type, vid) {
+  return addonResourceUrl(ad, 'stream', type, vid);
+}
+// Reading a source from an addon's answer and matching it across episodes; shared by the
+// interface (source list) and the player (next episode).
+function streamText(s) {
+  return String(
+    (s.name || '') +
+      ' ' +
+      (s.title || '') +
+      ' ' +
+      (s.description || '') +
+      ' ' +
+      ((s.behaviorHints && s.behaviorHints.filename) || '')
+  );
+}
+function streamQuality(s) {
+  var t = streamText(s).toLowerCase();
+  if (/\b(2160p?|4k|uhd)\b/.test(t)) return '4K';
+  if (/\b(1440p?|2k|qhd)\b/.test(t)) return '1440p';
+  if (/\b(1080p?|fhd)\b/.test(t)) return '1080p';
+  if (/\b720p?\b/.test(t)) return '720p';
+  if (/\b(576p?|540p?|480p?|360p?|sd)\b/.test(t)) return 'SD';
+  return 'Other';
+}
+function streamSeeders(s) {
+  var t = streamText(s),
+    m;
+  m = t.match(/(?:seeders?|seeds?)\s*[:\-]?\s*(\d+)/i);
+  if (m) return parseInt(m[1], 10) || 0;
+  m = t.match(/(\d+)\s*(?:seeders?|seeds?)/i);
+  if (m) return parseInt(m[1], 10) || 0;
+  m = t.match(/(?:\uD83D\uDC65|\uD83D\uDC64)\s*(\d+)/);
+  if (m) return parseInt(m[1], 10) || 0;
+  return -1;
+}
+/* Filename/title hints are advisory: addons do not expose a reliable codec schema.
+   Only AV1 and Dolby Vision without an advertised HDR fallback affect ordering;
+   audio and 10-bit hints remain visible without hiding a potentially playable source. */
+function streamCompatibility(s) {
+  var t = streamText(s).toLowerCase(),
+    labels = [],
+    rank = 0;
+  function add(label) {
+    for (var i = 0; i < labels.length; i++) if (labels[i] === label) return;
+    labels.push(label);
+  }
+  if (/\b(av1|av01)\b/.test(t)) {
+    add('AV1');
+    rank = 3;
+  }
+  var dv = /(dolby[ ._-]?vision|\bdovi\b|\bdv\b)/.test(t);
+  if (dv) {
+    add('Dolby Vision');
+    if (!/(hdr10\+?|\bhdr\b)/.test(t)) rank = Math.max(rank, 2);
+  }
+  if (/\b(hevc|h[ ._-]?265|x265)\b/.test(t) && /\b(10[ ._-]?bit|main[ ._-]?10)\b/.test(t)) add('HEVC 10-bit');
+  if (/\b(true[ ._-]?hd)\b/.test(t)) add('TrueHD');
+  else if (/\b(dts[ ._-]?hd|dts)\b/.test(t)) add('DTS');
+  if (/\b(e[ ._-]?ac[ ._-]?3|eac3|ddp|dd\+)\b/.test(t)) add('E-AC-3');
+  /* A link or torrent file that is a .rar/.zip/.7z archive cannot play: the TV would have to
+     unpack it. Only a real file extension counts ("RARBG" is a release group), and such a
+     source is moved to the end and never recommended rather than hidden. */
+  var file = (
+      String(s.filename || '') +
+      ' ' +
+      String(s.url || '').replace(/[?#].*$/, '') +
+      ' ' +
+      t
+    ).toLowerCase(),
+    archive = file.match(/\.(rar|zip|7z)(?![a-z0-9])/);
+  if (archive) {
+    add(archive[1].toUpperCase());
+    rank = Math.max(rank, 4);
+  } else if (/\brar\b/.test(t)) {
+    /* debrid services that keep a torrent packed say only "RAR" (RARBG is a word of its own) */
+    add('RAR');
+    rank = Math.max(rank, 4);
+  }
+  return { labels: labels, rank: rank };
+}
+/* ---- the audio and subtitle languages of a source, read once when the addon answers ----
+   Only the name says it, so the clues are weighed:
+   - words that name the audio ("Dublado", "Latino", "Castellano", "VFF", "iTA", "ENG") and words
+     that name subtitles ("Legendado", "VOSTFR", "Sub ITA ENG", "Eng Subs", "MultiSub");
+   - the flags Torrentio lists, which mix audio and subtitles: they are audio with "Multi Audio"
+     or "Dual Audio", subtitles with "Multi Subs" alone, and when a release lists three or more
+     with neither, only the first (or one a word names) is audio and the rest are subtitles,
+     as in streaming rips that carry many subtitle tracks.
+   Codes are pt-BR, pt, es-419 (Latin American Spanish), es, en, fr, it, de, ja, ko, zh, ru,
+   hi, plus 'multi' for multi or dual audio (or many subtitles). */
+var FLAG_LANG = {
+  BR: 'pt-BR',
+  PT: 'pt',
+  ES: 'es',
+  MX: 'es-419',
+  AR: 'es-419',
+  CO: 'es-419',
+  CL: 'es-419',
+  PE: 'es-419',
+  VE: 'es-419',
+  UY: 'es-419',
+  US: 'en',
+  GB: 'en',
+  FR: 'fr',
+  IT: 'it',
+  DE: 'de',
+  JP: 'ja',
+  KR: 'ko',
+  CN: 'zh',
+  TW: 'zh',
+  RU: 'ru',
+  IN: 'hi'
+};
+/* words that name the audio */
+var WORD_LANG = [
+  ['pt-BR', /\b(dublado|pt[ ._-]?br|brazilian)\b/],
+  ['pt', /\b(portugu[eê]se?|portugu[eê]s)\b/],
+  ['es-419', /\b(latino|latam)\b/],
+  ['es', /\b(castellano|spanish|espa[nñ]ol)\b/],
+  ['en', /\b(english|eng)\b/],
+  ['fr', /\b(french|truefrench|vff|vf2?)\b/],
+  ['it', /\b(ita|italian|italiano)\b/],
+  ['de', /\b(german|deutsch)\b/],
+  ['ja', /\b(japanese|jpn)\b/],
+  ['ko', /\b(korean)\b/],
+  ['ru', /\b(russian|rus)\b/],
+  ['hi', /\b(hindi)\b/]
+];
+/* a language as subtitle lists write it: "SUB ITA ENG", "Sub (rus eng)", "Subs: spa, por" */
+var SUB_TOKEN = {
+  en: 'en',
+  eng: 'en',
+  english: 'en',
+  it: 'it',
+  ita: 'it',
+  italian: 'it',
+  es: 'es',
+  esp: 'es',
+  spa: 'es',
+  spanish: 'es',
+  lat: 'es-419',
+  pt: 'pt-BR',
+  por: 'pt-BR',
+  ptbr: 'pt-BR',
+  bra: 'pt-BR',
+  portuguese: 'pt-BR',
+  fr: 'fr',
+  fre: 'fr',
+  fra: 'fr',
+  french: 'fr',
+  de: 'de',
+  ger: 'de',
+  deu: 'de',
+  german: 'de',
+  ja: 'ja',
+  jap: 'ja',
+  jpn: 'ja',
+  japanese: 'ja',
+  ko: 'ko',
+  kor: 'ko',
+  korean: 'ko',
+  zh: 'zh',
+  chi: 'zh',
+  chs: 'zh',
+  cht: 'zh',
+  chinese: 'zh',
+  ru: 'ru',
+  rus: 'ru',
+  russian: 'ru',
+  hi: 'hi',
+  hin: 'hi',
+  hindi: 'hi'
+};
+/* the subtitle phrases of a name: their languages, and the name without them */
+function subtitlePhrases(low) {
+  var subs = [];
+  function add(code) {
+    if (code && subs.indexOf(code) < 0) subs.push(code);
+  }
+  /* "sub ita eng", "subs: spa, por", "subtitles (rus eng)" */
+  var after = /\b(?:subs?|subtitles?|legendas?)\b[\s._:(\[-]*((?:[a-z]{2,10}(?:[\s._,+/&)\]-]+|$)){1,10})/g;
+  low = low.replace(after, function (all, list) {
+    var words = list.split(/[^a-z]+/),
+      used = 0;
+    for (var i = 0; i < words.length; i++) {
+      if (!words[i]) continue;
+      if (!SUB_TOKEN[words[i]]) break;
+      add(SUB_TOKEN[words[i]]);
+      used++;
+    }
+    return used ? ' ' : all;
+  });
+  /* "eng subs", "spa sub", "esub" */
+  low = low.replace(/\b([a-z]{2,10})[ ._-]?subs?\b/g, function (all, word) {
+    if (word === 'e') return all;
+    if (!SUB_TOKEN[word]) return all;
+    add(SUB_TOKEN[word]);
+    return ' ';
+  });
+  low = low.replace(/\be[ ._-]?subs?\b/g, function () {
+    add('en');
+    return ' ';
+  });
+  if (/\b(legendad[oa])\b/.test(low)) add('pt-BR');
+  if (/\b(vostfr|vost)\b/.test(low)) add('fr');
+  return { subs: subs, rest: low.replace(/\b(legendad[oa]|vostfr|vost)\b/g, ' ') };
+}
+function streamLanguageInfo(s) {
+  var t = streamText(s),
+    phrases = subtitlePhrases(t.toLowerCase()),
+    low = phrases.rest,
+    subs = phrases.subs,
+    audio = [],
+    flags = [],
+    flag = /\uD83C([\uDDE6-\uDDFF])\uD83C([\uDDE6-\uDDFF])/g,
+    m,
+    i;
+  function addTo(list, code) {
+    if (code && list.indexOf(code) < 0) list.push(code);
+  }
+  while ((m = flag.exec(t))) {
+    var cc = String.fromCharCode(m[1].charCodeAt(0) - 0xdde6 + 65, m[2].charCodeAt(0) - 0xdde6 + 65);
+    addTo(flags, FLAG_LANG[cc]);
+  }
+  var named = [];
+  for (i = 0; i < WORD_LANG.length; i++) if (WORD_LANG[i][1].test(low)) addTo(named, WORD_LANG[i][0]);
+  var multiSubs = /\bmulti[ ._-]?subs?\b|\bmultisubs?\b/.test(low),
+    multiAudio =
+      /\b(multi[ ._-]?audio|dual[ ._-]?audio|dual)\b/.test(low) || /\bmulti\b(?![ ._-]?subs?)/.test(low);
+  for (i = 0; i < named.length; i++) addTo(audio, named[i]);
+  if (multiAudio) for (i = 0; i < flags.length; i++) addTo(audio, flags[i]);
+  else if (multiSubs)
+    for (i = 0; i < flags.length; i++) addTo(audio.indexOf(flags[i]) >= 0 ? audio : subs, flags[i]);
+  else if (flags.length < 3) for (i = 0; i < flags.length; i++) addTo(audio, flags[i]);
+  else
+    for (i = 0; i < flags.length; i++) {
+      /* many flags, nothing about audio: the first (or one a word names) is the audio */
+      if (audio.indexOf(flags[i]) >= 0) continue;
+      addTo(!audio.length && i === 0 ? audio : subs, flags[i]);
+    }
+  if (multiSubs && !subs.length) subs.push('multi');
+  /* a language whose subtitles a word names, which no word gives as audio, is not the audio */
+  var subBases = phrases.subs.map(langBase),
+    namedBases = named.map(langBase);
+  for (i = audio.length - 1; i >= 0; i--) {
+    var base = langBase(audio[i]);
+    if (subBases.indexOf(base) >= 0 && namedBases.indexOf(base) < 0 && !multiAudio) {
+      addTo(subs, audio[i]);
+      audio.splice(i, 1);
+    }
+  }
+  if (multiAudio) addTo(audio, 'multi');
+  /* "dublado" or a Brazilian flag says more than a plain "portuguese" */
+  [audio, subs].forEach(function (list) {
+    if (list.indexOf('pt-BR') >= 0 && list.indexOf('pt') >= 0) list.splice(list.indexOf('pt'), 1);
+    if (list.indexOf('es-419') >= 0 && list.indexOf('es') >= 0) list.splice(list.indexOf('es'), 1);
+  });
+  return { audio: audio, subs: subs };
+}
+function streamLanguages(s) {
+  return streamLanguageInfo(s).audio;
+}
+function langBase(code) {
+  return String(code).split('-')[0];
+}
+/* the trackers an addon names go along with the address, for the engine to find peers */
+function torrentTrackers(s) {
+  var out = [];
+  for (var i = 0; s.sources && i < s.sources.length && out.length < 12; i++) {
+    var m = /^tracker:(.+)$/.exec(s.sources[i]);
+    if (m) out.push('tr=' + encodeURIComponent(m[1]));
+  }
+  return out.length ? '?' + out.join('&') : '';
+}
+/* the addon's stream as the interface and the player use it; null when it cannot be played */
+/* addonBase tells apart two installations of an addon with the same name */
+function sourceItem(s, addonName, addonBase) {
+  var url = s.url,
+    h = s.behaviorHints || {};
+  if (!url && s.infoHash)
+    url = 'http://127.0.0.1:11470/' + s.infoHash + '/' + (s.fileIdx || 0) + torrentTrackers(s);
+  if (!url) return null;
+  var item = {
+    addon: addonName,
+    addonBase: addonBase || '',
+    name: s.name || '',
+    title: s.title || s.description || '',
+    url: url,
+    quality: streamQuality(s),
+    seeders: streamSeeders(s),
+    filename: h.filename || '',
+    bingeGroup: h.bingeGroup || '',
+    notWebReady: !!h.notWebReady,
+    headers: (h.proxyHeaders && h.proxyHeaders.request) || null
+  };
+  var languages = streamLanguageInfo(s);
+  item.langs = languages.audio;
+  item.subLangs = languages.subs;
+  var compat = streamCompatibility(item);
+  item.compatLabels = compat.labels;
+  item.compatRank = compat.rank;
+  return item;
+}
+/* what the local server keeps for a source it is about to play (server/stream-refs.js) */
+function streamRefBody(s) {
+  return {
+    url: s.url,
+    addon: s.addon || '',
+    addonBase: s.addonBase || '',
+    name: s.name || '',
+    title: s.title || '',
+    filename: s.filename || '',
+    bingeGroup: s.bingeGroup || '',
+    quality: s.quality || '',
+    compat: (s.compatLabels || []).join(','),
+    notWebReady: !!s.notWebReady,
+    headers: s.headers || null,
+    meta: s.meta || null
+  };
+}
+function sourceTraits(value) {
+  var t = String(value || '').toLowerCase(),
+    out = [];
+  var tests = [
+    ['hevc', /\b(hevc|x265|h[ ._-]?265)\b/],
+    ['h264', /\b(x264|h[ ._-]?264|avc)\b/],
+    ['dv', /(dolby[ ._-]?vision|\bdovi\b|\bdv\b)/],
+    ['hdr10p', /hdr10\+/],
+    ['hdr', /\bhdr\b/],
+    ['10bit', /\b(10[ ._-]?bit|main[ ._-]?10)\b/],
+    ['eac3', /\b(eac3|e[ ._-]?ac[ ._-]?3|ddp|dd\+)\b/],
+    ['ac3', /\b(ac3|dolby[ ._-]?digital)\b/],
+    ['aac', /\baac\b/],
+    ['dts', /\bdts\b/],
+    ['atmos', /\batmos\b/],
+    ['webdl', /web[ ._-]?dl/],
+    ['bluray', /blu[ ._-]?ray|bdrip/]
+  ];
+  for (var i = 0; i < tests.length; i++) if (tests[i][1].test(t)) out.push(tests[i][0]);
+  return out;
+}
+/* How well a source keeps the audio language being watched; -1000 rules it out. A release
+   with a named language must not become another one, and an unnamed one may be the original
+   audio, so changing a dub for it is left to the viewer. Older saved preferences have no
+   language and are not judged. */
+function nextLanguageFit(wanted, s) {
+  if (!wanted) return 0;
+  var have = s.langs || [],
+    named = [],
+    score = 0,
+    i;
+  for (i = 0; i < wanted.length; i++) if (wanted[i] !== 'multi') named.push(wanted[i]);
+  if (!named.length) {
+    if (wanted.length) return have.indexOf('multi') >= 0 ? 40 : 0;
+    /* nothing named in the episode being watched: prefer sources that name nothing either */
+    return have.length ? -15 : 0;
+  }
+  for (i = 0; i < named.length; i++) {
+    if (have.indexOf(named[i]) >= 0) score += 40;
+    else
+      for (var h = 0; h < have.length; h++)
+        if (langBase(have[h]) === langBase(named[i])) {
+          score += 25;
+          break;
+        }
+  }
+  if (score) return score;
+  return have.indexOf('multi') >= 0 ? 5 : -1000;
+}
+/* The source to carry on with: the addon's own marker for "same release" (bingeGroup, as the
+   official apps use it) settles it; without one, the same addon and quality, then the closest
+   release. Null when nothing fits, so the viewer chooses from the list. */
+function matchingNextSource(items, pref) {
+  if (!pref || !pref.addon) return null;
+  var wanted = sourceTraits((pref.text || '') + ' ' + (pref.compat || '')),
+    best = null,
+    bestScore = -9999,
+    i,
+    s;
+  if (pref.binge)
+    for (i = 0; i < items.length; i++)
+      if (!items[i].stored && items[i].addon === pref.addon && items[i].bingeGroup === pref.binge)
+        return items[i];
+  if (!pref.quality) return null;
+  for (i = 0; i < items.length; i++) {
+    s = items[i];
+    /* an archive cannot play (streamCompatibility) */
+    if (s.stored || s.addon !== pref.addon || s.quality !== pref.quality || s.compatRank >= 4) continue;
+    var fit = nextLanguageFit(pref.langs, s);
+    if (fit <= -1000) continue;
+    var traits = sourceTraits(streamText(s) + ' ' + (s.compatLabels || []).join(' ')),
+      score = fit;
+    for (var w = 0; w < wanted.length; w++) if (traits.indexOf(wanted[w]) >= 0) score += 12;
+    score -= (s.compatRank || 0) * 20;
+    if (s.seeders > 0) score += Math.min(15, Math.floor(Math.log(s.seeders + 1) / Math.LN2));
+    if (score > bestScore) {
+      bestScore = score;
+      best = s;
+    }
+  }
+  return best;
+}
+// HTML escaping, time formatting and the toast notification.
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+var toastT = null;
+function toast(m, ms) {
+  var t = $('toast');
+  t.textContent = m;
+  t.style.opacity = '1';
+  if (toastT) clearTimeout(toastT);
+  toastT = setTimeout(function () {
+    t.style.opacity = '0';
+  }, ms || 2800);
+}
+// Poster, backdrop and icon URLs, and the look that decides their sizes.
+/* the look this TV had before anyone chose: light on the TVs the profile already treats as small.
+   The modern look of the 4.0 tests is gone: a TV that chose it has the standard one. */
+var PROFILE_LOW_MEMORY = !!TV_PROFILE.lowMemory;
+function uiLook() {
+  return lsRaw('uiLook', '') === 'light' || (!lsRaw('uiLook', '') && PROFILE_LOW_MEMORY)
+    ? 'light'
+    : 'standard';
+}
+function isImdb(id) {
+  return String(id || '').indexOf('tt') === 0;
+}
+function posterOf(it) {
+  if (it.poster) return it.poster;
+  return isImdb(it.id) ? 'https://images.metahub.space/poster/small/' + it.id + '/img' : '';
+}
+var ICON = {
+  exit: '<svg viewBox="0 0 24 24"><path d="M10 17l1.4-1.4L8.8 13H20v-2H8.8l2.6-2.6L10 7l-5 5zM4 3h8v2H4v14h8v2H4a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>',
+  play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+  info: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',
+  similar: '<svg viewBox="0 0 24 24"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>',
+  trailer:
+    '<svg viewBox="0 0 24 24"><path d="M17 10.5V7a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1v-3.5l4 4v-11l-4 4z"/></svg>',
+  bolt: '<svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>',
+  grid: '<svg viewBox="0 0 24 24"><path d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><path d="M9 16.17l-3.88-3.88L3.7 13.7 9 19 21 7l-1.41-1.42z"/></svg>',
+  plus: '<svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>',
+  close:
+    '<svg viewBox="0 0 24 24"><path d="M18.3 5.7L12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7 4.3 4.3l6.3 6.3 6.3-6.3z"/></svg>'
+};
+function bgOf(it) {
+  if (it.background) return it.background;
+  if (isImdb(it.id)) return 'https://images.metahub.space/background/medium/' + it.id + '/img';
+  return it.poster || '';
+}
+function bgSmall(it) {
+  var u = String(bgOf(it) || '');
+  return u.replace(/(images\.metahub\.space\/background\/)[a-z]+\//, '$1small/');
+}
+/* The width the local server reduces a background to: smaller in the light look, the
+   package's own otherwise. */
+function bgWidth() {
+  return uiLook() === 'light' ? 640 : 0;
+}
+/* sharp: the featured titles' wider background, 1280 px, except on small TVs and in the light look */
+function bgMid(it, sharp) {
+  var u = String(bgOf(it) || '');
+  if (!u) return u;
+  /* reducing the image takes FFmpeg: without it, the smaller version from the artwork server */
+  if (!HAS_MEDIA_TOOLS) return bgSmall(it);
+  var width = sharp && !TV_PROFILE.lowMemory && uiLook() !== 'light' ? 1280 : bgWidth(),
+    size = width >= 1280 ? 'large' : 'medium';
+  return (
+    '/artwork?u=' +
+    encodeURIComponent(u.replace(/(images\.metahub\.space\/background\/)[a-z]+\//, '$1' + size + '/')) +
+    (width ? '&w=' + width : '')
+  );
+}
+// Stremio account session and library synchronization.
+/* ================= account / library ================= */
+function user() {
+  return lsJson('user');
+}
+function authKey() {
+  return lsJson('authKey');
+}
+/* signed in with a Nuvio account (experimental): the local server answers its calls */
+function isNuvioAccount() {
+  return /^nuvio:/.test(String(authKey() || ''));
+}
+/* Library / Continue Watching / watched all sync to the Stremio account, exactly like
+   the official apps: items live under lib_<first4 of user._id>_<id> (shared with the
+   classic shell on this origin), pulled on boot and pushed on every change. */
+function libPrefix() {
+  var u = user();
+  if (u && u._id) return 'lib_' + u._id.slice(0, 4) + '_';
+  var keys = storageKeys();
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    if (k.indexOf('lib_') === 0) {
+      var j = k.indexOf('_', 4);
+      if (j > 0) return k.slice(0, j + 1);
+    }
+  }
+  return 'lib_local_';
+}
+var PRE = libPrefix();
+window.__SC_PHASE__('M1');
+function allLib() {
+  var out = [],
+    keys = storageKeys();
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    if (k.indexOf(PRE) !== 0) continue;
+    var it = lsJson(k);
+    if (it && it._id) out.push(it);
+  }
+  return out;
+}
+/* whole minutes left, or 0 when the numbers cannot be trusted */
+function watchMinutesLeft(offsetMs, durationMs) {
+  if (!(durationMs > 0) || !(offsetMs > 60000) || offsetMs >= durationMs) return 0;
+  return Math.max(1, Math.round((durationMs - offsetMs) / 60000));
+}
+/* the episode the player recorded as next when this one finished */
+function upNextOf(id, vid) {
+  var next = lsRaw('tvnext_' + id + '_' + vid, '');
+  return next && next !== vid ? next : '';
+}
+/* A series item whose position sits at the very start points at its next episode: the
+   official apps move it there (position 1 ms) once an episode is finished. */
+function upNextPointer(it) {
+  var s = it.state || {};
+  return it.type === 'series' && s.video_id && s.timeOffset > 0 && s.timeOffset < 60000 ? s.video_id : '';
+}
+/* Continue Watching card data: a finished episode becomes its next episode, and the
+   minutes left are only shown when the saved numbers can be trusted. */
+function cwCard(it) {
+  var s = it.state || {},
+    next = upNextPointer(it) || (watchFinished(s.timeOffset, s.duration) ? upNextOf(it._id, s.video_id) : '');
+  return {
+    id: it._id,
+    type: it.type || 'movie',
+    name: it.name,
+    poster: it.poster,
+    background: it.background,
+    videoId: next || s.video_id || it._id,
+    progress: next ? 0 : s.duration > 0 ? s.timeOffset / s.duration : 0,
+    minutesLeft: next ? 0 : watchMinutesLeft(s.timeOffset, s.duration),
+    upNext: !!next,
+    cw: true
+  };
+}
+window.__SC_CW_CARD__ = cwCard;
+/* As in Stremio, an item removed from the library stays only while it is temporary */
+function cwItems(limit) {
+  var out = [],
+    lib = allLib();
+  for (var i = 0; i < lib.length; i++) {
+    var it = lib[i],
+      s = it.state || {};
+    if (it.removed && !it.temp) continue;
+    if (!upNextPointer(it)) {
+      if (!s.timeOffset || s.timeOffset < 60000) continue;
+      /* a finished episode stays only when its next episode is known (cwCard) */
+      if (watchFinished(s.timeOffset, s.duration) && !(it.type === 'series' && upNextOf(it._id, s.video_id)))
+        continue;
+    }
+    if (!it.name) continue;
+    out.push(it);
+  }
+  out.sort(function (a, b) {
+    return String(b._mtime || '').localeCompare(String(a._mtime || ''));
+  });
+  return out.slice(0, limit || 12);
+}
+window.__SC_CW_ITEMS__ = cwItems;
+function libGridItems() {
+  var out = [],
+    lib = allLib();
+  for (var i = 0; i < lib.length; i++) {
+    var it = lib[i];
+    if (it.removed) continue;
+    if (!it.name) continue;
+    out.push(it);
+  }
+  out.sort(function (a, b) {
+    return String(b._mtime || '').localeCompare(String(a._mtime || ''));
+  });
+  return out.slice(0, TV_PROFILE.libraryCap);
+}
+/* pull the account library on boot: newest-mtime-wins, then rebuild the boards */
+/* a modification time as milliseconds, from a number or an ISO string */
+function mtimeMs(v) {
+  if (typeof v === 'number') return v;
+  var t = Date.parse(v || '');
+  return isNaN(t) ? 0 : t;
+}
+window.__SC_MTIME_MS__ = mtimeMs;
+function pullLib(cb) {
+  var ak = authKey();
+  if (!ak) {
+    if (cb) cb();
+    return;
+  }
+  postJson(API + '/api/datastoreMeta', { authKey: ak, collection: 'libraryItem' }, function (r) {
+    var rows = r && r.result;
+    if (!rows || !rows.length) {
+      if (cb) cb();
+      return;
+    }
+    /* datastoreMeta returns modification times in milliseconds while items carry ISO
+       strings, so both are compared as times (a text comparison never pulled anything
+       that already existed here). Items newer here than on the account, or missing
+       there, are pushed back: a push lost when the player closed is not lost for good. */
+    var want = [],
+      onServer = {},
+      push = [];
+    for (var i = 0; i < rows.length; i++) {
+      var id = rows[i][0],
+        mt = mtimeMs(rows[i][1]),
+        loc = lsJson(PRE + id);
+      onServer[id] = 1;
+      if (!loc || mtimeMs(loc._mtime) < mt) {
+        if (want.length < 150) want.push(id);
+      } else if (mtimeMs(loc._mtime) > mt + 1000 && push.length < 50) push.push(loc);
+    }
+    var local = allLib();
+    for (var l = 0; l < local.length && push.length < 50; l++) {
+      var li = local[l],
+        ls = li.state || {};
+      if (li._id && !onServer[li._id] && (li.removed === false || ls.timeOffset > 0)) push.push(li);
+    }
+    pushLibItems(push);
+    if (!want.length) {
+      if (cb) cb();
+      return;
+    }
+    postJson(
+      API + '/api/datastoreGet',
+      { authKey: ak, collection: 'libraryItem', ids: want, all: false },
+      function (g) {
+        var items = g && g.result;
+        if (items && items.length)
+          for (var i = 0; i < items.length; i++) {
+            var it = items[i];
+            if (it && it._id) lsSet(PRE + it._id, it);
+          }
+        if (cb) cb();
+      }
+    );
+  });
+}
+/* push one library item up to the account (datastorePut = how Stremio persists it) */
+function pushLib(item) {
+  if (item && item._id) pushLibItems([item]);
+}
+function pushLibItems(items) {
+  var ak = authKey();
+  if (!ak || !items || !items.length) return;
+  postJson(
+    API + '/api/datastorePut',
+    { authKey: ak, collection: 'libraryItem', changes: items },
+    function () {},
+    9000
+  );
+}
+// Account addon collection.
+/* addons: silent pull from the account at every boot (no buttons needed) */
+function addons() {
+  return lsJson('addons') || [];
+}
+/* The addons asked for catalogs, metadata and sources: all but Local files, which the
+   streaming server serves for a computer's own video folders. The TV has none, so asking
+   it only costs requests and "did not answer" entries in Diagnostics. */
+function remoteAddons() {
+  var all = addons(),
+    out = [];
+  for (var i = 0; i < all.length; i++)
+    if (
+      !/^https?:\/\/(?:127\.0\.0\.1|localhost):11470\//i.test(String((all[i] && all[i].transportUrl) || ''))
+    )
+      out.push(all[i]);
+  return out;
+}
+/* Nuvio Collections of the profile (folders of catalogs), kept for the Home rows */
+function nuvioCollections() {
+  return isNuvioAccount() ? lsJson('nuvioCollections') || [] : [];
+}
+function syncCollections(cb) {
+  var ak = authKey();
+  if (!ak || !isNuvioAccount()) {
+    if (cb) cb(false);
+    return;
+  }
+  postJson(API + '/api/collectionsGet', { authKey: ak }, function (r) {
+    var got = r && r.result;
+    if (!got || typeof got.length !== 'number') {
+      if (cb) cb(false);
+      return;
+    }
+    var cur = '';
+    try {
+      cur = localStorage.getItem('nuvioCollections') || '';
+    } catch (e) {}
+    var next = JSON.stringify(got);
+    if (next !== cur) {
+      lsRawSet('nuvioCollections', next);
+      if (cb) cb(true);
+    } else if (cb) cb(false);
+  });
+}
+function syncAddons(cb) {
+  var ak = authKey();
+  if (!ak) {
+    if (cb) cb(false);
+    return;
+  }
+  postJson(API + '/api/addonCollectionGet', { authKey: ak, update: true }, function (r) {
+    var got = r && r.result && r.result.addons;
+    if (!got || !got.length) {
+      if (cb) cb(false);
+      return;
+    }
+    var cur = '';
+    try {
+      cur = localStorage.getItem('addons') || '';
+    } catch (e) {}
+    var next = JSON.stringify(got);
+    if (next !== cur) {
+      lsRawSet('addons', next);
+      lsRawSet('addonsLastModified', String(Date.now()));
+      if (cb) cb(true);
+    } else if (cb) cb(false);
+  });
+}
+// Catalog discovery from installed addons (Home rows, Discover filters).
+/* ================= addon-driven catalogs ================= */
+/* the query string of the installed addon whose base is `base` ('' for Cinemeta or none) */
+function addonQueryFor(list, base) {
+  for (var i = 0; i < (list || []).length; i++)
+    if (list[i] && addonBase(list[i]) === base) return addonQuery(list[i]);
+  return '';
+}
+function typeLabel(t) {
+  var value = String(t || '');
+  if (value === 'movie') return tx('movies');
+  if (value === 'series') return tx('series');
+  if (value === 'anime') return tx('anime');
+  value = value.replace(/[_-]+/g, ' ');
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : tx('other');
+}
+function discoverCatalogInfo(cat) {
+  var ex = (cat && cat.extra) || [],
+    blocked = false,
+    genreOptions = [],
+    genreRequired = false;
+  for (var e = 0; e < ex.length; e++) {
+    var x = ex[e] || {},
+      name = String(x.name || '');
+    if (x.isRequired && name !== 'genre') blocked = true;
+    if (name === 'genre') {
+      genreRequired = !!x.isRequired;
+      if (x.options && x.options.length) genreOptions = x.options.slice(0);
+    }
+  }
+  if (cat && cat.extraRequired && cat.extraRequired.length)
+    for (var er = 0; er < cat.extraRequired.length; er++)
+      if (cat.extraRequired[er] !== 'genre') blocked = true;
+  return { blocked: blocked, genreOptions: genreOptions, genreRequired: genreRequired };
+}
+function discoverTypes() {
+  var values = ['movie', 'series'],
+    seen = { movie: true, series: true },
+    a = remoteAddons();
+  for (var i = 0; i < a.length; i++) {
+    var man = a[i] && a[i].manifest;
+    if (!man || !man.catalogs) continue;
+    for (var c = 0; c < man.catalogs.length; c++) {
+      var cat = man.catalogs[c],
+        type = String((cat && cat.type) || '');
+      if (!type || cat.id == null || seen[type] || discoverCatalogInfo(cat).blocked) continue;
+      seen[type] = true;
+      values.push(type);
+    }
+  }
+  var out = [];
+  for (var n = 0; n < values.length; n++) out.push({ value: values[n], label: typeLabel(values[n]) });
+  return out;
+}
+window.__SC_DISCOVER_TYPES__ = discoverTypes;
+function stableHash(value) {
+  var s = String(value || ''),
+    h = 2166136261;
+  for (var i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+  }
+  return (h >>> 0).toString(36);
+}
+function catalogCacheKey(addon, cat) {
+  var m = (addon && addon.manifest) || {};
+  return (
+    'v2_' +
+    stableHash([m.id || '', addonBase(addon || {}), (cat && cat.type) || '', (cat && cat.id) || ''].join('|'))
+  );
+}
+var CATALOG_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+/* Nuvio Collections of the profile, pinned ones first, in the order Nuvio keeps them */
+function orderedCollections() {
+  var cols = nuvioCollections(),
+    out = [],
+    i;
+  for (i = 0; i < cols.length; i++) if (cols[i] && cols[i].pinToTop) out.push(cols[i]);
+  for (i = 0; i < cols.length; i++) if (cols[i] && !cols[i].pinToTop) out.push(cols[i]);
+  return out;
+}
+/* The rows a Collections folder opens to: one per source that points at an installed addon
+   catalog. TMDB and Trakt sources need Nuvio's own feeds and are left out. */
+function folderRowDefs(folder) {
+  var a = remoteAddons(),
+    byId = {},
+    out = [],
+    i;
+  for (i = 0; i < a.length; i++) {
+    var man = a[i] && a[i].manifest;
+    if (man && man.id && !byId[man.id]) byId[man.id] = a[i];
+  }
+  var sources = folder.sources && folder.sources.length ? folder.sources : folder.catalogSources || [];
+  for (var s = 0; s < sources.length && out.length < (TV_PROFILE.catalogRowsCap || 16); s++) {
+    var src = sources[s] || {};
+    if (src.provider && src.provider !== 'addon') continue;
+    var addon = byId[src.addonId],
+      cats = (addon && addon.manifest.catalogs) || [],
+      cat = null;
+    for (var k = 0; k < cats.length; k++)
+      if (cats[k] && cats[k].type === src.type && String(cats[k].id) === String(src.catalogId)) cat = cats[k];
+    if (!cat) continue;
+    /* Nuvio stores "no genre" as the text None (or null) */
+    var genre = src.genre ? String(src.genre).trim() : '';
+    if (/^(none|null|undefined)$/i.test(genre)) genre = '';
+    out.push({
+      title:
+        (cat.name ? cat.name : folder.title || '') +
+        (genre ? ' · ' + genre : '') +
+        ' · ' +
+        typeLabel(cat.type),
+      type: cat.type,
+      url:
+        addonBase(addon) +
+        '/catalog/' +
+        cat.type +
+        '/' +
+        encodeURIComponent(cat.id) +
+        (genre ? '/genre=' + encodeURIComponent(genre) : '') +
+        '.json' +
+        addonQuery(addon),
+      key: catalogCacheKey(addon, cat) + (genre ? '_' + stableHash(genre) : '')
+    });
+  }
+  return out;
+}
+/* Home rows for the Collections: one row of folder tiles per collection (no requests until a
+   folder is opened), only folders that have something to show. */
+function collectionTileDefs() {
+  var cols = orderedCollections(),
+    out = [];
+  for (var c = 0; c < cols.length; c++) {
+    var tiles = [],
+      folders = cols[c].folders || [];
+    for (var f = 0; f < folders.length; f++) {
+      var folder = folders[f];
+      if (!folder || !folderRowDefs(folder).length) continue;
+      tiles.push({
+        folder: folder,
+        id: 'folder:' + (folder.id || cols[c].title + '/' + folder.title),
+        type: 'folder',
+        name: folder.hideTitle ? '' : folder.title || '',
+        background: folder.coverImageUrl || ''
+      });
+    }
+    if (tiles.length) out.push({ title: cols[c].title || '', tiles: tiles });
+  }
+  return out;
+}
+function homeCatalogs() {
+  var out = [],
+    a = remoteAddons(),
+    maxRows = TV_PROFILE.catalogRowsCap || 16;
+  for (var i = 0; i < a.length; i++) {
+    var man = a[i] && a[i].manifest;
+    if (!man || !man.catalogs) continue;
+    var base = addonBase(a[i]);
+    for (var c = 0; c < man.catalogs.length; c++) {
+      var cat = man.catalogs[c];
+      if (!cat || !cat.type || cat.id == null) continue;
+      var req = false,
+        ex = cat.extra || [];
+      for (var e = 0; e < ex.length; e++) if (ex[e] && ex[e].isRequired) req = true;
+      if (cat.extraRequired && cat.extraRequired.length) req = true;
+      if (req) continue; /* search/genre-required catalogs are not board rows (og rule) */
+      out.push({
+        title: (cat.name ? cat.name + ' · ' : '') + typeLabel(cat.type),
+        type: cat.type,
+        url: base + '/catalog/' + cat.type + '/' + encodeURIComponent(cat.id) + '.json' + addonQuery(a[i]),
+        key: catalogCacheKey(a[i], cat)
+      });
+      if (out.length >= maxRows) return out;
+    }
+  }
+  return out;
+}
+/* HOME rows = YOUR addon catalogs (in order); Cinemeta defaults if none configured */
+function homeDefs() {
+  var tiles = collectionTileDefs();
+  /* with Nuvio Collections, Home is those collections only, as in Nuvio's own apps */
+  if (tiles.length) return tiles;
+  var cats = homeCatalogs();
+  if (!cats.length)
+    cats = [
+      {
+        title: tx('popularMovies'),
+        type: 'movie',
+        url: CIN + '/catalog/movie/top.json',
+        key: 'cin_m_top',
+        ranked: true
+      },
+      { title: tx('popularSeries'), type: 'series', url: CIN + '/catalog/series/top.json', key: 'cin_s_top' },
+      { title: tx('topMovies'), type: 'movie', url: CIN + '/catalog/movie/imdbRating.json', key: 'cin_m_ir' },
+      {
+        title: tx('topSeries'),
+        type: 'series',
+        url: CIN + '/catalog/series/imdbRating.json',
+        key: 'cin_s_ir'
+      }
+    ];
+  /* an addon's own "popular" catalog ranks its first ten too */
+  for (var i = 0; i < cats.length; i++)
+    if (/\/catalog\/[^\/]+\/top\.json$/.test(cats[i].url || '')) {
+      cats[i].ranked = true;
+      break;
+    }
+  return cats;
+}
+/* The rows Home starts with, from this TV's library: Continue Watching, then the new episodes
+   of followed series and the titles added to the library, which otherwise only appear in the
+   Library section. wide rows show landscape cards. */
+function homeLibraryRows() {
+  var rows = [],
+    cw = cwItems(),
+    cwMapped = [];
+  for (var c = 0; c < cw.length; c++) cwMapped.push(cwCard(cw[c]));
+  if (cwMapped.length) rows.push({ title: tx('continueWatching'), items: cwMapped, wide: true });
+  var fresh = newEpisodeItems();
+  if (fresh.length) rows.push({ title: tx('newEpisodes'), items: fresh, wide: true });
+  var mine = libGridItems().slice(0, 20),
+    mineMapped = [];
+  for (var mi = 0; mi < mine.length; mi++)
+    mineMapped.push({
+      id: mine[mi]._id,
+      type: mine[mi].type,
+      name: mine[mi].name,
+      poster: mine[mi].poster,
+      background: mine[mi].background
+    });
+  if (mineMapped.length) rows.push({ title: tx('myList'), items: mineMapped, wide: false });
+  return rows;
+}
+function discoverCatalogs(type) {
+  var out = [],
+    seen = {},
+    a = remoteAddons();
+  for (var i = 0; i < a.length; i++) {
+    var man = a[i] && a[i].manifest;
+    if (!man || !man.catalogs) continue;
+    var base = addonBase(a[i]);
+    for (var c = 0; c < man.catalogs.length; c++) {
+      var cat = man.catalogs[c];
+      if (!cat || cat.type !== type || cat.id == null) continue;
+      var info = discoverCatalogInfo(cat);
+      if (info.blocked) continue;
+      var key = [base, type, cat.id].join('|');
+      if (seen[key]) continue;
+      seen[key] = true;
+      out.push({
+        label: cat.name || man.name || String(cat.id),
+        type: type,
+        id: String(cat.id),
+        base: base,
+        query: addonQuery(a[i]),
+        key: catalogCacheKey(a[i], cat),
+        genres: info.genreOptions,
+        genreRequired: info.genreRequired
+      });
+    }
+  }
+  if (!out.length && (type === 'movie' || type === 'series')) {
+    out.push({
+      label: tx('popular'),
+      type: type,
+      id: 'top',
+      base: CIN,
+      key: 'fallback_top',
+      genres: [],
+      genreRequired: false
+    });
+    out.push({
+      label: tx('topRated'),
+      type: type,
+      id: 'imdbRating',
+      base: CIN,
+      key: 'fallback_rating',
+      genres: [],
+      genreRequired: false
+    });
+  }
+  return out;
+}
+/* DISCOVER rows = trending + top + a spread of genres */
+var DGEN = [
+  ['Action', 'genreAction'],
+  ['Comedy', 'genreComedy'],
+  ['Sci-Fi', 'genreSciFi'],
+  ['Drama', 'genreDrama'],
+  ['Horror', 'genreHorror']
+];
+function discoverGenres(cat) {
+  var out = [],
+    values = cat && cat.genres && cat.genres.length ? cat.genres : null;
+  if (!cat || !cat.genreRequired) out.push({ value: '', label: tx('allGenres') });
+  if (values) {
+    for (var i = 0; i < values.length; i++) out.push({ value: String(values[i]), label: String(values[i]) });
+  } else if (cat && (cat.genreRequired || cat.base === CIN))
+    for (var n = 0; n < DGEN.length; n++) out.push({ value: DGEN[n][0], label: tx(DGEN[n][1]) });
+  return out;
+}
+function getCatalogUrl(url, key, type, cb) {
+  var ck = 'beta_cat_' + key,
+    cached = lsJson(ck);
+  if (
+    cached &&
+    cached.v === 2 &&
+    cached.t &&
+    Date.now() - cached.t < CATALOG_CACHE_TTL &&
+    cached.items &&
+    cached.items.length
+  )
+    cb(cached.items, true);
+  else cached = null;
+  xhrJson(url, function (j) {
+    var metas = (j && j.metas) || [];
+    if (!metas.length) {
+      if (!cached) cb([], false);
+      return;
+    }
+    var slim = [];
+    for (var i = 0; i < Math.min(metas.length, TV_PROFILE.catalogCap); i++) {
+      var m = metas[i];
+      slim.push({ id: m.id, type: m.type || type, name: m.name, poster: m.poster, background: m.background });
+    }
+    var same = cached && cached.items && JSON.stringify(cached.items) === JSON.stringify(slim);
+    lsSet(ck, { v: 2, t: Date.now(), items: slim });
+    if (!same) cb(slim, false); /* identical to cache -> skip the double row rebuild at boot */
+  });
+}
+// Source discovery, quality/seeder/codec classification and per-profile source budget.
+/* ================= streams (generic: any addon that declares them) ================= */
+function streamAddons(type) {
+  return streamAddonsIn(remoteAddons(), type);
+}
+function qualityLabel(value) {
+  return value === 'All'
+    ? tx('all')
+    : value === 'Other'
+      ? tx('other')
+      : value === 'Recent'
+        ? tx('recent')
+        : value;
+}
+window.__SC_STREAM_COMPAT__ = streamCompatibility;
+/* Short tags for the source list, read from the same advisory text: quality, language, what
+   stands out in picture and sound (Dolby Vision, HDR, Atmos, DTS:X, IMAX, Remux, 5.1/7.1), size
+   and seeders. Other codecs only show when they are a compatibility warning. */
+function sourceTags(s) {
+  var t = streamText(s),
+    low = t.toLowerCase(),
+    out = [],
+    m;
+  if (s.quality && s.quality !== 'Other' && s.quality !== 'Recent') out.push({ t: s.quality, c: 'q' });
+  /* what makes a release stand out, as badges of their own */
+  if (/(dolby[ ._-]?vision|\bdovi\b|\bdv\b)/.test(low)) out.push({ t: 'DOLBY VISION', c: 'fx' });
+  if (/hdr10\+/.test(low)) out.push({ t: 'HDR10+', c: 'fx' });
+  else if (/\bhdr(10)?\b/.test(low)) out.push({ t: 'HDR', c: 'fx' });
+  if (/\batmos\b/.test(low)) out.push({ t: 'ATMOS', c: 'fx' });
+  if (/\bdts[ ._-]?x\b/.test(low)) out.push({ t: 'DTS:X', c: 'fx' });
+  if (/\bimax\b/.test(low)) out.push({ t: 'IMAX', c: 'fx' });
+  if (/\bremux\b/.test(low)) out.push({ t: 'REMUX', c: 'fx' });
+  m = low.match(/(?:^|[^0-9])([57])[ ._]1(?![0-9])/);
+  if (m) out.push({ t: m[1] + '.1' });
+  m = t.match(/(\d+(?:[.,]\d+)?)\s*(gb|gib|mb|mib)\b/i);
+  if (m) out.push({ t: m[1].replace(',', '.') + ' ' + m[2].charAt(0).toUpperCase() + 'B', c: 'size' });
+  if (s.seeders >= 0) out.push({ t: tx('seedsTag', s.seeders), c: 'seed' });
+  /* the audio and subtitle languages go right after the quality */
+  var langTags = [];
+  if (s.langs && s.langs.length) langTags.push({ t: langTagText(s.langs), c: 'lang' });
+  if (s.subLangs && s.subLangs.length) langTags.push(subTag(s.subLangs));
+  Array.prototype.splice.apply(out, [out.length && out[0].c === 'q' ? 1 : 0, 0].concat(langTags));
+  return out;
+}
+window.__SC_SOURCE_TAGS__ = sourceTags;
+window.__SC_STREAM_LANGUAGES__ = streamLanguages;
+window.__SC_LANGUAGE_INFO__ = streamLanguageInfo;
+/* 'PT-BR', 'ES-LA · EN', 'MULTI', or the first two and '+2' when there are more */
+function langTagText(langs) {
+  var names = [];
+  for (var i = 0; i < langs.length; i++)
+    names.push(langs[i] === 'es-419' ? 'ES-LA' : langs[i] === 'multi' ? 'MULTI' : langs[i].toUpperCase());
+  return names.length > 2 ? names.slice(0, 2).join(' · ') + ' +' + (names.length - 2) : names.join(' · ');
+}
+/* 'LEG EN · PT +4' (subtitles), without the multi marker the words already imply */
+function subTag(langs) {
+  var named = [];
+  for (var i = 0; i < langs.length; i++) if (langs[i] !== 'multi') named.push(langs[i]);
+  return { t: tx('subsTag') + ' ' + (named.length ? langTagText(named) : 'MULTI'), c: 'sublang' };
+}
+/* filter groups of a source: language bases, 'multi', or 'none' when nothing was detected */
+function langGroups(s) {
+  var langs = s.langs || [],
+    out = [];
+  for (var i = 0; i < langs.length; i++) {
+    var g = langBase(langs[i]);
+    if (out.indexOf(g) < 0) out.push(g);
+  }
+  if (!out.length) out.push('none');
+  return out;
+}
+/* whether a source passes the language filter of the source list (views/streams.js) */
+function inLangFilter(s, key) {
+  if (key === 'All') return true;
+  var lang = key.slice(2);
+  if (key.charAt(0) === 's') return subtitleGroups(s).indexOf(lang) >= 0;
+  return langGroups(s).indexOf(lang) >= 0;
+}
+/* the language groups of a source's subtitles */
+function subtitleGroups(s) {
+  var out = [],
+    subs = s.subLangs || [];
+  for (var i = 0; i < subs.length; i++) {
+    var g = langBase(subs[i]);
+    if (g !== 'multi' && out.indexOf(g) < 0) out.push(g);
+  }
+  return out;
+}
+/* a language group by its own name, as in the lists of languages */
+function sourceLanguageLabel(code) {
+  if (code === 'none') return tx('langOther');
+  if (code === 'multi') return 'Multi';
+  for (var i = 0; i < SOURCE_LANGUAGES.length; i++)
+    if (SOURCE_LANGUAGES[i][0] === code) return SOURCE_LANGUAGES[i][1];
+  return { ru: 'Русский', hi: 'हिन्दी', zh: '中文' }[code] || code.toUpperCase();
+}
+window.__SC_IN_LANG_FILTER__ = inLangFilter;
+/* the languages a source can be chosen in, by their own names (Settings, Best source) */
+var SOURCE_LANGUAGES = [
+  ['pt', 'Português'],
+  ['es', 'Español'],
+  ['en', 'English'],
+  ['fr', 'Français'],
+  ['it', 'Italiano'],
+  ['de', 'Deutsch'],
+  ['ko', '한국어'],
+  ['ja', '日本語']
+];
+function sourceLanguageName(code) {
+  for (var i = 0; i < SOURCE_LANGUAGES.length; i++)
+    if (SOURCE_LANGUAGES[i][0] === code) return SOURCE_LANGUAGES[i][1];
+  return tx('anyLanguage');
+}
+/* the language the source list is ordered by: only one fixed in Settings, so the one chosen in
+   Best source does not reorder the whole list */
+function fixedSourceLanguage() {
+  var set = lsRaw('preferredSourceLanguage', 'Ask');
+  return set === 'Ask' ? 'Auto' : set;
+}
+/* the language Best source looks for: the one in Settings, or with Ask the last one chosen */
+function preferredSourceLanguage() {
+  var set = lsRaw('preferredSourceLanguage', 'Ask');
+  return set === 'Ask' ? lsRaw('bestLanguage', 'Auto') : set;
+}
+/* 0 when the source has the preferred audio language, 1 for multi audio, 2 otherwise. A torrent
+   with almost no seeders counts as otherwise: the language does not put one that would hardly
+   load above the rest. */
+var LANGUAGE_MIN_SEEDERS = 5;
+function langRank(s, pref) {
+  if (!pref || pref === 'Auto') return 0;
+  if (s.seeders != null && s.seeders < LANGUAGE_MIN_SEEDERS) return 2;
+  var g = langGroups(s);
+  return g.indexOf(pref) >= 0 ? 0 : g.indexOf('multi') >= 0 ? 1 : 2;
+}
+/* What to play without choosing from the list, whose order already puts compatibility and seeders
+   first: in the language asked for when there is one, the first without a warning in the quality
+   asked for, or else in any known quality, and a low or unknown quality only when nothing better
+   has none. */
+function bestSource(items, quality, language) {
+  var playable = items.filter(function (s) {
+    return !s.stored && !(s.compatRank > 0) && !(s.compatLabels || []).length;
+  });
+  if (!playable.length)
+    playable = items.filter(function (s) {
+      return !s.stored && s.compatRank < 4;
+    });
+  /* the language asked for first, then multi-audio, keeping the list's order within each */
+  if (language && language !== 'Auto')
+    playable = playable
+      .map(function (s, i) {
+        return { s: s, i: i, r: langRank(s, language) };
+      })
+      .sort(function (a, b) {
+        return a.r - b.r || a.i - b.i;
+      })
+      .map(function (x) {
+        return x.s;
+      });
+  var asked = playable.filter(function (s) {
+    return s.quality === quality;
+  });
+  var known = playable.filter(function (s) {
+    return s.quality !== 'Other' && s.quality !== 'SD';
+  });
+  return asked[0] || known[0] || playable[0] || null;
+}
+window.__SC_BEST_SOURCE__ = bestSource;
+function streamSourceKey(s) {
+  if (s.stored) return 'stored';
+  var u = String(s.url || '').replace(/#.*$/, '');
+  var m = u.match(/127\.0\.0\.1:11470\/([0-9a-f]{32,64})\/(\d+)/i);
+  return m
+    ? 'torrent:' + m[1].toLowerCase() + ':' + m[2]
+    : 'url:' + u + '|' + JSON.stringify(s.headers || {}) + '|' + (s.notWebReady ? '1' : '0');
+}
+function sourceOrder(a, b) {
+  if (a.stored && !b.stored) return -1;
+  if (b.stored && !a.stored) return 1;
+  var ar = a.compatRank || 0,
+    br = b.compatRank || 0;
+  if (ar !== br) return ar - br;
+  var as = a.seeders == null ? -1 : a.seeders,
+    bs = b.seeders == null ? -1 : b.seeders;
+  if (as !== bs) return bs - as;
+  return (a._seq || 0) - (b._seq || 0);
+}
+function compactSourcePool(input, cap) {
+  var best = {},
+    unique = [],
+    i,
+    s,
+    k,
+    old,
+    buckets = {},
+    order = ['Recent', '4K', '1440p', '1080p', '720p', 'SD', 'Other'],
+    selected = [],
+    kept = {},
+    trimmed = {},
+    rest = [];
+  cap = Math.max(1, cap || 60);
+  for (i = 0; i < input.length; i++) {
+    s = input[i];
+    k = streamSourceKey(s);
+    old = best[k];
+    if (!old) {
+      best[k] = s;
+      unique.push(s);
+    } else if (sourceOrder(s, old) < 0) {
+      for (var u = 0; u < unique.length; u++)
+        if (unique[u] === old) {
+          unique[u] = s;
+          break;
+        }
+      best[k] = s;
+    }
+  }
+  for (i = 0; i < unique.length; i++) {
+    s = unique[i];
+    k = s.quality || 'Other';
+    if (!buckets[k]) {
+      buckets[k] = [];
+      if (order.indexOf(k) < 0) order.push(k);
+    }
+    buckets[k].push(s);
+  }
+  for (i = 0; i < order.length; i++) {
+    k = order[i];
+    if (buckets[k]) buckets[k].sort(sourceOrder);
+  }
+  /* Keep one representative of every available quality, then fill the remaining
+     global budget by compatibility and reliable seeder metadata. */
+  for (i = 0; i < order.length && selected.length < cap; i++) {
+    k = order[i];
+    if (buckets[k] && buckets[k].length) {
+      selected.push(buckets[k][0]);
+      kept[k] = 1;
+    }
+  }
+  for (i = 0; i < order.length; i++) {
+    k = order[i];
+    if (!buckets[k]) continue;
+    for (var r = kept[k] || 0; r < buckets[k].length; r++) rest.push(buckets[k][r]);
+  }
+  rest.sort(sourceOrder);
+  /* Debrid and direct links carry no seeder count, so by seeders a torrent addon filled the whole
+     list ahead of them. Each addon whose sources have none keeps a share (half of the list, split
+     evenly among all addons); addons with seeders compete by rank as before. */
+  var share = {},
+    seeded = {},
+    addons = 0,
+    left = [];
+  for (i = 0; i < unique.length; i++) {
+    k = unique[i].addon || '';
+    if (share[k] === undefined) {
+      share[k] = 0;
+      addons++;
+    }
+    if (unique[i].seeders != null) seeded[k] = true;
+  }
+  for (i = 0; i < selected.length; i++)
+    share[selected[i].addon || ''] = (share[selected[i].addon || ''] || 0) + 1;
+  var floor = Math.floor(cap / (2 * Math.max(1, addons)));
+  for (i = 0; i < rest.length; i++) {
+    s = rest[i];
+    k = s.addon || '';
+    if (selected.length < cap && !seeded[k] && share[k] < floor) {
+      share[k]++;
+      selected.push(s);
+      kept[s.quality || 'Other'] = (kept[s.quality || 'Other'] || 0) + 1;
+    } else left.push(s);
+  }
+  rest = left;
+  for (i = 0; i < rest.length && selected.length < cap; i++) {
+    s = rest[i];
+    selected.push(s);
+    k = s.quality || 'Other';
+    kept[k] = (kept[k] || 0) + 1;
+  }
+  for (k in buckets)
+    if (Object.prototype.hasOwnProperty.call(buckets, k) && buckets[k].length > (kept[k] || 0))
+      trimmed[k] = true;
+  return { items: selected, trimmed: trimmed };
+}
+window.__SC_COMPACT_SOURCES__ = compactSourcePool;
+/* onDone(total, failed): failed lists the addons that did not answer, so the picker can
+   tell "nothing found" apart from "the addon is down". */
+function fetchStreams(type, vid, onPart, onDone) {
+  var list = streamAddons(type);
+  var pending = list.length;
+  var total = 0;
+  var failed = [];
+  if (!pending) {
+    onDone(0, failed);
+    return;
+  }
+  for (var i = 0; i < list.length; i++)
+    (function (ad, idx) {
+      /* an addon that fails at once (a server error from a busy host, or no answer) is asked once
+         more; not one that has no such title, nor one that timed out, which would double the wait */
+      function ask(again) {
+        xhrJson(
+          streamUrl(ad, type, vid),
+          function (j, failure, status) {
+            if ((failure === 'offline' || status >= 500) && !again)
+              return setTimeout(function () {
+                ask(true);
+              }, 1200);
+            if (failure) failed.push(ad.name);
+            var st = (j && j.streams) || [];
+            var out = [];
+            for (var k = 0; k < st.length; k++) {
+              var item = sourceItem(st[k], ad.name, ad.base);
+              if (item) out.push(item);
+            }
+            total += out.length;
+            if (out.length) onPart(out, idx, ad.name);
+            pending--;
+            if (pending <= 0) onDone(total, failed);
+          },
+          45000
+        ); /* slow debrid addons can take 20-30s; phone/PC wait too — 15s was dropping them */
+      }
+      ask(false);
+    })(list[i], i);
+}
+// Opening the player and remembering source preferences for the next episode.
+/* ================= playback ================= */
+function playUrl(source, type, id, vid, backHash) {
+  var s = typeof source === 'string' ? { url: source } : source;
+  if (!s || !s.url) return;
+  clientDiag('source_selected', {
+    quality: s.quality || '',
+    compat: (s.compatLabels || []).join(','),
+    seeders: s.seeders == null ? '' : s.seeders
+  });
+  var tail =
+    '&type=' +
+    encodeURIComponent(type) +
+    '&id=' +
+    encodeURIComponent(id) +
+    '&vid=' +
+    encodeURIComponent(vid) +
+    '&back=' +
+    encodeURIComponent(backHash);
+  /* Keep signed cookies/authorization out of browser history and localStorage. The
+     Node service stores a small, sanitized stream reference and returns only its id. */
+  var body = streamRefBody(s);
+  body.meta = s.meta || knownArtwork(type, id);
+  function prepare(attempt) {
+    postJson(
+      '/streamref',
+      body,
+      function (j) {
+        if (j && j.ref) {
+          location.assign(appUrl('/play?ref=' + encodeURIComponent(j.ref) + tail));
+          return;
+        }
+        if (attempt < 2) {
+          setTimeout(function () {
+            prepare(attempt + 1);
+          }, 180);
+          return;
+        }
+        clientDiag('streamref_failed', { quality: s.quality || '' });
+        toast(tx('sourcePrepareFailed'));
+      },
+      attempt === 1 ? 2500 : 4500
+    );
+  }
+  /* a torrent needs the engine on this TV, or a streaming server on another computer */
+  if (/^https?:\/\/(?:127\.0\.0\.1|localhost):11470\//i.test(s.url))
+    xhrJson(
+      '/streamfile',
+      function (j) {
+        if (j && j.state === 'needs-server') toast(tx('torrentsNeedServer'), 6000);
+        else if (j && j.state === 'failed') toast(tx('torrentsUnavailable'));
+        else if (j && j.state === 'no-room') toast(tx('torrentsNoRoom'), 6000);
+        if (!HAS_MEDIA_TOOLS && !(j && j.state === 'needs-server')) prepare(1);
+      },
+      2000
+    );
+  if (HAS_MEDIA_TOOLS || !/^https?:\/\/(?:127\.0\.0\.1|localhost):11470\//i.test(s.url)) prepare(1);
+}
+function resumeSearch(id, vid) {
+  var q = null;
+  try {
+    q = localStorage.getItem('tvstream_' + id + '_' + vid);
+  } catch (e) {}
+  return q;
+}
+function playStored(q, backHash) {
+  q = q.replace(/&back=[^&]*/, '');
+  location.assign(appUrl('/play' + q + '&back=' + encodeURIComponent(backHash)));
+}
+/* Left by the player when a source would not play (player controls.js): the title page
+   reopens the sources and plays the next one, skipping the failed source. */
+function retryKey(id, vid) {
+  return 'tvretry_' + id + '_' + vid;
+}
+function hasRetryRequest(id, vid) {
+  return !!lsRaw(retryKey(id, vid), '');
+}
+function takeRetryRequest(id, vid) {
+  var pref = lsJson(retryKey(id, vid));
+  try {
+    localStorage.removeItem(retryKey(id, vid));
+  } catch (e) {}
+  return pref && pref.at && Date.now() - pref.at < 10 * 60 * 1000 ? pref : null;
+}
+/* the first source in list order that is not the one that failed */
+function nextSourceAfterFailure(items, pref) {
+  for (var i = 0; i < items.length; i++) {
+    var s = items[i];
+    if (s.stored) continue;
+    /* the player knows this text after the server took its line breaks out */
+    var text = String((s.name || '') + ' ' + (s.title || s.description || ''))
+      .replace(/[\r\n\0]/g, ' ')
+      .slice(0, 400);
+    if (s.addon === pref.addon && text === pref.text) continue;
+    return s;
+  }
+  return null;
+}
+window.__SC_NEXT_AFTER_FAILURE__ = nextSourceAfterFailure;
+function hasNextSourcePreference(id, vid) {
+  try {
+    return !!localStorage.getItem('tvnextpref_' + id + '_' + vid);
+  } catch (e) {
+    return false;
+  }
+}
+function takeNextSourcePreference(id, vid) {
+  var key = 'tvnextpref_' + id + '_' + vid,
+    raw = null,
+    pref = null;
+  try {
+    raw = localStorage.getItem(key);
+    localStorage.removeItem(key);
+  } catch (e) {}
+  if (!raw) return null;
+  try {
+    pref = JSON.parse(raw);
+  } catch (e2) {
+    return null;
+  }
+  if (!pref || !pref.at || Date.now() - pref.at > 10 * 60 * 1000) return null;
+  return pref;
+}
+window.__SC_MATCH_NEXT_SOURCE__ = matchingNextSource;
+// Title metadata cache (memory + localStorage) and artwork prewarming.
+/* ================= meta (cached; resolves via addons for non-imdb ids) ================= */
+var metaMem = {},
+  metaMemOrder = [];
+function putMetaMem(k, m) {
+  var at = metaMemOrder.indexOf(k);
+  if (at >= 0) metaMemOrder.splice(at, 1);
+  metaMem[k] = m;
+  metaMemOrder.push(k);
+  while (metaMemOrder.length > (TV_PROFILE.lowMemory ? 12 : 24)) {
+    var old = metaMemOrder.shift();
+    delete metaMem[old];
+  }
+}
+function metaAddonsFor(type, id) {
+  var out = [],
+    a = remoteAddons();
+  for (var i = 0; i < a.length; i++) {
+    var m = a[i] && a[i].manifest;
+    if (!m) continue;
+    var res = m.resources || [],
+      has = false;
+    for (var r = 0; r < res.length; r++) {
+      var rr = res[r];
+      if (rr === 'meta' || (rr && rr.name === 'meta')) has = true;
+    }
+    if (!has) continue;
+    var types = m.types || [];
+    if (types.length && types.indexOf(type) < 0) continue;
+    var ok = !m.idPrefixes || !m.idPrefixes.length;
+    if (m.idPrefixes)
+      for (var p = 0; p < m.idPrefixes.length; p++) if (String(id).indexOf(m.idPrefixes[p]) === 0) ok = true;
+    if (!ok) {
+      for (var r2 = 0; r2 < res.length; r2++) {
+        var rr2 = res[r2];
+        if (rr2 && rr2.name === 'meta' && rr2.idPrefixes)
+          for (var p2 = 0; p2 < rr2.idPrefixes.length; p2++)
+            if (String(id).indexOf(rr2.idPrefixes[p2]) === 0) ok = true;
+      }
+    }
+    if (ok) out.push(addonBase(a[i]));
+  }
+  return out;
+}
+function capMetaCache(k) {
+  var keys = lsJson('beta_meta_keys') || [];
+  var i = keys.indexOf(k);
+  if (i >= 0) keys.splice(i, 1);
+  keys.push(k);
+  while (keys.length > 12) {
+    var old = keys.shift();
+    try {
+      localStorage.removeItem('beta_meta_' + old);
+    } catch (e) {}
+  }
+  lsSet('beta_meta_keys', keys);
+}
+/* What is already known about a title, at once: its name and artwork for the player (playback.js).
+   Kitsu anime and long series such as One Piece answer the player's own lookup too late or not
+   at all, and the player then had only the torrent's name and no picture. */
+function knownArtwork(type, id) {
+  var k = type + '_' + id,
+    kept = lsJson('beta_meta_' + k),
+    m = metaMem[k] || (kept && kept.meta);
+  if (!m) return null;
+  return { name: m.name || '', logo: m.logo || '', background: m.background || '', poster: m.poster || '' };
+}
+/* An addon besides Cinemeta that describes IMDb titles, such as TMDB set to Italian: the one the
+   viewer installed to read titles in their language. The first in the addon order is used; the
+   TMDB addon names only tmdb: ids in its manifest but answers IMDb ones too. */
+var LOCAL_META_TIMEOUT_MS = 5000;
+function localMetaBase(type, id) {
+  var bases = metaAddonsFor(type, id).concat(metaAddonsFor(type, 'tmdb:'));
+  for (var i = 0; i < bases.length; i++) if (bases[i] && bases[i].indexOf('cinemeta') < 0) return bases[i];
+  return '';
+}
+/* Cinemeta keeps the structure (ids, episodes, ratings, genres for its own catalogs); the name,
+   the synopsis and the episode titles and summaries come from that addon */
+function overlayLocalText(meta, local) {
+  if (!meta || !local) return;
+  if (local.name) meta.name = local.name;
+  if (local.description) meta.description = local.description;
+  if (!meta.videos || !local.videos) return;
+  var byNum = {},
+    i,
+    v,
+    x;
+  for (i = 0; i < local.videos.length; i++) {
+    x = local.videos[i];
+    byNum[x.season + ':' + x.episode] = x;
+  }
+  for (i = 0; i < meta.videos.length; i++) {
+    v = meta.videos[i];
+    x = byNum[v.season + ':' + v.episode];
+    if (!x) continue;
+    if (x.name || x.title) v.name = v.title = x.name || x.title;
+    if (x.overview || x.description) v.overview = v.description = x.overview || x.description;
+  }
+}
+window.__SC_OVERLAY_LOCAL__ = overlayLocalText;
+function getMeta(type, id, cb) {
+  var k = type + '_' + id;
+  if (metaMem[k]) {
+    cb(metaMem[k]);
+    return;
+  }
+  var ls = lsJson('beta_meta_' + k);
+  var fresh = ls && ls.t && Date.now() - ls.t < 43200000 && ls.meta;
+  if (fresh) {
+    putMetaMem(k, ls.meta);
+    cb(ls.meta);
+  }
+  var bases = isImdb(id) ? [CIN] : metaAddonsFor(type, id);
+  if (!bases.length && !fresh) {
+    cb(null);
+    return;
+  }
+  /* the text in the viewer's language is asked at the same time, and waited for up to 5 s */
+  var local = isImdb(id) ? localMetaBase(type, id) : '',
+    localMeta = null,
+    localDone = !local,
+    whenLocal = null;
+  if (local)
+    xhrJson(
+      local + '/meta/' + type + '/' + encodeURIComponent(id) + '.json' + addonQueryFor(addons(), local),
+      function (j) {
+        localMeta = j && j.meta;
+        localDone = true;
+        if (whenLocal) whenLocal();
+      },
+      LOCAL_META_TIMEOUT_MS
+    );
+  var bi = 0;
+  function tryNext() {
+    if (bi >= bases.length) {
+      if (!fresh) cb(null);
+      return;
+    }
+    var b = bases[bi++];
+    xhrJson(
+      b + '/meta/' + type + '/' + encodeURIComponent(id) + '.json' + addonQueryFor(addons(), b),
+      function (j) {
+        var m = j && j.meta;
+        if (!m) {
+          tryNext();
+          return;
+        }
+        function keep() {
+          whenLocal = null;
+          overlayLocalText(m, localMeta);
+          putMetaMem(k, m);
+          lsSet('beta_meta_' + k, { t: Date.now(), meta: m });
+          capMetaCache(k);
+          if (!fresh) cb(m);
+        }
+        if (localDone) keep();
+        else whenLocal = keep;
+      }
+    );
+  }
+  tryNext();
+}
+var warmed = {},
+  warmedN = 0;
+function prewarm(u) {
+  if (!u || warmed[u]) return;
+  if (warmedN > (TV_PROFILE.lowMemory ? 48 : 140)) {
+    warmed = {};
+    warmedN = 0;
+  } /* keep the book-keeping map tiny */
+  warmed[u] = 1;
+  warmedN++;
+  var im = new Image();
+  im.src = u;
+}
+function prewarmNeighbors(row) {
+  if (!row || !row.items) return;
+  if (accel.cnt >= 2) return; /* moving at all: no precache — every large texture costs us on this GPU */
+  /* warm ONLY the focused item's backdrop + logo (what the hero shows next); neighbours'
+     full-screen backdrops were the RAM/GPU hog that made scrolling sluggish. */
+  var it = row.items[row.col];
+  if (!it) return;
+  prewarm(bgMid(it));
+  if (!TV_PROFILE.lowMemory && isImdb(it.id))
+    prewarm('https://images.metahub.space/logo/medium/' + it.id + '/img');
+}
+// Series episode model: season order, continuous numbering and metadata enrichment.
+function episodeNumber(v, fallback) {
+  var n = parseInt(v && (v.episode != null ? v.episode : v.number), 10);
+  return n > 0 ? n : fallback;
+}
+function explicitAbsoluteEpisode(v) {
+  var keys = ['absoluteEpisode', 'absolute_episode', 'absoluteNumber', 'absolute_number', 'episodeAbsolute'];
+  for (var i = 0; i < keys.length; i++) {
+    var n = parseInt(v && v[keys[i]], 10);
+    if (n > 0) return n;
+  }
+  return 0;
+}
+function releasedTime(v) {
+  var t = Date.parse((v && (v.released || v.firstAired)) || '');
+  return isNaN(t) ? 0 : t;
+}
+/* an episode without a date counts as released: addons often omit it */
+function episodeReleased(v, now) {
+  var t = releasedTime(v);
+  return !t || t <= (now || Date.now());
+}
+/* Episodes sort by number. Chromium 38/53 sort is not stable beyond 10 items, so ties
+   (missing or repeated numbers) fall back to the release date and then to the order
+   the addon sent, which keeps the list and the overall numbering identical on every
+   opening. Unnumbered episodes go after the numbered ones of their season. */
+function episodeOrder(a, b) {
+  var na = episodeNumber(a, 0),
+    nb = episodeNumber(b, 0);
+  if (na && nb && na !== nb) return na - nb;
+  if (!na !== !nb) return na ? -1 : 1;
+  var ra = releasedTime(a),
+    rb = releasedTime(b);
+  if (ra && rb && ra !== rb) return ra - rb;
+  return a._stremOrder - b._stremOrder;
+}
+function buildEpisodeModel(videos) {
+  var bySeason = {},
+    order = [],
+    seen = {},
+    hasSeasons = false,
+    i,
+    s,
+    v,
+    eps,
+    o,
+    sn,
+    last,
+    cursor = 0,
+    seasons = [],
+    linear = [];
+  videos = videos || [];
+  for (i = 0; i < videos.length; i++) if (videos[i] && videos[i].season != null) hasSeasons = true;
+  for (i = 0; i < videos.length; i++) {
+    v = videos[i];
+    if (!v || (v.id && seen[v.id])) continue; /* an addon listing the same video twice */
+    if (v.id) seen[v.id] = 1;
+    v._stremOrder = i;
+    /* without any season field (channel-like series) the videos are one regular
+       season, not specials, so they still get an overall numbering */
+    s = v.season != null ? parseInt(v.season, 10) : hasSeasons ? 0 : 1;
+    if (isNaN(s)) s = 0;
+    if (!bySeason[s]) {
+      bySeason[s] = [];
+      order.push(s);
+    }
+    bySeason[s].push(v);
+  }
+  order.sort(function (a, b) {
+    if (a === 0) return 1;
+    if (b === 0) return -1;
+    return a - b;
+  });
+  for (o = 0; o < order.length; o++) {
+    sn = order[o];
+    eps = bySeason[sn];
+    eps.sort(episodeOrder);
+    last = 0;
+    for (i = 0; i < eps.length; i++) {
+      v = eps[i];
+      v._stremSeason = sn;
+      /* an unnumbered episode continues after the highest number seen, never reusing one */
+      v._stremSeasonEpisode = episodeNumber(v, last + 1);
+      last = Math.max(last, v._stremSeasonEpisode);
+      if (sn === 0) v._stremAbsolute = 0;
+      else {
+        var ex = explicitAbsoluteEpisode(v);
+        cursor = ex > 0 ? Math.max(cursor + 1, ex) : cursor + 1;
+        v._stremAbsolute = cursor;
+        linear.push(v);
+      }
+    }
+    seasons.push({ n: sn, eps: eps });
+  }
+  return { seasons: seasons, linear: linear };
+}
+/* Episodes watched on any Stremio app, from the library item's `watched` field decoded by
+   the local server (/watchedbits). Same rule as stremio-watched-bitfield: video ids ordered
+   by season then episode (season 0 first, ties keep the addon order), and the stored bits
+   shifted so that the anchor video keeps its position. An unknown anchor means none. */
+function watchedFromBits(res, videos) {
+  var list = [],
+    out = {},
+    i;
+  for (i = 0; i < (videos || []).length; i++)
+    if (videos[i] && videos[i].id) list.push({ v: videos[i], i: i });
+  function num(x) {
+    var n = parseInt(x, 10);
+    return isNaN(n) ? -Infinity : n;
+  }
+  list.sort(function (a, b) {
+    var sa = num(a.v.season),
+      sb = num(b.v.season),
+      ea = num(a.v.episode != null ? a.v.episode : a.v.number),
+      eb = num(b.v.episode != null ? b.v.episode : b.v.number);
+    if (sa !== sb) return sa < sb ? -1 : 1;
+    if (ea !== eb) return ea < eb ? -1 : 1;
+    return a.i - b.i;
+  });
+  var at = -1;
+  for (i = 0; i < list.length; i++) if (list[i].v.id === res.anchor) at = i;
+  if (at < 0 || !res.bits) return out;
+  var offset = (parseInt(res.alen, 10) || 0) - at - 1;
+  for (i = 0; i < list.length; i++) {
+    var j = i + offset;
+    if (j >= 0 && j < res.bits.length && res.bits[j]) out[list[i].v.id] = 1;
+  }
+  return out;
+}
+window.__SC_WATCHED_FROM_BITS__ = watchedFromBits;
+function episodeImage(v, meta) {
+  var u = (v && (v.thumbnail || v.still || v.stillPath || v.still_path)) || '';
+  if (u && String(u).charAt(0) === '/') u = 'https://image.tmdb.org/t/p/w500' + u;
+  return u;
+}
+function episodeIndexByNumber(items, n) {
+  for (var i = 0; i < (items || []).length; i++) if (items[i]._stremAbsolute === n) return i;
+  return -1;
+}
+window.__SC_EPISODE_INDEX__ = episodeIndexByNumber;
+function episodeFallback(meta, small) {
+  if (!meta) return '';
+  return small ? bgSmall(meta) || posterOf(meta) : meta.background || bgOf(meta) || meta.poster || '';
+}
+function mergeEpisodeDetails(base, extra) {
+  if (!base || !extra || !base.videos || !extra.videos) return false;
+  var byId = {},
+    byNum = {},
+    i,
+    v,
+    x,
+    k,
+    changed = false,
+    fields = [
+      'thumbnail',
+      'still',
+      'stillPath',
+      'still_path',
+      'overview',
+      'description',
+      'name',
+      'title',
+      'absoluteEpisode',
+      'absolute_episode',
+      'absoluteNumber',
+      'absolute_number'
+    ];
+  for (i = 0; i < extra.videos.length; i++) {
+    x = extra.videos[i];
+    if (x.id) byId[x.id] = x;
+    k = String(x.season == null ? 0 : x.season) + ':' + String(episodeNumber(x, i + 1));
+    byNum[k] = x;
+  }
+  for (i = 0; i < base.videos.length; i++) {
+    v = base.videos[i];
+    x =
+      (v.id && byId[v.id]) ||
+      byNum[String(v.season == null ? 0 : v.season) + ':' + String(episodeNumber(v, i + 1))];
+    if (!x) continue;
+    for (var f = 0; f < fields.length; f++) {
+      k = fields[f];
+      if (!v[k] && x[k]) {
+        v[k] = x[k];
+        changed = true;
+      }
+    }
+  }
+  return changed;
+}
+function enrichEpisodeMetadata(type, id, meta, cb) {
+  if (type !== 'series' || !meta || !meta.videos || !meta.videos.length) {
+    cb(false);
+    return;
+  }
+  var bases = metaAddonsFor(type, id),
+    seen = {},
+    queue = [];
+  for (var i = 0; i < bases.length; i++) {
+    var b = bases[i];
+    if (b && b !== CIN && !seen[b]) {
+      seen[b] = 1;
+      queue.push(b);
+    }
+  }
+  var at = 0,
+    changed = false;
+  function next() {
+    if (at >= queue.length) {
+      cb(changed);
+      return;
+    }
+    var b = queue[at++];
+    xhrJson(
+      b + '/meta/' + type + '/' + encodeURIComponent(id) + '.json' + addonQueryFor(addons(), b),
+      function (j) {
+        if (j && j.meta) changed = mergeEpisodeDetails(meta, j.meta) || changed;
+        next();
+      },
+      4500
+    );
+  }
+  next();
+}
+window.__SC_EPISODE_MODEL__ = buildEpisodeModel;
+window.__SC_MERGE_EPISODES__ = mergeEpisodeDetails;
+// Series that gained episodes since they were last watched, for the Home row.
+/* Checked at most once a day, for the few series watched most recently, one metadata
+   request at a time in the background after Home is up. The result is stored and shown
+   the next time Home is built, so a row never appears under the viewer's focus. */
+var NEW_EPISODES_KEY = 'newEpisodes',
+  NEW_EPISODES_HIDDEN = 'newEpisodesHidden',
+  NEW_EPISODES_EVERY = 24 * 60 * 60 * 1000;
+/* the series the viewer took out of the row (card menu) */
+function hiddenNewEpisodes() {
+  return lsJson(NEW_EPISODES_HIDDEN) || [];
+}
+function newEpisodeItems() {
+  var c = lsJson(NEW_EPISODES_KEY),
+    hidden = hiddenNewEpisodes();
+  return ((c && c.items) || []).filter(function (it) {
+    return hidden.indexOf(it.id) < 0;
+  });
+}
+function hideNewEpisodes(id) {
+  var hidden = hiddenNewEpisodes();
+  if (hidden.indexOf(id) < 0) hidden.push(id);
+  lsSet(NEW_EPISODES_HIDDEN, hidden);
+}
+/* the first aired, unwatched regular episode released after the series was last watched */
+function firstNewEpisode(meta, state) {
+  var since = Date.parse(state.lastWatched || '') || 0,
+    now = Date.now(),
+    seen = {},
+    best = null,
+    bestAt = 0,
+    count = 0,
+    we = state.watchedEpisodes || [];
+  for (var w = 0; w < we.length; w++) seen[we[w]] = 1;
+  var videos = (meta && meta.videos) || [];
+  for (var i = 0; i < videos.length; i++) {
+    var v = videos[i],
+      at = releasedTime(v);
+    if (!v || !v.id || !(parseInt(v.season, 10) > 0) || seen[v.id]) continue;
+    if (!at || at <= since || at > now) continue;
+    count++;
+    if (!best || at < bestAt) {
+      best = v;
+      bestAt = at;
+    }
+  }
+  return best ? { id: best.id, count: count } : null;
+}
+window.__SC_FIRST_NEW_EPISODE__ = firstNewEpisode;
+function checkNewEpisodes(done) {
+  var cached = lsJson(NEW_EPISODES_KEY);
+  if (cached && cached.at && Date.now() - cached.at < NEW_EPISODES_EVERY) {
+    done(false);
+    return;
+  }
+  var lib = allLib(),
+    series = [];
+  for (var i = 0; i < lib.length; i++) {
+    var it = lib[i],
+      s = it.state || {};
+    if (it.type !== 'series' || !it._id || hiddenNewEpisodes().indexOf(it._id) >= 0) continue;
+    if (it.removed && !(s.timeOffset > 0) && !(s.watchedEpisodes && s.watchedEpisodes.length)) continue;
+    series.push(it);
+  }
+  series.sort(function (a, b) {
+    return String(b._mtime || '').localeCompare(String(a._mtime || ''));
+  });
+  series = series.slice(0, TV_PROFILE.lowMemory ? 3 : 6);
+  var found = [],
+    at = 0;
+  function next() {
+    if (at >= series.length) {
+      var before = JSON.stringify(newEpisodeItems());
+      lsSet(NEW_EPISODES_KEY, { at: Date.now(), items: found });
+      done(JSON.stringify(found) !== before);
+      return;
+    }
+    var it = series[at++];
+    getMeta('series', it._id, function (m) {
+      var ep = m && firstNewEpisode(m, it.state || {});
+      if (ep)
+        found.push({
+          id: it._id,
+          type: 'series',
+          name: (m && m.name) || it.name || '',
+          poster: it.poster || (m && m.poster) || '',
+          background: it.background || (m && m.background) || '',
+          videoId: ep.id,
+          fresh: true
+        });
+      next();
+    });
+  }
+  next();
+}
+// Library add/remove and watched state.
+/* ================= library helpers (explicit add only — watching never adds) ================= */
+function libHas(id) {
+  var it = lsJson(PRE + id);
+  return !!(it && it.removed === false);
+}
+/* A film counts as watched when Stremio says so (times watched or the watched flag, also
+   set by other devices, which reset the position to 0 once a film ends), when it is in the
+   local watched list, or when it stopped in the credits (past 90 %). */
+function itemWatched(it) {
+  if (!it || !it.id || it.type === 'series') return false;
+  var lib = lsJson(PRE + it.id);
+  if (!lib || !lib.state) return false;
+  var s = lib.state;
+  var vid = it.videoId || it.id;
+  if (s.timesWatched > 0 || s.flaggedWatched > 0) return true;
+  if (s.watchedEpisodes)
+    for (var i = 0; i < s.watchedEpisodes.length; i++) if (s.watchedEpisodes[i] === vid) return true;
+  return watchFinished(s.timeOffset, s.duration);
+}
+/* A library entry as Stremio stores one, for a title the library has not seen yet */
+function newLibItem(item, now) {
+  return {
+    state: {
+      lastWatched: now,
+      timeOffset: 0,
+      timeWatched: 0,
+      overallTimeWatched: 0,
+      timesWatched: 0,
+      flaggedWatched: 0,
+      duration: 0,
+      video_id: item.id,
+      watched: '',
+      noNotif: false,
+      season: 0,
+      episode: 0,
+      watchedEpisodes: []
+    },
+    _id: item.id,
+    _ctime: now
+  };
+}
+function libToggle(item) {
+  var now = new Date().toISOString();
+  var it = lsJson(PRE + item.id);
+  if (it && it.removed === false) {
+    it.removed = true;
+    it._mtime = now;
+    lsSet(PRE + item.id, it);
+    toast(tx('removedLibrary'));
+  } else {
+    if (!it) it = newLibItem(item, now);
+    it.removed = false;
+    it.temp = false;
+    it._mtime = now;
+    it.name = item.name || it.name || '';
+    it.type = item.type;
+    it.poster = item.poster || it.poster || '';
+    it.posterShape = 'poster';
+    it.background = item.background || it.background || '';
+    lsSet(PRE + item.id, it);
+    toast(tx('addedLibrary'));
+  }
+  pushLib(lsJson(PRE + item.id));
+  invalidateBoards();
+}
+/* Leaves Continue Watching without marking anything watched, as Stremio dismisses an
+   item: the saved position returns to the start. Synced like any library change. */
+function dismissCw(id) {
+  var lib = lsJson(PRE + id);
+  if (!lib || !lib.state) return null;
+  lib.state.timeOffset = 0;
+  lib._mtime = new Date().toISOString();
+  lsSet(PRE + id, lib);
+  return lib;
+}
+function removeFromCw(it) {
+  var lib = dismissCw(it.id);
+  if (lib) pushLib(lib);
+  invalidateBoards();
+}
+function clearContinueWatching() {
+  var items = cwItems(1000),
+    changed = [];
+  for (var i = 0; i < items.length; i++) {
+    var lib = dismissCw(items[i]._id);
+    if (lib) changed.push(lib);
+  }
+  pushLibItems(changed);
+  invalidateBoards();
+  return changed.length;
+}
+/* the searches Search offers again (views/search.js) */
+var RECENT_SEARCH_KEY = 'recentSearches';
+function clearRecentSearches() {
+  lsSet(RECENT_SEARCH_KEY, []);
+  search.recentSig = null;
+}
+/* Marked watched as the official apps do: the watched flag, one more time watched and,
+   for an episode, its bit in state.watched (written by the local server, which has the
+   episode list), so other devices show it too. */
+function markCwWatched(it) {
+  var lib2 = lsJson(PRE + it.id);
+  if (!lib2) return;
+  var s2 = lib2.state || {};
+  var vid = s2.video_id || it.videoId || it.id;
+  if (!s2.watchedEpisodes) s2.watchedEpisodes = [];
+  if (s2.watchedEpisodes.indexOf(vid) < 0) s2.watchedEpisodes.push(vid);
+  if (!s2.flaggedWatched) s2.timesWatched = (s2.timesWatched || 0) + 1;
+  s2.flaggedWatched = 1;
+  s2.timeOffset = 0;
+  lib2.state = s2;
+  lib2._mtime = new Date().toISOString();
+  lsSet(PRE + it.id, lib2);
+  pushLib(lib2);
+  invalidateBoards();
+  if (lib2.type !== 'series' || vid === it.id) return;
+  pushEpisodeField(it.id, vid, true, s2.watched);
+}
+/* An episode's bit in state.watched, written by the local server (it has the episode
+   list), so other devices show the change too; cb runs once it is saved. */
+function pushEpisodeField(id, vid, watched, field, cb) {
+  xhrJson(
+    '/watchedset?id=' +
+      encodeURIComponent(id) +
+      '&vid=' +
+      encodeURIComponent(vid) +
+      '&w=' +
+      (watched ? '1' : '0') +
+      '&f=' +
+      encodeURIComponent(field || ''),
+    function (j) {
+      var cur = lsJson(PRE + id);
+      if (j && j.watched && cur && cur.state) {
+        cur.state.watched = j.watched;
+        cur._mtime = new Date().toISOString();
+        lsSet(PRE + id, cur);
+        pushLib(cur);
+      }
+      if (cb) cb();
+    }
+  );
+}
+/* Mark as watched / unwatched from the title menu: a film (it.videoId empty or its own id)
+   or one episode of a series (it.videoId). A title not in the library gets an entry that
+   stays out of it (removed), as Stremio keeps watched state for titles never added. */
+function setItemWatched(it, watched, cb) {
+  var now = new Date().toISOString(),
+    lib = lsJson(PRE + it.id);
+  if (!lib) {
+    lib = newLibItem(it, now);
+    lib.removed = true;
+    lib.temp = true;
+    lib.name = it.name || '';
+    lib.type = it.type;
+    lib.poster = it.poster || '';
+    lib.posterShape = 'poster';
+    lib.background = it.background || '';
+  }
+  var s = lib.state || (lib.state = {}),
+    vid = it.videoId || it.id,
+    episode = it.type === 'series' && vid !== it.id;
+  if (!s.watchedEpisodes) s.watchedEpisodes = [];
+  var at = s.watchedEpisodes.indexOf(vid);
+  if (watched && at < 0) s.watchedEpisodes.push(vid);
+  if (!watched && at >= 0) s.watchedEpisodes.splice(at, 1);
+  if (!episode) {
+    if (watched && !s.flaggedWatched) s.timesWatched = (s.timesWatched || 0) + 1;
+    s.flaggedWatched = watched ? 1 : 0;
+    if (!watched) s.timesWatched = 0;
+  }
+  if (s.video_id === vid) s.timeOffset = 0;
+  lib._mtime = now;
+  lsSet(PRE + it.id, lib);
+  pushLib(lib);
+  invalidateBoards();
+  if (episode) pushEpisodeField(it.id, vid, watched, s.watched, cb);
+  else if (cb) cb();
+}
+/* A whole season at once: its episodes one after another, since each episode's bit is
+   written over the field the previous one left. */
+function setEpisodesWatched(it, vids, watched, cb) {
+  var i = 0;
+  (function next() {
+    if (i >= vids.length) {
+      if (cb) cb();
+      return;
+    }
+    setItemWatched(
+      {
+        type: 'series',
+        id: it.id,
+        name: it.name,
+        poster: it.poster,
+        background: it.background,
+        videoId: vids[i++]
+      },
+      watched,
+      next
+    );
+  })();
+}
+/* what the server may call (server/app-api.js); nothing else is reachable from outside */
+window.__logic = {
+  addons: addons,
+  allLib: allLib,
+  authKey: authKey,
+  bestSource: bestSource,
+  buildEpisodeModel: buildEpisodeModel,
+  checkNewEpisodes: checkNewEpisodes,
+  clearContinueWatching: clearContinueWatching,
+  clearRecentSearches: clearRecentSearches,
+  compactSourcePool: compactSourcePool,
+  cwItems: cwItems,
+  cwCard: cwCard,
+  discoverCatalogs: discoverCatalogs,
+  discoverGenres: discoverGenres,
+  discoverTypes: discoverTypes,
+  enrichEpisodeMetadata: enrichEpisodeMetadata,
+  fetchStreams: fetchStreams,
+  getCatalogUrl: getCatalogUrl,
+  getMeta: getMeta,
+  hideNewEpisodes: hideNewEpisodes,
+  homeDefs: homeDefs,
+  homeLibraryRows: homeLibraryRows,
+  isNuvioAccount: isNuvioAccount,
+  libGridItems: libGridItems,
+  libHas: libHas,
+  libToggle: libToggle,
+  newEpisodeItems: newEpisodeItems,
+  nuvioCollections: nuvioCollections,
+  pullLib: pullLib,
+  removeFromCw: removeFromCw,
+  setEpisodesWatched: setEpisodesWatched,
+  setItemWatched: setItemWatched,
+  sourceTags: sourceTags,
+  syncAddons: syncAddons,
+  syncCollections: syncCollections,
+  tx: tx,
+  uiLanguage: function () {
+    return UI_LANG;
+  },
+  uiText: function () {
+    return { lang: UI_TEXT[UI_LANG] || {}, fallback: UI_TEXT['en-US'] };
+  },
+  user: user
+};
+})();

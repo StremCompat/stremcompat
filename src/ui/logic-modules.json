@@ -1,0 +1,23 @@
+[
+  "_logic-prelude.js",
+  "core/base.js",
+  "../platform/lg/common.js",
+  "core/net.js",
+  "core/storage.js",
+  "../shared/strings.js",
+  "../shared/watch-state.js",
+  "../shared/stream-addons.js",
+  "../shared/source-info.js",
+  "core/format.js",
+  "data/artwork.js",
+  "data/account.js",
+  "data/addons.js",
+  "data/catalogs.js",
+  "data/streams.js",
+  "data/playback.js",
+  "data/meta.js",
+  "data/episodes.js",
+  "data/new-episodes.js",
+  "data/library-actions.js",
+  "_logic-epilogue.js"
+]

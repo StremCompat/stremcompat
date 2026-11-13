@@ -90,6 +90,8 @@ function clearContinueWatching() {
   invalidateBoards();
   return changed.length;
 }
+/* the searches Search offers again (views/search.js) */
+var RECENT_SEARCH_KEY = 'recentSearches';
 function clearRecentSearches() {
   lsSet(RECENT_SEARCH_KEY, []);
   search.recentSig = null;

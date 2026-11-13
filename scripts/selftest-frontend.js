@@ -137,7 +137,11 @@ var firstRun = run(emptyStorage(), 'scrLogin', null, 'en-US');
       bodyAdd: function (n) { if ((' ' + body.className + ' ').indexOf(' ' + n + ' ') < 0) body.className = (body.className + ' ' + n).trim(); },
       bodyRemove: function (n) { body.className = (' ' + body.className + ' ').replace(' ' + n + ' ', ' ').trim(); }
     };
-    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'views', 'setup.js'), 'utf8'), ctx);
+    /* uiLook lives with the artwork sizes it decides (data/artwork.js) */
+    vm.createContext(ctx);
+    ['data/artwork.js', 'views/setup.js'].forEach(function (file) {
+      vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', file), 'utf8'), ctx);
+    });
     ctx.data = data;
     ctx.body = body;
     return ctx;

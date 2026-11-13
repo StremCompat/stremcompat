@@ -1965,7 +1965,15 @@ function smoothnessLine() {
   var late = smooth.frames ? Math.round((smooth.late / (smooth.frames + smooth.late)) * 100) : 0;
   return tx('diagRemote', w[Math.floor(w.length / 2)], w[w.length - 1], late);
 }
-// Poster, backdrop and icon URLs.
+// Poster, backdrop and icon URLs, and the look that decides their sizes.
+/* the look this TV had before anyone chose: light on the TVs the profile already treats as small.
+   The modern look of the 4.0 tests is gone: a TV that chose it has the standard one. */
+var PROFILE_LOW_MEMORY = !!TV_PROFILE.lowMemory;
+function uiLook() {
+  return lsRaw('uiLook', '') === 'light' || (!lsRaw('uiLook', '') && PROFILE_LOW_MEMORY)
+    ? 'light'
+    : 'standard';
+}
 function isImdb(id) {
   return String(id || '').indexOf('tt') === 0;
 }
@@ -2449,6 +2457,62 @@ function homeCatalogs() {
   }
   return out;
 }
+/* HOME rows = YOUR addon catalogs (in order); Cinemeta defaults if none configured */
+function homeDefs() {
+  var tiles = collectionTileDefs();
+  /* with Nuvio Collections, Home is those collections only, as in Nuvio's own apps */
+  if (tiles.length) return tiles;
+  var cats = homeCatalogs();
+  if (!cats.length)
+    cats = [
+      {
+        title: tx('popularMovies'),
+        type: 'movie',
+        url: CIN + '/catalog/movie/top.json',
+        key: 'cin_m_top',
+        ranked: true
+      },
+      { title: tx('popularSeries'), type: 'series', url: CIN + '/catalog/series/top.json', key: 'cin_s_top' },
+      { title: tx('topMovies'), type: 'movie', url: CIN + '/catalog/movie/imdbRating.json', key: 'cin_m_ir' },
+      {
+        title: tx('topSeries'),
+        type: 'series',
+        url: CIN + '/catalog/series/imdbRating.json',
+        key: 'cin_s_ir'
+      }
+    ];
+  /* an addon's own "popular" catalog ranks its first ten too */
+  for (var i = 0; i < cats.length; i++)
+    if (/\/catalog\/[^\/]+\/top\.json$/.test(cats[i].url || '')) {
+      cats[i].ranked = true;
+      break;
+    }
+  return cats;
+}
+/* The rows Home starts with, from this TV's library: Continue Watching, then the new episodes
+   of followed series and the titles added to the library, which otherwise only appear in the
+   Library section. wide rows show landscape cards. */
+function homeLibraryRows() {
+  var rows = [],
+    cw = cwItems(),
+    cwMapped = [];
+  for (var c = 0; c < cw.length; c++) cwMapped.push(cwCard(cw[c]));
+  if (cwMapped.length) rows.push({ title: tx('continueWatching'), items: cwMapped, wide: true });
+  var fresh = newEpisodeItems();
+  if (fresh.length) rows.push({ title: tx('newEpisodes'), items: fresh, wide: true });
+  var mine = libGridItems().slice(0, 20),
+    mineMapped = [];
+  for (var mi = 0; mi < mine.length; mi++)
+    mineMapped.push({
+      id: mine[mi]._id,
+      type: mine[mi].type,
+      name: mine[mi].name,
+      poster: mine[mi].poster,
+      background: mine[mi].background
+    });
+  if (mineMapped.length) rows.push({ title: tx('myList'), items: mineMapped, wide: false });
+  return rows;
+}
 function discoverCatalogs(type) {
   var out = [],
     seen = {},
@@ -2499,6 +2563,14 @@ function discoverCatalogs(type) {
   }
   return out;
 }
+/* DISCOVER rows = trending + top + a spread of genres */
+var DGEN = [
+  ['Action', 'genreAction'],
+  ['Comedy', 'genreComedy'],
+  ['Sci-Fi', 'genreSciFi'],
+  ['Drama', 'genreDrama'],
+  ['Horror', 'genreHorror']
+];
 function discoverGenres(cat) {
   var out = [],
     values = cat && cat.genres && cat.genres.length ? cat.genres : null;
@@ -4532,36 +4604,11 @@ function loadCatalogRows(board, defs, includeCW, keepFocus) {
     }, delay);
   }
   if (includeCW) {
-    var cw = cwItems();
-    if (cw.length) {
-      var cwMapped = [];
-      for (var c = 0; c < cw.length; c++) cwMapped.push(cwCard(cw[c]));
-      var r0 = buildRow(tx('continueWatching'), cwMapped, true);
-      board.rows.push(r0);
-      reveal(r0, 70);
-    }
-    /* Home also surfaces new episodes of followed series and the titles added to the
-       library, which otherwise only appear in the Library section */
-    var fresh = newEpisodeItems();
-    if (fresh.length) {
-      var rn = buildRow(tx('newEpisodes'), fresh, true);
-      board.rows.push(rn);
-      reveal(rn, 90);
-    }
-    var mine = libGridItems().slice(0, 20),
-      mineMapped = [];
-    for (var mi = 0; mi < mine.length; mi++)
-      mineMapped.push({
-        id: mine[mi]._id,
-        type: mine[mi].type,
-        name: mine[mi].name,
-        poster: mine[mi].poster,
-        background: mine[mi].background
-      });
-    if (mineMapped.length) {
-      var rm = buildRow(tx('myList'), mineMapped, false);
-      board.rows.push(rm);
-      reveal(rm, 110);
+    var local = homeLibraryRows();
+    for (var lr = 0; lr < local.length; lr++) {
+      var libRow = buildRow(local[lr].title, local[lr].items, local[lr].wide);
+      board.rows.push(libRow);
+      reveal(libRow, 70 + lr * 20);
     }
   }
   for (var d = 0; d < defs.length; d++)
@@ -4663,46 +4710,6 @@ function becauseYouWatchedDef() {
     skip: last.id
   };
 }
-/* HOME rows = YOUR addon catalogs (in order); Cinemeta defaults if none configured */
-function homeDefs() {
-  var tiles = collectionTileDefs();
-  /* with Nuvio Collections, Home is those collections only, as in Nuvio's own apps */
-  if (tiles.length) return tiles;
-  var cats = homeCatalogs();
-  if (!cats.length)
-    cats = [
-      {
-        title: tx('popularMovies'),
-        type: 'movie',
-        url: CIN + '/catalog/movie/top.json',
-        key: 'cin_m_top',
-        ranked: true
-      },
-      { title: tx('popularSeries'), type: 'series', url: CIN + '/catalog/series/top.json', key: 'cin_s_top' },
-      { title: tx('topMovies'), type: 'movie', url: CIN + '/catalog/movie/imdbRating.json', key: 'cin_m_ir' },
-      {
-        title: tx('topSeries'),
-        type: 'series',
-        url: CIN + '/catalog/series/imdbRating.json',
-        key: 'cin_s_ir'
-      }
-    ];
-  /* an addon's own "popular" catalog ranks its first ten too */
-  for (var i = 0; i < cats.length; i++)
-    if (/\/catalog\/[^\/]+\/top\.json$/.test(cats[i].url || '')) {
-      cats[i].ranked = true;
-      break;
-    }
-  return cats;
-}
-/* DISCOVER rows = trending + top + a spread of genres */
-var DGEN = [
-  ['Action', 'genreAction'],
-  ['Comedy', 'genreComedy'],
-  ['Sci-Fi', 'genreSciFi'],
-  ['Drama', 'genreDrama'],
-  ['Horror', 'genreHorror']
-];
 /* LIBRARY rows = Continue Watching + your added Movies + Series (all local) */
 /* Continue Watching lives on Home only, as in the Stremio apps */
 function loadLibraryRows(board) {
@@ -4896,6 +4903,8 @@ function clearContinueWatching() {
   invalidateBoards();
   return changed.length;
 }
+/* the searches Search offers again (views/search.js) */
+var RECENT_SEARCH_KEY = 'recentSearches';
 function clearRecentSearches() {
   lsSet(RECENT_SEARCH_KEY, []);
   search.recentSig = null;
@@ -6557,14 +6566,6 @@ var episodeJump = {
 window.__SC_EPISODE_JUMP__ = episodeJump;
 // The first start of 4.0: how the app is used (simple or complete) and how it looks (standard or
 // light). Both stay in Settings; skipping keeps everything as it was.
-/* the look this TV had before anyone chose: light on the TVs the profile already treats as small.
-   The modern look of the 4.0 tests is gone: a TV that chose it has the standard one. */
-var PROFILE_LOW_MEMORY = !!TV_PROFILE.lowMemory;
-function uiLook() {
-  return lsRaw('uiLook', '') === 'light' || (!lsRaw('uiLook', '') && PROFILE_LOW_MEMORY)
-    ? 'light'
-    : 'standard';
-}
 function simpleMode() {
   return lsRaw('uiMode', 'full') === 'simple';
 }
@@ -7615,8 +7616,7 @@ var streamsUI = {
 };
 // Search screen: on-screen keyboard, live results and recent searches.
 /* Typing with the remote is slow, so the last searches stay one key away. */
-var RECENT_SEARCH_KEY = 'recentSearches',
-  RECENT_SEARCH_MAX = 8;
+var RECENT_SEARCH_MAX = 8;
 function recentSearches() {
   var list = lsJson(RECENT_SEARCH_KEY);
   return Object.prototype.toString.call(list) === '[object Array]' ? list : [];

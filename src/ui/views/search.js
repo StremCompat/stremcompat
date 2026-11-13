@@ -1,7 +1,6 @@
 // Search screen: on-screen keyboard, live results and recent searches.
 /* Typing with the remote is slow, so the last searches stay one key away. */
-var RECENT_SEARCH_KEY = 'recentSearches',
-  RECENT_SEARCH_MAX = 8;
+var RECENT_SEARCH_MAX = 8;
 function recentSearches() {
   var list = lsJson(RECENT_SEARCH_KEY);
   return Object.prototype.toString.call(list) === '[object Array]' ? list : [];

@@ -3,6 +3,8 @@
 // Builds the browser files the service serves from their sources:
 //
 //   src/ui/*.js      -> service/interface.js            (order: src/ui/modules.json)
+//   the data part of it -> service/app-logic.js          (order: src/ui/logic-modules.json), run
+//                          inside the server for the native interface (server/app-runtime.js)
 //   src/player/*.js  -> service/player/player-client.js (order: src/player/modules.json)
 //   src/ui/index.html + src/ui/styles/*.css -> service/interface.html (order: src/ui/styles/styles.json)
 //   the same scripts with src/platform/tizen -> platforms/tizen/generated/ (see build-tizen.js)
@@ -32,8 +34,8 @@ function list(dir, manifest) {
   return JSON.parse(read(path.join(dir, manifest)));
 }
 
-function scripts(dir, platform) {
-  return list(dir, 'modules.json')
+function scripts(dir, platform, manifest) {
+  return list(dir, manifest || 'modules.json')
     .map(function (name) {
       var text = read(
         path.join(dir, platform ? name.replace('platform/lg/', 'platform/' + platform + '/') : name)
@@ -64,6 +66,12 @@ var targets = [
     out: 'service/interface.js',
     build: function () {
       return scripts(path.join(root, 'src', 'ui'));
+    }
+  },
+  {
+    out: 'service/app-logic.js',
+    build: function () {
+      return scripts(path.join(root, 'src', 'ui'), null, 'logic-modules.json');
     }
   },
   {

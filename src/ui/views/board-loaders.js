@@ -53,36 +53,11 @@ function loadCatalogRows(board, defs, includeCW, keepFocus) {
     }, delay);
   }
   if (includeCW) {
-    var cw = cwItems();
-    if (cw.length) {
-      var cwMapped = [];
-      for (var c = 0; c < cw.length; c++) cwMapped.push(cwCard(cw[c]));
-      var r0 = buildRow(tx('continueWatching'), cwMapped, true);
-      board.rows.push(r0);
-      reveal(r0, 70);
-    }
-    /* Home also surfaces new episodes of followed series and the titles added to the
-       library, which otherwise only appear in the Library section */
-    var fresh = newEpisodeItems();
-    if (fresh.length) {
-      var rn = buildRow(tx('newEpisodes'), fresh, true);
-      board.rows.push(rn);
-      reveal(rn, 90);
-    }
-    var mine = libGridItems().slice(0, 20),
-      mineMapped = [];
-    for (var mi = 0; mi < mine.length; mi++)
-      mineMapped.push({
-        id: mine[mi]._id,
-        type: mine[mi].type,
-        name: mine[mi].name,
-        poster: mine[mi].poster,
-        background: mine[mi].background
-      });
-    if (mineMapped.length) {
-      var rm = buildRow(tx('myList'), mineMapped, false);
-      board.rows.push(rm);
-      reveal(rm, 110);
+    var local = homeLibraryRows();
+    for (var lr = 0; lr < local.length; lr++) {
+      var libRow = buildRow(local[lr].title, local[lr].items, local[lr].wide);
+      board.rows.push(libRow);
+      reveal(libRow, 70 + lr * 20);
     }
   }
   for (var d = 0; d < defs.length; d++)
@@ -184,46 +159,6 @@ function becauseYouWatchedDef() {
     skip: last.id
   };
 }
-/* HOME rows = YOUR addon catalogs (in order); Cinemeta defaults if none configured */
-function homeDefs() {
-  var tiles = collectionTileDefs();
-  /* with Nuvio Collections, Home is those collections only, as in Nuvio's own apps */
-  if (tiles.length) return tiles;
-  var cats = homeCatalogs();
-  if (!cats.length)
-    cats = [
-      {
-        title: tx('popularMovies'),
-        type: 'movie',
-        url: CIN + '/catalog/movie/top.json',
-        key: 'cin_m_top',
-        ranked: true
-      },
-      { title: tx('popularSeries'), type: 'series', url: CIN + '/catalog/series/top.json', key: 'cin_s_top' },
-      { title: tx('topMovies'), type: 'movie', url: CIN + '/catalog/movie/imdbRating.json', key: 'cin_m_ir' },
-      {
-        title: tx('topSeries'),
-        type: 'series',
-        url: CIN + '/catalog/series/imdbRating.json',
-        key: 'cin_s_ir'
-      }
-    ];
-  /* an addon's own "popular" catalog ranks its first ten too */
-  for (var i = 0; i < cats.length; i++)
-    if (/\/catalog\/[^\/]+\/top\.json$/.test(cats[i].url || '')) {
-      cats[i].ranked = true;
-      break;
-    }
-  return cats;
-}
-/* DISCOVER rows = trending + top + a spread of genres */
-var DGEN = [
-  ['Action', 'genreAction'],
-  ['Comedy', 'genreComedy'],
-  ['Sci-Fi', 'genreSciFi'],
-  ['Drama', 'genreDrama'],
-  ['Horror', 'genreHorror']
-];
 /* LIBRARY rows = Continue Watching + your added Movies + Series (all local) */
 /* Continue Watching lives on Home only, as in the Stremio apps */
 function loadLibraryRows(board) {

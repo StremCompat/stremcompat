@@ -1,0 +1,46 @@
+/* what the server may call (server/app-api.js); nothing else is reachable from outside */
+window.__logic = {
+  addons: addons,
+  allLib: allLib,
+  authKey: authKey,
+  bestSource: bestSource,
+  buildEpisodeModel: buildEpisodeModel,
+  checkNewEpisodes: checkNewEpisodes,
+  clearContinueWatching: clearContinueWatching,
+  clearRecentSearches: clearRecentSearches,
+  compactSourcePool: compactSourcePool,
+  cwItems: cwItems,
+  cwCard: cwCard,
+  discoverCatalogs: discoverCatalogs,
+  discoverGenres: discoverGenres,
+  discoverTypes: discoverTypes,
+  enrichEpisodeMetadata: enrichEpisodeMetadata,
+  fetchStreams: fetchStreams,
+  getCatalogUrl: getCatalogUrl,
+  getMeta: getMeta,
+  hideNewEpisodes: hideNewEpisodes,
+  homeDefs: homeDefs,
+  homeLibraryRows: homeLibraryRows,
+  isNuvioAccount: isNuvioAccount,
+  libGridItems: libGridItems,
+  libHas: libHas,
+  libToggle: libToggle,
+  newEpisodeItems: newEpisodeItems,
+  nuvioCollections: nuvioCollections,
+  pullLib: pullLib,
+  removeFromCw: removeFromCw,
+  setEpisodesWatched: setEpisodesWatched,
+  setItemWatched: setItemWatched,
+  sourceTags: sourceTags,
+  syncAddons: syncAddons,
+  syncCollections: syncCollections,
+  tx: tx,
+  uiLanguage: function () {
+    return UI_LANG;
+  },
+  uiText: function () {
+    return { lang: UI_TEXT[UI_LANG] || {}, fallback: UI_TEXT['en-US'] };
+  },
+  user: user
+};
+})();

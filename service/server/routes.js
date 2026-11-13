@@ -28,6 +28,7 @@ var { qrSvg } = require('./qr');
 var SUPPORT_URL = 'https://buymeacoffee.com/Alexesmm';
 var { diagnostics, netcheck, recordEvent, speedTest } = require('./diag');
 var { cachedAddonJson } = require('./addon-cache');
+var appApi = require('./app-api');
 var { handleTakeover } = require('./takeover');
 var { decodeField, seriesVideos, setWatched } = require('./watched');
 
@@ -385,6 +386,13 @@ var POST_ONLY = {
   },
   '/streamref': storeStream
 };
+
+/* the native interface's addresses (app-api.js) */
+function addRoutes(table, more) {
+  for (var name in more) if (Object.prototype.hasOwnProperty.call(more, name)) table[name] = more[name];
+}
+addRoutes(ROUTES, appApi.routes);
+addRoutes(POST_ONLY, appApi.postRoutes);
 
 function handleRequest(req, res) {
   var parsed = urlmod.parse(req.url, true);
