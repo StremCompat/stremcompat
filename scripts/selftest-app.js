@@ -102,8 +102,15 @@ var answers = {
   }
 };
 
+/* the start of a JPEG is all /app/img looks at */
+var POSTER = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0]);
+
 function addonServer() {
   return http.createServer(function (req, res) {
+    if (req.url === '/poster.jpg') {
+      res.writeHead(200, { 'Content-Type': 'image/jpeg' });
+      return res.end(POSTER);
+    }
     var answer = answers[req.url.split('?')[0]];
     res.writeHead(answer ? 200 : 404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(answer || { error: 'not found' }));
@@ -203,8 +210,13 @@ async function main() {
       'the source quality was not read'
     );
 
+    var poster = await request('/app/img?u=' + encodeURIComponent(meta.poster));
+    assert.ok(poster.status === 200 && poster.text.length > 0, 'a JPEG did not pass through /app/img');
+    var nothing = await request('/app/img?u=' + encodeURIComponent('file:///etc/passwd'));
+    assert.strictEqual(nothing.status, 404, '/app/img read something other than a web address');
+
     console.log(
-      'OK: storage handed over, account, texts, Home rows, catalog, title with episodes, sources as they arrive.'
+      'OK: storage handed over, account, texts, Home rows, catalog, title with episodes, sources as they arrive, pictures.'
     );
   } catch (e) {
     console.error(log.slice(-3000));

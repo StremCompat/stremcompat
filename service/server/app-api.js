@@ -3,6 +3,7 @@
 
 var { APP_VERSION, PROFILE } = require('./config');
 var { readJsonBody, sendJson } = require('./http-util');
+var { appImage } = require('./app-images');
 var runtime = require('./app-runtime');
 
 var STREAM_WAIT_MS = 8000;
@@ -156,6 +157,7 @@ module.exports = {
   routes: {
     '/app/catalog': catalog,
     '/app/home': home,
+    '/app/img': appImage,
     '/app/meta': meta,
     '/app/state': state,
     '/app/streams': streams,
