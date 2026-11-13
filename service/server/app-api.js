@@ -96,7 +96,16 @@ function meta(req, res, q) {
 var searches = {};
 
 function startSearch(type, vid) {
-  var s = { items: [], trimmed: {}, version: 0, done: false, failed: [], waiters: [], at: Date.now() };
+  var s = {
+    items: [],
+    trimmed: {},
+    version: 0,
+    done: false,
+    failed: [],
+    waiters: [],
+    at: Date.now(),
+    seq: 0
+  };
   var L = logic();
   function changed() {
     s.version++;
@@ -108,6 +117,8 @@ function startSearch(type, vid) {
     type,
     vid,
     function (part) {
+      /* each source keeps its number, so the one chosen is found again as more arrive */
+      for (var i = 0; i < part.length; i++) part[i]._seq = ++s.seq;
       var pool = s.items.concat(part),
         result = L.compactSourcePool(pool, PROFILE.sourceCap || 60);
       s.items = result.items;
@@ -121,6 +132,35 @@ function startSearch(type, vid) {
     }
   );
   return s;
+}
+
+/* the list as the sources screen shows it: chips, the language filter, the sources in order */
+function sourceList(s, quality, lang) {
+  var L = logic(),
+    langs = L.languageChoices(s.items),
+    list = L.orderedSources(s.items, quality, lang);
+  return {
+    version: s.version,
+    done: s.done,
+    failed: s.failed.length ? L.tx('addonsNoAnswer', s.failed.join(', ')) : '',
+    chips: L.qualityChips(s.items, s.trimmed),
+    langs: langs.keys.map(function (key) {
+      return { key: key, label: L.langFilterName(key), count: langs.counts[key] || 0 };
+    }),
+    recommended: list.recommended,
+    items: list.items.map(function (it) {
+      return {
+        seq: it._seq,
+        heading: L.sourceHeading(it),
+        text: L.sourceText(it),
+        tags: it.stored ? [] : L.sourceTags(it),
+        compat:
+          it.compatLabels && it.compatLabels.length
+            ? L.tx('compatibilityCheck', it.compatLabels.join(' · '))
+            : ''
+      };
+    })
+  };
 }
 
 function forgetOldSearches() {
@@ -139,7 +179,7 @@ function streams(req, res, q) {
   if (!searches[key] || (!have && searches[key].done && q.again)) searches[key] = startSearch(q.type, q.vid);
   var s = searches[key];
   function answer() {
-    sendJson(res, { version: s.version, done: s.done, failed: s.failed, items: s.items, trimmed: s.trimmed });
+    sendJson(res, sourceList(s, q.quality || 'All', q.lang || 'All'));
   }
   if (s.version > have || s.done) return answer();
   function woken() {

@@ -118,6 +118,16 @@ function addonServer() {
 }
 
 async function main() {
+  /* another server on the port would answer instead of the one started here */
+  var busy = await request('/health').then(
+    function () {
+      return true;
+    },
+    function () {
+      return false;
+    }
+  );
+  if (busy) throw new Error('port ' + appPort + ' is in use: stop the server that holds it first');
   var home = fs.mkdtempSync(path.join(os.tmpdir(), 'stremcompat-app-'));
   var addon = addonServer();
   await new Promise(function (resolve) {
@@ -224,11 +234,19 @@ async function main() {
     assert.ok(found.done, 'the sources search did not finish');
     assert.strictEqual(found.items.length, 2, 'the sources did not come');
     assert.ok(
-      found.items.some(function (s) {
-        return s.quality === '4K';
+      found.chips.length >= 3 && found.items[0].tags.length,
+      'the chips and tags of the sources are missing'
+    );
+    assert.ok(
+      found.chips.some(function (c) {
+        return c.key === '4K';
       }),
       'the source quality was not read'
     );
+    var only4k = (
+      await request('/app/streams?type=series&vid=' + encodeURIComponent('tst1:1:1') + '&have=0&quality=4K')
+    ).json;
+    assert.strictEqual(only4k.items.length, 1, 'the quality chip did not filter the sources');
 
     var poster = await request('/app/img?u=' + encodeURIComponent(meta.poster));
     assert.ok(poster.status === 200 && poster.text.length > 0, 'a JPEG did not pass through /app/img');

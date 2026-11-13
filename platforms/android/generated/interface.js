@@ -2914,6 +2914,92 @@ function compactSourcePool(input, cap) {
 window.__SC_COMPACT_SOURCES__ = compactSourcePool;
 /* onDone(total, failed): failed lists the addons that did not answer, so the picker can
    tell "nothing found" apart from "the addon is down". */
+/* the quality chips over the list: All, then each quality with how many sources it has (a +
+   when the list was cut) */
+function qualityChips(pool, trimmed) {
+  var counts = {},
+    out = [],
+    order = ['All', '4K', '1440p', '1080p', '720p', 'SD', 'Other'];
+  for (var n = 0; n < pool.length; n++) {
+    var q = pool[n].quality || 'Other';
+    counts[q] = (counts[q] || 0) + 1;
+  }
+  for (var i = 0; i < order.length; i++) {
+    var key = order[i];
+    if (key !== 'All' && !counts[key]) continue;
+    out.push({
+      key: key,
+      label: qualityLabel(key) + (key === 'All' ? '' : ' ' + counts[key] + ((trimmed || {})[key] ? '+' : ''))
+    });
+  }
+  return out;
+}
+/* The language filter: 'a:pt' for sources in Portuguese audio, 's:pt' for sources that only
+   carry Portuguese subtitles, with how many of each; offered when there is a choice. Audio
+   first, then subtitles; within each English, Portuguese, Spanish, the other languages, multi
+   audio, then sources with no language. */
+function languageChoices(pool) {
+  var counts = {},
+    order = [];
+  function count(key) {
+    if (!counts[key]) order.push(key);
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  for (var n = 0; n < pool.length; n++) {
+    var s = pool[n];
+    if (s.stored) continue;
+    var audio = langGroups(s);
+    for (var a = 0; a < audio.length; a++) count('a:' + audio[a]);
+    var subs = subtitleGroups(s);
+    for (var b = 0; b < subs.length; b++) count('s:' + subs[b]);
+  }
+  var rank = ['en', 'pt', 'es', 'fr', 'it', 'de', 'ja', 'ko', 'zh', 'ru', 'hi', 'multi', 'none'];
+  function place(key) {
+    return (key.charAt(0) === 's' ? 100 : 0) + rank.indexOf(key.slice(2));
+  }
+  order.sort(function (x, y) {
+    return place(x) - place(y);
+  });
+  return { keys: order.length > 1 ? ['All'].concat(order) : [], counts: counts };
+}
+/* 'Audio: Português', 'Subtitles: English', or 'Language: all' */
+function langFilterName(key) {
+  if (key === 'All') return tx('langChipAll');
+  return tx(key.charAt(0) === 's' ? 'subsFilter' : 'langFilter', sourceLanguageLabel(key.slice(2)));
+}
+/* The list as it is shown: the chosen quality and language, the last source first, then the
+   preferred language, then the preferred quality; and the one likely the best choice, named
+   only when there is a choice (the same source the Best source button starts), else -1. */
+function orderedSources(pool, quality, langKey) {
+  var pref = lsRaw('preferredSourceQuality', 'Auto'),
+    langPref = fixedSourceLanguage();
+  var flat = pool.filter(function (s) {
+    return (quality === 'All' || s.quality === quality) && (s.stored || inLangFilter(s, langKey));
+  });
+  flat.sort(function (a, b) {
+    if (!a.stored !== !b.stored) return a.stored ? -1 : 1;
+    var al = langRank(a, langPref),
+      bl = langRank(b, langPref);
+    if (al !== bl) return al - bl;
+    if (pref !== 'Auto') {
+      var ap = a.quality === pref ? 0 : 1,
+        bp = b.quality === pref ? 0 : 1;
+      if (ap !== bp) return ap - bp;
+    }
+    return sourceOrder(a, b);
+  });
+  var choices = flat.filter(function (s) {
+    return !s.stored;
+  }).length;
+  return { items: flat, recommended: choices < 2 ? -1 : flat.indexOf(bestSource(flat, pref)) };
+}
+/* a source's heading and its text, as the list shows them */
+function sourceHeading(s) {
+  return s.stored ? tx('continuePlayback') : s.addon || 'Addon';
+}
+function sourceText(s) {
+  return String(s.title || s.name || '').replace(/\n/g, '  ');
+}
 function fetchStreams(type, vid, onPart, onDone) {
   var list = streamAddons(type);
   var pending = list.length;
@@ -7287,24 +7373,16 @@ var streamsUI = {
   renderChips: function () {
     var host = $('stChips'),
       allItems = this.all(),
-      counts = {},
-      order = ['All', '4K', '1440p', '1080p', '720p', 'SD', 'Other'];
+      chips = qualityChips(allItems, this.trimmed);
     host.innerHTML = '';
     this.chips = [];
     this.chipEls = [];
-    for (var n = 0; n < allItems.length; n++) {
-      var q = allItems[n].quality || 'Other';
-      counts[q] = (counts[q] || 0) + 1;
-    }
-    for (var i = 0; i < order.length; i++) {
-      var key = order[i];
-      if (key !== 'All' && !counts[key]) continue;
+    for (var i = 0; i < chips.length; i++) {
       var c = document.createElement('div');
       c.className = 'stchip';
-      c.textContent =
-        qualityLabel(key) + (key === 'All' ? '' : ' ' + counts[key] + (this.trimmed[key] ? '+' : ''));
+      c.textContent = chips[i].label;
       host.appendChild(c);
-      this.chips.push(key);
+      this.chips.push(chips[i].key);
       this.chipEls.push(c);
     }
     var k = this.chips.indexOf(this.filter);
@@ -7322,40 +7400,12 @@ var streamsUI = {
   /* The language filter: 'a:pt' for sources in Portuguese audio, 's:pt' for sources that only
      carry Portuguese subtitles, with how many of each; shown when there is a choice. */
   renderLangs: function (allItems) {
-    var counts = {},
-      order = [],
-      n;
-    function count(key) {
-      if (!counts[key]) order.push(key);
-      counts[key] = (counts[key] || 0) + 1;
-    }
-    for (n = 0; n < allItems.length; n++) {
-      var s = allItems[n];
-      if (s.stored) continue;
-      var audio = langGroups(s);
-      for (var a = 0; a < audio.length; a++) count('a:' + audio[a]);
-      var subs = subtitleGroups(s);
-      for (var b = 0; b < subs.length; b++) count('s:' + subs[b]);
-    }
-    /* audio first, then subtitles; within each English, Portuguese, Spanish, the other
-       languages, multi audio, then sources with no language */
-    var rank = ['en', 'pt', 'es', 'fr', 'it', 'de', 'ja', 'ko', 'zh', 'ru', 'hi', 'multi', 'none'];
-    function place(key) {
-      return (key.charAt(0) === 's' ? 100 : 0) + rank.indexOf(key.slice(2));
-    }
-    order.sort(function (x, y) {
-      return place(x) - place(y);
-    });
-    this.langCounts = counts;
-    this.langs = order.length > 1 ? ['All'].concat(order) : [];
+    var choice = languageChoices(allItems);
+    this.langCounts = choice.counts;
+    this.langs = choice.keys;
     if (this.langs.indexOf(this.langFilter) < 0) this.langFilter = 'All';
     if (!this.langs.length && this.zone === 'lang') this.zone = 'chips';
     $('stLang').style.display = this.langs.length ? 'block' : 'none';
-  },
-  /* 'Audio: Português', 'Subtitles: English', or 'Language: all' */
-  langName: function (key) {
-    if (key === 'All') return tx('langChipAll');
-    return tx(key.charAt(0) === 's' ? 'subsFilter' : 'langFilter', sourceLanguageLabel(key.slice(2)));
   },
   /* The filter in two steps: by audio or by embedded subtitles, then the languages of that kind
      with how many sources each; Back goes from the languages to the first step. */
@@ -7425,7 +7475,7 @@ var streamsUI = {
     this.revealChip(this.zone === 'chips' ? this.chipIdx : this.chips.indexOf(this.filter));
     $('stBest').className = this.zone === 'best' ? 'f' : '';
     var lang = $('stLang');
-    lang.textContent = this.langName(this.langFilter) + '  \u203a';
+    lang.textContent = langFilterName(this.langFilter) + '  \u203a';
     lang.className = (this.langFilter !== 'All' ? 'cur' : '') + (this.zone === 'lang' ? ' f' : '');
   },
   /* When the chips do not fit (All, 4K, 1080p, 720p, SD, Other), the row scrolls so the
@@ -7445,36 +7495,13 @@ var streamsUI = {
   },
   rebuild: function () {
     var sel = this.moved ? this.items[this.idx] : null,
-      flat = this.all(),
-      self = this,
-      pref = lsRaw('preferredSourceQuality', 'Auto'),
-      langPref = fixedSourceLanguage(),
-      lf = this.langFilter;
-    flat = flat.filter(function (s) {
-      return (self.filter === 'All' || s.quality === self.filter) && (s.stored || inLangFilter(s, lf));
-    });
-    /* the last source first, then the preferred language, then the preferred quality */
-    flat.sort(function (a, b) {
-      if (!a.stored !== !b.stored) return a.stored ? -1 : 1;
-      var al = langRank(a, langPref),
-        bl = langRank(b, langPref);
-      if (al !== bl) return al - bl;
-      if (pref !== 'Auto') {
-        var ap = a.quality === pref ? 0 : 1,
-          bp = b.quality === pref ? 0 : 1;
-        if (ap !== bp) return ap - bp;
-      }
-      return sourceOrder(a, b);
-    });
+      list = orderedSources(this.all(), this.filter, this.langFilter),
+      flat = list.items,
+      rec = list.recommended;
     var host = $('stInner');
     host.innerHTML = '';
     this.items = [];
     this.els = [];
-    /* named when there is a choice, and the same source the Best source button starts */
-    var choices = flat.filter(function (s) {
-      return !s.stored;
-    }).length;
-    var rec = choices < 2 ? -1 : flat.indexOf(bestSource(flat, pref));
     for (var i = 0; i < flat.length; i++) {
       var s = flat[i],
         d = document.createElement('div');
@@ -7487,7 +7514,7 @@ var streamsUI = {
       }
       var a = document.createElement('div');
       a.className = 'a';
-      a.textContent = s.stored ? tx('continuePlayback') : s.addon || 'Addon';
+      a.textContent = sourceHeading(s);
       d.appendChild(a);
       var tags = s.stored ? [] : sourceTags(s);
       if (tags.length) {
@@ -7509,7 +7536,7 @@ var streamsUI = {
       }
       var b = document.createElement('div');
       b.className = 'b';
-      b.textContent = String(s.title || s.name || '').replace(/\n/g, '  ');
+      b.textContent = sourceText(s);
       d.appendChild(b);
       host.appendChild(d);
       this.items.push(s);

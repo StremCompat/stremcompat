@@ -172,7 +172,9 @@ assert.strictEqual(subtitlePrefs({ enableDefaultAudioTrack: 'true' }).aud, 'por'
   var ctx = {
     document: { createElement: node }, $: node, tx: function () { return ''; }, lsRaw: function (k, d) { return d; },
     langRank: function () { return 0; }, preferredSourceLanguage: function () { return 'Auto'; }, fixedSourceLanguage: function () { return 'Auto'; }, inLangFilter: function () { return true; }, sourceLanguageLabel: function (c) { return c; }, langGroups: function () { return []; }, sourceTags: function () { return []; },
-    setF: function () {}, bestSource: function () { return null; }, sourceOrder: function (a, b) { return b.seeds - a.seeds; }, window: {}
+    setF: function () {}, bestSource: function () { return null; }, sourceOrder: function (a, b) { return b.seeds - a.seeds; }, window: {},
+    orderedSources: function (pool) { return { items: pool.slice().sort(function (a, b) { return b.seeds - a.seeds; }), recommended: -1 }; },
+    sourceHeading: function () { return ''; }, sourceText: function () { return ''; }
   };
   vm.runInNewContext(src('ui/views/streams.js') + ';this.list=streamsUI;', ctx);
   var list = ctx.list, slow = { seeds: 1 }, fast = { seeds: 5 }, faster = { seeds: 9 };
