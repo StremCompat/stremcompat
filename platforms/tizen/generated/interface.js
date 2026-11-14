@@ -11268,6 +11268,7 @@ function pointerUI(target, activate) {
       topNav.active = false;
       addonPanel.idx = i;
       addonPanel.paint();
+      topNav.paint();
       if (activate) addonPanel.activate(i);
       return true;
     }

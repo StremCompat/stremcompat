@@ -105,7 +105,8 @@ function parseM3u(text, fallbackGroup) {
     var channel = { n: pending.n, l: pending.l, u: addressAndHeaders(line, pending.h) };
     if (pending.g) channel.g = pending.g;
     if (Object.keys(pending.h).length) channel.h = pending.h;
-    var title = pending.group || fallbackGroup || '';
+    /* lists like iptv-org name several categories ("News;General"): the first one is the group */
+    var title = (pending.group || '').split(';')[0].trim() || fallbackGroup || '';
     if (!(title in byTitle)) {
       byTitle[title] = out.groups.length;
       out.groups.push({ title: title, channels: [] });
