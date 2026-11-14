@@ -5,7 +5,7 @@ $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $serviceDir = Join-Path $projectRoot 'service'
 $cacheDir = Join-Path $projectRoot '.cache'
 $sourceIpk = Join-Path $cacheDir 'stremcompat-runtime-3.0.0.tar.gz'
-$sourceUrl = 'https://github.com/Alexesmm/stremcompat-lg-webos/releases/download/runtime-v3.0.0/stremcompat-runtime-3.0.0.tar.gz'
+$sourceUrl = 'https://github.com/StremCompat/webos/releases/download/runtime-v3.0.0/stremcompat-runtime-3.0.0.tar.gz'
 $expectedSha256 = 'C9FB1702D0952A030E99DF3BEB3706598E8E7F83EDFB8BBC689C1CF2362351C5'
 $required = @(
     (Join-Path $serviceDir 'bin\sc-engine'),
@@ -27,7 +27,7 @@ if (-not (Test-Path -LiteralPath $sourceIpk -PathType Leaf) -or $Force) {
         $gh = Get-Command gh -ErrorAction SilentlyContinue
         if (-not $gh) { throw }
         Write-Host 'Direct download unavailable; using authenticated GitHub CLI fallback...'
-        & gh release download runtime-v3.0.0 --repo Alexesmm/stremcompat-lg-webos --pattern 'stremcompat-runtime-3.0.0.tar.gz' --dir $cacheDir --clobber
+        & gh release download runtime-v3.0.0 --repo StremCompat/webos --pattern 'stremcompat-runtime-3.0.0.tar.gz' --dir $cacheDir --clobber
         if ($LASTEXITCODE -ne 0) { throw 'GitHub CLI runtime download failed.' }
     }
 }

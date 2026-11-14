@@ -3,7 +3,7 @@
   "channel": "beta",
   "appId": "io.github.alexesmm.stremcompat.native",
   "serviceId": "io.github.alexesmm.stremcompat.native.server",
-  "title": "StremCompat Native",
+  "title": "StremCompat Native (Beta)",
   "version": "5.0.0",
   "port": 8083,
   "graphicsResolution": "1920x1080",

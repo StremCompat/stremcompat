@@ -1,6 +1,6 @@
 'use strict';
 
-// Builds the Android TV app: dist/StremCompat-v<version>-AndroidTV.apk.
+// Builds the Android TV apps: dist/StremCompat-v<version>-AndroidTV.apk and StremCompat-Native-v<version>-AndroidTV.apk.
 //
 //   1. the pages and the local server, staged as for LG with the android-tv profile (build-stage.js)
 //   2. nodejs-mobile's Node for Android, downloaded once into .cache
@@ -139,9 +139,10 @@ async function nodeMobile() {
   );
 
   /* two apps with their own IDs: the web one and the native one */
+  var nativeVersion = JSON.parse(fs.readFileSync(path.join(root, 'profiles', 'lg-native.json'), 'utf8')).version;
   [
-    ['web', 'AndroidTV'],
-    ['native', 'AndroidTV-Native']
+    ['web', 'StremCompat-v' + profile.version + '-AndroidTV'],
+    ['native', 'StremCompat-Native-v' + nativeVersion + '-AndroidTV']
   ].forEach(function (flavor) {
     var apk = path.join(
       android,
@@ -157,7 +158,7 @@ async function nodeMobile() {
       throw new Error(
         'Gradle finished without a signed package: is the signing file in place? See android/README.md'
       );
-    var out = path.join(root, 'dist', 'StremCompat-v' + profile.version + '-' + flavor[1] + '.apk');
+    var out = path.join(root, 'dist', flavor[1] + '.apk');
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.copyFileSync(apk, out);
     console.log('APK ready: ' + out + ' (' + (fs.statSync(out).size / 1048576).toFixed(1) + ' MB)');

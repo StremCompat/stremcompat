@@ -4,7 +4,7 @@
   "channel": "beta",
   "appId": "StrmCmpNtv.App",
   "serviceId": "StrmCmpNtv.Server",
-  "title": "StremCompat Native",
+  "title": "StremCompat Native (Beta)",
   "version": "5.0.0",
   "port": 8097,
   "localTorrents": false,

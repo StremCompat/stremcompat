@@ -71,7 +71,8 @@ function devtools(url) {
   return new Promise(function (resolve, reject) {
     var socket = new WebSocket(url),
       next = 1,
-      pending = {};
+      pending = {},
+      handlers = {};
     socket.onopen = function () {
       socket.onmessage = function (event) {
         var m = JSON.parse(event.data);
@@ -80,7 +81,7 @@ function devtools(url) {
           delete pending[m.id];
           if (m.error) p.reject(new Error(m.error.message));
           else p.resolve(m.result);
-        }
+        } else if (m.method && handlers[m.method]) handlers[m.method](m.params);
       };
       resolve({
         call: function (method, params) {
@@ -89,6 +90,9 @@ function devtools(url) {
             pending[id] = { resolve: ok, reject: bad };
             socket.send(JSON.stringify({ id: id, method: method, params: params || {} }));
           });
+        },
+        on: function (method, handler) {
+          handlers[method] = handler;
         },
         close: function () {
           socket.close();
@@ -126,6 +130,24 @@ async function main() {
         });
       });
     });
+    /* a film the Public Domain Movies addon has sources for */
+    var publicDomainId = await new Promise(function (ok) {
+      require('https').get('https://caching.stremio.net/publicdomainmovies.now.sh/catalog/movie/publicdomainmovies.json', function (res) {
+        var chunks = [];
+        res.on('data', function (d) {
+          chunks.push(d);
+        });
+        res.on('end', function () {
+          try {
+            ok(JSON.parse(Buffer.concat(chunks).toString('utf8')).metas[0].id);
+          } catch (e) {
+            ok('tt0032138');
+          }
+        });
+      }).on('error', function () {
+        ok('tt0032138');
+      });
+    });
     /* live channels from a public list */
     await post('/app/channels/lists', { url: 'https://iptv-org.github.io/iptv/countries/br.m3u', name: 'iptv-org Brasil' });
     browser = childProcess.spawn(
@@ -155,14 +177,51 @@ async function main() {
       fs.writeFileSync(path.join(out, name + '.jpg'), Buffer.from(s.data, 'base64'));
       console.log('  ' + name + '.jpg');
     }
-    function run(js) {
-      return protocol.call('Runtime.evaluate', { expression: js });
+    async function run(js) {
+      var r = await protocol.call('Runtime.evaluate', { expression: js });
+      if (r.exceptionDetails) console.log('  (page error: ' + (r.exceptionDetails.exception || {}).description + ')');
+      return r;
     }
     function key(code) {
       return run("(function(){var e=document.createEvent('Event');e.initEvent('keydown',true,true);e.keyCode=" + code + ';document.dispatchEvent(e);})()');
     }
-    await protocol.call('Page.navigate', { url: 'http://127.0.0.1:' + appPort + '/beta?shots=1' });
-    await delay(8000);
+    function open(hash) {
+      return protocol.call('Page.navigate', { url: 'http://127.0.0.1:' + appPort + '/beta?shots=1' + (hash || '') });
+    }
+    await open();
+    await delay(10000);
+    /* the first row in focus, its posters loaded; the README's top picture is Home itself, as a PNG */
+    await key(40);
+    await delay(6000);
+    var hero = await protocol.call('Page.captureScreenshot', { format: 'png' });
+    fs.writeFileSync(path.join(root, 'docs', 'assets', 'stremcompat-hero-en.png'), Buffer.from(hero.data, 'base64'));
+    await shot('home', 100);
+    /* who is watching, as a Nuvio account with profiles shows it: the profile list is answered here */
+    var profiles = [
+      { index: 1, name: 'Ana', color: '#1E88E5', current: true },
+      { index: 2, name: 'Bruno', color: '#43A047' },
+      { index: 3, name: 'Kids', color: '#FB8C00' },
+      { index: 4, name: 'Carla', color: '#8E24AA', locked: true }
+    ];
+    protocol.on('Fetch.requestPaused', function (e) {
+      protocol.call('Fetch.fulfillRequest', {
+        requestId: e.requestId,
+        responseCode: 200,
+        responseHeaders: [{ name: 'Content-Type', value: 'application/json' }],
+        body: Buffer.from(JSON.stringify({ profiles: profiles })).toString('base64')
+      });
+    });
+    await protocol.call('Fetch.enable', { patterns: [{ urlPattern: '*nuvioprofiles*' }] });
+    await run("localStorage.setItem('authKey',JSON.stringify('nuvio:demo'));document.getElementById('chipProfile').click()");
+    await shot('profiles', 2500);
+    await protocol.call('Fetch.disable');
+    await run("localStorage.setItem('authKey',JSON.stringify('demo-key'))");
+    await open();
+    await delay(9000);
+    await run("document.getElementById('chipDisc').click()");
+    await delay(5000);
+    await key(39);
+    await shot('discover', 2500);
     await run("document.getElementById('chipTv').click()");
     await delay(5000);
     await key(39);
@@ -181,6 +240,21 @@ async function main() {
     await key(461);
     await run("var c=document.querySelectorAll('#setCats .setcat');for(var i=0;i<c.length;i++)if(c[i].textContent==='Channels')c[i].click();var r=document.querySelectorAll('#setItems .set');for(var j=0;j<r.length;j++)if(r[j].textContent.indexOf('Add an M3U list')>=0)r[j].click();");
     await shot('add-list', 3000);
+    await key(461);
+    await run("var c=document.querySelectorAll('#setCats .setcat');for(var i=0;i<c.length;i++)if(c[i].textContent==='Playback')c[i].click();");
+    await key(39);
+    await shot('settings', 1500);
+    /* a series page with its episodes, from Cinemeta */
+    await open('#detail/series/tt0903747');
+    await delay(9000);
+    await key(40);
+    await shot('series', 4000);
+    /* the sources of a public domain film, from Stremio's own Public Domain Movies addon */
+    await open('#detail/movie/' + publicDomainId);
+    await delay(9000);
+    /* the button with the whole source list (another one plays the best source at once) */
+    await run("var b=document.querySelectorAll('#dBtns > *');for(var i=0;i<b.length;i++)if(/^(Sources|Watch)$/.test(b[i].textContent.trim()))b[i].click();");
+    await shot('sources', 8000);
   } finally {
     if (protocol) protocol.close();
     if (browser) browser.kill();

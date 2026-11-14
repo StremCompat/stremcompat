@@ -1,9 +1,9 @@
 {
-  "name": "stremcompat-lg-webos",
-  "version": "4.2.2",
+  "name": "stremcompat",
+  "version": "4.3.0",
   "private": true,
   "license": "GPL-3.0-only",
-  "description": "Stremio community compatibility ports for legacy LG webOS 3.x and 4.x televisions",
+  "description": "StremCompat: Stremio and Nuvio on older LG, Samsung and Android TVs",
   "scripts": {
     "build:ui": "node ./scripts/build-ui.js",
     "lint": "eslint service scripts platforms eslint.config.js",

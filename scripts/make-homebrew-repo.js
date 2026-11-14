@@ -14,7 +14,7 @@ var path = require('path');
 var root = path.resolve(__dirname, '..');
 var ipk = process.argv[2];
 var out = process.argv[3];
-var base = (process.argv[4] || 'https://alexesmm.github.io/stremcompat-lg-webos').replace(/\/$/, '');
+var base = (process.argv[4] || 'https://stremcompat.github.io/webos').replace(/\/$/, '');
 if (!ipk || !out) throw new Error('Usage: node make-homebrew-repo.js <the .ipk> <output folder> [address]');
 
 var appInfo = JSON.parse(fs.readFileSync(path.join(root, 'app', 'appinfo.json'), 'utf8'));
@@ -38,7 +38,7 @@ var manifest = {
   title: title,
   appDescription: summary,
   iconUri: base + '/icon.png',
-  sourceUrl: 'https://github.com/Alexesmm/stremcompat-lg-webos',
+  sourceUrl: 'https://github.com/StremCompat/stremcompat',
   rootRequired: false,
   ipkUrl: base + '/' + fileName,
   ipkHash: { sha256: crypto.createHash('sha256').update(data).digest('hex') }

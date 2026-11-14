@@ -12,6 +12,9 @@ def staged = new File(rootDir, '../.build/android-tv-app').canonicalFile
 /* the native app's code (LG-C), next to this repository; its assets are staged by LG-C/build.sh android */
 def lgc = new File(rootDir, '../../../LG-C').canonicalFile
 def profile = new groovy.json.JsonSlurper().parse(new File(rootDir, '../profiles/android-tv.json'))
+/* the native app follows the native version (5.x), as on LG and Samsung */
+def nativeVersion = new groovy.json.JsonSlurper().parse(new File(rootDir, '../profiles/lg-native.json')).version
+def versionCodeOf = { String s -> def v = s.tokenize('.').collect { it as int }; v[0] * 10000 + v[1] * 100 + v[2] }
 def signing = new Properties()
 def signingFile = file(System.getenv('STREMCOMPAT_SIGNING') ?: "${System.getProperty('user.home')}/Android/stremcompat-signing.properties")
 if (signingFile.exists()) signingFile.withInputStream { signing.load(it) }
@@ -26,8 +29,7 @@ android {
         minSdk 24
         targetSdk 35
         versionName profile.version
-        def v = profile.version.tokenize('.').collect { it as int }
-        versionCode v[0] * 10000 + v[1] * 100 + v[2]
+        versionCode versionCodeOf(profile.version)
         ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }
         externalNativeBuild {
             cmake { arguments "-DNODE_DIR=${staged}/node", '-DANDROID_STL=c++_shared' }
@@ -47,11 +49,13 @@ android {
         'native' {
             dimension 'ui'
             applicationIdSuffix '.native'
+            versionName nativeVersion
+            versionCode versionCodeOf(nativeVersion)
             buildConfigField 'int', 'SERVER_PORT', "${profile.port + 1}"
             buildConfigField 'int', 'HANDOVER_PORT', "${profile.port}"
-            resValue 'string', 'app_name', 'StremCompat Native'
+            resValue 'string', 'app_name', 'StremCompat Native (Beta)'
             externalNativeBuild {
-                cmake { arguments "-DLGC_DIR=${lgc.path.replace(File.separator, '/')}", "-DAPP_VERSION=${profile.version}", "-DSC_PORT=${profile.port + 1}" }
+                cmake { arguments "-DLGC_DIR=${lgc.path.replace(File.separator, '/')}", "-DAPP_VERSION=${nativeVersion}", "-DSC_PORT=${profile.port + 1}" }
             }
         }
     }

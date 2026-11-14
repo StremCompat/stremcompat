@@ -6,14 +6,14 @@ Before participating, read the [Code of Conduct](CODE_OF_CONDUCT.md), [project n
 
 ## Discussions and Issues have different purposes
 
-Use [GitHub Discussions](https://github.com/Alexesmm/stremcompat-lg-webos/discussions) for:
+Use [GitHub Discussions](https://github.com/StremCompat/webos/discussions) for:
 
 - Installation help and general questions.
 - Ideas and feature proposals.
 - Early test results that still need investigation.
 - Requests for help identifying the correct package.
 
-Use [GitHub Issues](https://github.com/Alexesmm/stremcompat-lg-webos/issues) for:
+Use [GitHub Issues](https://github.com/StremCompat/webos/issues) for:
 
 - Reproducible defects.
 - Confirmed regressions between releases.
