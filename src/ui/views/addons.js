@@ -15,6 +15,7 @@ var addonPanel = {
     this.inStore = false;
     this.draw();
     animIn($('aWrap'));
+    if (!addons().length) this.syncNow(true);
   },
   /* the three buttons, then the list: the installed addons or the store's */
   draw: function () {

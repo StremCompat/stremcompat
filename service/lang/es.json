@@ -410,7 +410,7 @@
   "uiLookLabel": "Aspecto",
   "lookStandard": "Estándar",
   "lookStandardHint": "Recomendado para la mayoría de los televisores. El aspecto de versiones anteriores.",
-  "providerNuvio": "Nuvio (experimental)",
+  "providerNuvio": "Nuvio",
   "whoIsWatching": "¿Quién está viendo?",
   "profileNumber": "Perfil {0}",
   "profileLocked": "Protegido con PIN",

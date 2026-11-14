@@ -172,7 +172,7 @@
   "uiLookLabel": "화면 스타일",
   "lookStandard": "기본",
   "lookStandardHint": "대부분의 TV에 권장합니다. 이전 버전의 화면입니다.",
-  "providerNuvio": "Nuvio (실험적)",
+  "providerNuvio": "Nuvio",
   "whoIsWatching": "누가 시청하나요?",
   "profileNumber": "프로필 {0}",
   "profileLocked": "PIN으로 보호됨",

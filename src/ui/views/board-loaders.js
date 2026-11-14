@@ -190,14 +190,20 @@ function loadLibraryRows(board) {
   }
   board.rowIdx = 0;
 }
-/* rows the server lays out ({ title, items }); an M3U channel plays its address straight away */
-function loadServerRows(board, path, key) {
+/* rows the server lays out ({ title, items }); an M3U channel plays its address straight away.
+   lead: a card shown first, alone in its row (Channels: add an M3U list) */
+function loadServerRows(board, path, key, lead) {
   board.rows = [];
   xhrJson(
     path,
     function (j) {
       var groups = (j && j[key]) || [];
       board.rows = [];
+      if (lead) {
+        var first = buildRow('', [lead], false, true);
+        first.el.className = 'row in';
+        board.rows.push(first);
+      }
       for (var g = 0; g < groups.length; g++) {
         var items = [];
         for (var i = 0; i < groups[g].items.length; i++) {
@@ -215,7 +221,7 @@ function loadServerRows(board, path, key) {
         row.el.className = 'row in';
         board.rows.push(row);
       }
-      if (!board.rows.length) {
+      if (board.rows.length === (lead ? 1 : 0)) {
         var e = document.createElement('div');
         e.className = 'row in';
         e.innerHTML = emptyState((j && j.empty) || '', '');
@@ -251,6 +257,7 @@ function buildHomeRows(keep) {
 
 function openItem(it) {
   if (it.live) return playUrl({ url: it.live, title: it.name }, 'tv', it.id, it.id, 'beta#tv');
+  if (it.addList) return m3uPanel.show();
   if (it.folder) {
     goScr('fold', { folder: it.folder });
     return;

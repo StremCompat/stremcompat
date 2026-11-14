@@ -26,6 +26,11 @@ function showScr(name) {
   var section = chipTarget.indexOf(name);
   if (section >= 0) topNav.idx = section;
   if (name !== 'home') bodyRemove('featured');
+  if (name === 'cal' || name === 'tv') {
+    bodyAdd('plainboard');
+    $('boardTitle').textContent = tx(name === 'cal' ? 'navCalendar' : 'navChannels');
+    setBg('');
+  } else bodyRemove('plainboard');
   if (name === 'login') bodyAdd('login');
   else bodyRemove('login');
   paintChips();

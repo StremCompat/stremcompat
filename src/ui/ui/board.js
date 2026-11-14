@@ -203,6 +203,7 @@ function makeBoard(loader) {
     /* the title under the focus, or another one given (spotlight.js) */
     heroApply: function (item) {
       if (curBoard() !== this) return; /* a debounced hero must not paint after we left this board */
+      if (this === cal || this === tv) return; /* sections without a hero */
       var it = item || this.focusedItem();
       if (!it) {
         return;

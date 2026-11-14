@@ -385,7 +385,7 @@ var cal = makeBoard(function (b) {
   loadServerRows(b, '/app/calendar', 'days');
 });
 var tv = makeBoard(function (b) {
-  loadServerRows(b, '/app/channels', 'groups');
+  loadServerRows(b, '/app/channels', 'groups', { name: tx('m3uAdd'), addList: true });
 });
 /* A Nuvio Collections folder opened from Home: one row per catalog it holds */
 var fold = makeBoard(function (b, keep) {

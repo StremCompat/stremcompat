@@ -172,7 +172,7 @@
   "uiLookLabel": "外观",
   "lookStandard": "标准",
   "lookStandardHint": "推荐大多数电视使用。以前版本的外观。",
-  "providerNuvio": "Nuvio（实验性）",
+  "providerNuvio": "Nuvio",
   "whoIsWatching": "谁在观看？",
   "profileNumber": "个人资料 {0}",
   "profileLocked": "已用 PIN 保护",

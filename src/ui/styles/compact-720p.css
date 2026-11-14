@@ -77,6 +77,11 @@
   #dSeasons{margin-top:15px}.schip{padding:7px 16px;margin-right:7px;font-size:16px}
   #simWrap,#discWrap,#sWrap,#aWrap{top:30px;left:112px;right:30px}
   #setWrap{left:112px}
+  #boardTitle{top:30px;left:112px;font-size:34px}
+  body.plainboard #rowsClip{top:96px}
+  #m3uCard{width:760px;padding:28px 32px}
+  #m3uTitle{font-size:26px}
+  #m3uBox{font-size:21px;padding:14px 18px}
   #setTitle{top:34px;font-size:33px}
   #setCats{top:100px;width:220px}
   .setcat{padding:9px 16px;margin-bottom:4px;border-radius:9px;font-size:18px}

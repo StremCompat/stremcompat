@@ -464,7 +464,7 @@ var UI_TEXT = {
     uiLookLabel: 'Look',
     lookStandard: 'Standard',
     lookStandardHint: 'Recommended for most TVs. The look of earlier versions.',
-    providerNuvio: 'Nuvio (experimental)',
+    providerNuvio: 'Nuvio',
     whoIsWatching: 'Who is watching?',
     profileNumber: 'Profile {0}',
     profileLocked: 'Protected with a PIN',
@@ -951,7 +951,7 @@ var UI_TEXT = {
     uiLookLabel: 'Visual',
     lookStandard: 'Padrão',
     lookStandardHint: 'Recomendado para a maioria das TVs. O visual das versões anteriores.',
-    providerNuvio: 'Nuvio (experimental)',
+    providerNuvio: 'Nuvio',
     whoIsWatching: 'Quem está assistindo?',
     profileNumber: 'Perfil {0}',
     profileLocked: 'Protegido por PIN',
@@ -3762,6 +3762,11 @@ function showScr(name) {
   var section = chipTarget.indexOf(name);
   if (section >= 0) topNav.idx = section;
   if (name !== 'home') bodyRemove('featured');
+  if (name === 'cal' || name === 'tv') {
+    bodyAdd('plainboard');
+    $('boardTitle').textContent = tx(name === 'cal' ? 'navCalendar' : 'navChannels');
+    setBg('');
+  } else bodyRemove('plainboard');
   if (name === 'login') bodyAdd('login');
   else bodyRemove('login');
   paintChips();
@@ -4253,6 +4258,7 @@ function makeBoard(loader) {
     /* the title under the focus, or another one given (spotlight.js) */
     heroApply: function (item) {
       if (curBoard() !== this) return; /* a debounced hero must not paint after we left this board */
+      if (this === cal || this === tv) return; /* sections without a hero */
       var it = item || this.focusedItem();
       if (!it) {
         return;
@@ -4739,7 +4745,7 @@ var cal = makeBoard(function (b) {
   loadServerRows(b, '/app/calendar', 'days');
 });
 var tv = makeBoard(function (b) {
-  loadServerRows(b, '/app/channels', 'groups');
+  loadServerRows(b, '/app/channels', 'groups', { name: tx('m3uAdd'), addList: true });
 });
 /* A Nuvio Collections folder opened from Home: one row per catalog it holds */
 var fold = makeBoard(function (b, keep) {
@@ -5090,14 +5096,20 @@ function loadLibraryRows(board) {
   }
   board.rowIdx = 0;
 }
-/* rows the server lays out ({ title, items }); an M3U channel plays its address straight away */
-function loadServerRows(board, path, key) {
+/* rows the server lays out ({ title, items }); an M3U channel plays its address straight away.
+   lead: a card shown first, alone in its row (Channels: add an M3U list) */
+function loadServerRows(board, path, key, lead) {
   board.rows = [];
   xhrJson(
     path,
     function (j) {
       var groups = (j && j[key]) || [];
       board.rows = [];
+      if (lead) {
+        var first = buildRow('', [lead], false, true);
+        first.el.className = 'row in';
+        board.rows.push(first);
+      }
       for (var g = 0; g < groups.length; g++) {
         var items = [];
         for (var i = 0; i < groups[g].items.length; i++) {
@@ -5115,7 +5127,7 @@ function loadServerRows(board, path, key) {
         row.el.className = 'row in';
         board.rows.push(row);
       }
-      if (!board.rows.length) {
+      if (board.rows.length === (lead ? 1 : 0)) {
         var e = document.createElement('div');
         e.className = 'row in';
         e.innerHTML = emptyState((j && j.empty) || '', '');
@@ -5151,6 +5163,7 @@ function buildHomeRows(keep) {
 
 function openItem(it) {
   if (it.live) return playUrl({ url: it.live, title: it.name }, 'tv', it.id, it.id, 'beta#tv');
+  if (it.addList) return m3uPanel.show();
   if (it.folder) {
     goScr('fold', { folder: it.folder });
     return;
@@ -5748,6 +5761,7 @@ function settingsCategories() {
       d: 'false'
     },
     { k: '__rows', lb: tx('organizeCatalogs'), action: true },
+    { head: tx('navChannels'), id: 'channels' },
     { k: '__m3u', lb: tx('m3uAdd'), action: true },
     { head: tx('accountGroup'), id: 'account' },
     { k: '__profile', lb: tx('nuvioProfile'), action: true },
@@ -8937,6 +8951,7 @@ var addonPanel = {
     this.inStore = false;
     this.draw();
     animIn($('aWrap'));
+    if (!addons().length) this.syncNow(true);
   },
   /* the three buttons, then the list: the installed addons or the store's */
   draw: function () {
@@ -9262,14 +9277,8 @@ var settings = {
     else if (k === '__support') this.showSupport();
     else if (k === '__profile') openProfile();
     else if (k === '__rows') rowsPanel.show();
-    else if (k === '__m3u') {
-      /* the list is read by the server, which keeps it for the Channels section */
-      var box = $('m3uBox');
-      box.value = '';
-      box.placeholder = tx('m3uAddress');
-      box.style.display = 'block';
-      box.focus();
-    } else if (k === '__logout') this.logout();
+    else if (k === '__m3u') m3uPanel.show();
+    else if (k === '__logout') this.logout();
     else if (k === '__clearSearches') {
       clearRecentSearches();
       toast(tx('searchesCleared'));
@@ -9505,14 +9514,29 @@ var settings = {
     return true;
   }
 };
-
+/* An M3U list's address, typed in the middle of the screen; the server reads it and keeps it
+   for the Channels section */
+var m3uPanel = {
+  show: function () {
+    var box = $('m3uBox');
+    $('m3uTitle').textContent = tx('m3uAdd');
+    $('m3uHint').textContent = tx('m3uAddress');
+    box.value = '';
+    box.placeholder = 'https://';
+    $('m3uPanel').style.display = 'block';
+    box.focus();
+  },
+  close: function () {
+    $('m3uBox').blur();
+    $('m3uPanel').style.display = 'none';
+  }
+};
 on($('m3uBox'), 'keydown', function (e) {
   if (e.keyCode !== 13 && !isRemoteBack(e.keyCode)) return;
   e.preventDefault();
   e.stopPropagation();
   var url = String($('m3uBox').value || '').trim();
-  $('m3uBox').blur();
-  $('m3uBox').style.display = 'none';
+  m3uPanel.close();
   if (e.keyCode !== 13 || !url) return;
   toast(tx('saving'));
   postJson(
@@ -9521,6 +9545,7 @@ on($('m3uBox'), 'keydown', function (e) {
     function (j) {
       toast((j && j.message) || tx('m3uFailed'));
       tv.built = false;
+      if (SCR === 'tv') tv.enter();
     },
     60000
   );

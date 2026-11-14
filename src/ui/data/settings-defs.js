@@ -248,6 +248,7 @@ function settingsCategories() {
       d: 'false'
     },
     { k: '__rows', lb: tx('organizeCatalogs'), action: true },
+    { head: tx('navChannels'), id: 'channels' },
     { k: '__m3u', lb: tx('m3uAdd'), action: true },
     { head: tx('accountGroup'), id: 'account' },
     { k: '__profile', lb: tx('nuvioProfile'), action: true },
