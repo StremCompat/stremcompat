@@ -6,6 +6,7 @@ var { readJsonBody, sendJson } = require('./http-util');
 var { appImage } = require('./app-images');
 var { title } = require('./app-title');
 var playback = require('./app-playback');
+var { addonSubtitles } = require('./subtitle-addons');
 var runtime = require('./app-runtime');
 
 var STREAM_WAIT_MS = 8000;
@@ -195,6 +196,23 @@ function streams(req, res, q) {
   s.waiters.push(woken);
 }
 
+/* the subtitles of the account's subtitle addons for this video (OpenSubtitles without any),
+   each read later through /sub?u= as cues */
+function subtitles(req, res, q) {
+  var L = logic();
+  addonSubtitles(
+    {
+      ref: q.ref || '',
+      type: q.type || '',
+      vid: q.vid || '',
+      addons: L.addonsFor(L.addons(), 'subtitles', q.type, q.vid)
+    },
+    function (list) {
+      sendJson(res, { subtitles: list });
+    }
+  );
+}
+
 /* ---------- moving to the native interface: the web interface hands over what it kept ---------- */
 function migrate(req, res) {
   readJsonBody(req, MIGRATE_MAX_BYTES, function (body) {
@@ -223,6 +241,7 @@ module.exports = {
     '/app/state': state,
     '/app/streams': streams,
     '/app/strings': strings,
+    '/app/subtitles': subtitles,
     '/app/title': title
   },
   postRoutes: {

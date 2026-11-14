@@ -41,7 +41,9 @@ function answerStream(res, q, ref) {
       ref: ref,
       info: playerConstants(stream, context),
       resume: resume,
-      seekStep: parseInt(L.setting('seekStep', '10'), 10) || 10
+      seekStep: parseInt(L.setting('seekStep', '10'), 10) || 10,
+      /* the subtitles chosen in Settings, or the interface's language until then (web: subtitles.js) */
+      subtitleLanguage: L.setting('subsLang', L.defaultMediaLanguage())
     });
   });
 }

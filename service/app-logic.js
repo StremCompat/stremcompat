@@ -3684,6 +3684,7 @@ function episodeBadge(v, now) {
 /* what the server may call (server/app-api.js); nothing else is reachable from outside */
 window.__logic = {
   addons: addons,
+  addonsFor: addonsFor,
   allLib: allLib,
   authKey: authKey,
   bestSource: bestSource,
@@ -3697,6 +3698,7 @@ window.__logic = {
   cwItems: cwItems,
   cwCard: cwCard,
   cwSubtitle: cwSubtitle,
+  defaultMediaLanguage: defaultMediaLanguage,
   discoverCatalogs: discoverCatalogs,
   discoverGenres: discoverGenres,
   discoverTypes: discoverTypes,
