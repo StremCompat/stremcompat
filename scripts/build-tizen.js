@@ -5,7 +5,8 @@
 // The pages are built from the same generated files as the LG packages, with the Tizen
 // platform modules. The local server is service/server/*.js, prepared for old Node as on LG.
 //
-// Usage: node scripts/build-tizen.js
+// Usage: node scripts/build-tizen.js [profile]   (tizen-armv7 by default; tizen-native carries the
+// native interface, LG-C built to WebAssembly, in place of the web pages)
 
 var fs = require('fs');
 var legacyNode = require('./lib/legacy-node');
@@ -13,7 +14,7 @@ var path = require('path');
 var tls = require('tls');
 
 var root = path.resolve(__dirname, '..');
-var PROFILE_NAME = 'tizen-armv7';
+var PROFILE_NAME = process.argv[2] || 'tizen-armv7';
 var profile = JSON.parse(fs.readFileSync(path.join(root, 'profiles', PROFILE_NAME + '.json'), 'utf8'));
 var stage = path.join(root, '.build', PROFILE_NAME);
 var profileModule = require(path.join(root, 'service', 'profile.js'));
@@ -105,13 +106,41 @@ function playerPage() {
   );
 }
 
+/* The native interface: boot.js starts the service, then the page loads LG-C's build. */
+function nativePage() {
+  var boot = tokens(read(path.join(root, 'platforms', 'tizen', 'boot.js')));
+  var setup =
+    'var Module={canvas:document.getElementById("canvas"),arguments:["--port","' + profile.port + '","--size","1920x1080"]};' +
+    'window.__SC_BOOT_ERROR__=function(m){document.getElementById("boot").textContent=m;};' +
+    'window.__SC_SCRIPT_LOADED__=function(){};' +
+    'window.__STREMCOMPAT_APP__=function(){var s=document.createElement("script");s.src="stremcompat.js";document.body.appendChild(s);};';
+  return (
+    '<!doctype html><html><head><meta charset="utf-8">' + viewportTag +
+    '<script src="$WEBAPIS/webapis/webapis.js"></script>' +
+    '<style>html,body{margin:0;background:transparent;overflow:hidden}canvas{display:block;width:1920px;height:1080px}' +
+    '#boot{position:absolute;left:0;right:0;top:50%;text-align:center;color:#fff;font:32px sans-serif}' +
+    '#v{position:absolute;left:0;top:0;width:1920px;height:1080px;z-index:-1}</style></head><body>' +
+    '<object id="v" type="application/avplayer"></object><div id="boot"></div>' +
+    '<canvas id="canvas" width="1920" height="1080"></canvas>' +
+    '<script>' + setup + '</script><script>' + inlineScript(boot) + '</script></body></html>'
+  );
+}
+
 fs.rmSync(stage, { recursive: true, force: true });
 fs.mkdirSync(stage, { recursive: true });
 
 write('config.xml', tokens(read(path.join(root, 'platforms', 'tizen', 'config.xml'))));
 copy('app/icon.png', 'icon.png');
-write('index.html', inlineAssets(interfacePage()));
-write('player.html', inlineAssets(playerPage()));
+if (profile.nativeApp) {
+  var nativeDir = path.resolve(root, profile.nativeApp);
+  write('index.html', nativePage());
+  fs.readdirSync(nativeDir).forEach(function (name) {
+    fs.copyFileSync(path.join(nativeDir, name), path.join(stage, name));
+  });
+} else {
+  write('index.html', inlineAssets(interfacePage()));
+  write('player.html', inlineAssets(playerPage()));
+}
 
 write('service/main.js', legacyNode.assertRunsOnOldNode(read(path.join(root, 'platforms', 'tizen', 'service', 'main.js')), 'main.js'));
 copy('platforms/tizen/service/native-probe.node', 'service/native-probe.node');

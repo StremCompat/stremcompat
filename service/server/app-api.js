@@ -20,7 +20,7 @@ function logic() {
 }
 
 function fail(res, status, why) {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
   res.end(JSON.stringify({ error: why }));
 }
 

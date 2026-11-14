@@ -19,12 +19,16 @@ function isPng(b) {
 }
 
 function send(res, type, data) {
-  res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'max-age=86400' });
+  res.writeHead(200, {
+    'Content-Type': type,
+    'Cache-Control': 'max-age=86400',
+    'Access-Control-Allow-Origin': '*'
+  });
   res.end(data);
 }
 
 function missing(res) {
-  res.writeHead(404);
+  res.writeHead(404, { 'Access-Control-Allow-Origin': '*' });
   res.end();
 }
 
