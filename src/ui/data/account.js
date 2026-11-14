@@ -188,6 +188,25 @@ function pullLib(cb) {
   });
 }
 /* push one library item up to the account (datastorePut = how Stremio persists it) */
+/* After a sign-in: the key, then the account's user and addons; done(true) for a Nuvio
+   account, which asks whose profile it is first. Addons that take long are not waited for
+   more than 4 s once the account answered. */
+function completeSignIn(ak, user, done) {
+  lsSet('authKey', ak);
+  if (user) lsSet('user', user);
+  if (isNuvioAccount()) return done(true);
+  postJson(API + '/api/getUser', { authKey: ak }, function (j) {
+    if (j && j.result) lsSet('user', j.result);
+    var called = false;
+    function once() {
+      if (called) return;
+      called = true;
+      done(false);
+    }
+    syncAddons(once);
+    setTimeout(once, 4000);
+  });
+}
 function pushLib(item) {
   if (item && item._id) pushLibItems([item]);
 }

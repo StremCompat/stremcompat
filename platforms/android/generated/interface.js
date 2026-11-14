@@ -578,6 +578,8 @@ var UI_TEXT = {
     emailSignIn: 'Or use your email',
     email: 'Email',
     password: 'Password',
+    keyboardSpace: 'Space',
+    keyboardDone: 'Done',
     signIn: 'Sign in',
     qrUnavailable: 'QR unavailable — use email',
     waitingPhone: 'Waiting for your phone',
@@ -1017,6 +1019,8 @@ var UI_TEXT = {
     emailSignIn: 'Ou use seu e-mail',
     email: 'Email',
     password: 'Senha',
+    keyboardSpace: 'Espaço',
+    keyboardDone: 'Concluir',
     signIn: 'Entrar',
     qrUnavailable: 'QR indisponível — use o e-mail',
     waitingPhone: 'Aguardando seu celular',
@@ -2217,6 +2221,25 @@ function pullLib(cb) {
   });
 }
 /* push one library item up to the account (datastorePut = how Stremio persists it) */
+/* After a sign-in: the key, then the account's user and addons; done(true) for a Nuvio
+   account, which asks whose profile it is first. Addons that take long are not waited for
+   more than 4 s once the account answered. */
+function completeSignIn(ak, user, done) {
+  lsSet('authKey', ak);
+  if (user) lsSet('user', user);
+  if (isNuvioAccount()) return done(true);
+  postJson(API + '/api/getUser', { authKey: ak }, function (j) {
+    if (j && j.result) lsSet('user', j.result);
+    var called = false;
+    function once() {
+      if (called) return;
+      called = true;
+      done(false);
+    }
+    syncAddons(once);
+    setTimeout(once, 4000);
+  });
+}
 function pushLib(item) {
   if (item && item._id) pushLibItems([item]);
 }
@@ -9222,10 +9245,7 @@ var login = {
         function (r) {
           if (gen !== self.pollGen) return;
           self.polling = false;
-          if (r && r.result && r.result.authKey) {
-            lsSet('user', r.result.user);
-            return self.finish(r.result.authKey);
-          }
+          if (r && r.result && r.result.authKey) return self.finish(r.result.authKey, r.result.user);
           /* a code that ran out is replaced by a new one */
           if (r && (r.status === 'expired' || r.status === 'used' || r.status === 'cancelled')) {
             self.stopQr();
@@ -9309,24 +9329,16 @@ var login = {
         if (!r) self.explainNoConnection(self.pollGen);
         return;
       }
-      if (res.user) lsSet('user', res.user);
-      self.finish(res.authKey);
+      self.finish(res.authKey, res.user);
     });
   },
-  finish: function (ak) {
+  finish: function (ak, user) {
     this.stopQr();
-    lsSet('authKey', ak);
     this.setStatus('accountConnected');
-    /* a Nuvio account first asks whose profile this is */
-    if (isNuvioAccount()) return profilePanel.show(ak, reloadWithProfile);
-    postJson(API + '/api/getUser', { authKey: ak }, function (j) {
-      if (j && j.result) lsSet('user', j.result);
-      syncAddons(function () {
-        location.reload();
-      });
-      setTimeout(function () {
-        location.reload();
-      }, 4000);
+    completeSignIn(ak, user, function (nuvio) {
+      /* a Nuvio account first asks whose profile this is */
+      if (nuvio) profilePanel.show(ak, reloadWithProfile);
+      else location.reload();
     });
   },
   paint: function () {

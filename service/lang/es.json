@@ -276,6 +276,8 @@
   "emailSignIn": "O usa tu email",
   "email": "Email",
   "password": "Contraseña",
+  "keyboardSpace": "Espacio",
+  "keyboardDone": "Listo",
   "signIn": "Iniciar sesión",
   "qrUnavailable": "QR no disponible: usa el email",
   "waitingPhone": "Esperando a tu móvil",

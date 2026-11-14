@@ -276,6 +276,8 @@
   "emailSignIn": "Или по эл. почте",
   "email": "Эл. почта",
   "password": "Пароль",
+  "keyboardSpace": "Пробел",
+  "keyboardDone": "Готово",
   "signIn": "Войти",
   "qrUnavailable": "QR недоступен — используйте эл. почту",
   "waitingPhone": "Ожидание телефона",

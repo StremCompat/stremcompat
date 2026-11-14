@@ -276,6 +276,8 @@
   "emailSignIn": "Ou utilisez votre e-mail",
   "email": "E-mail",
   "password": "Mot de passe",
+  "keyboardSpace": "Espace",
+  "keyboardDone": "OK",
   "signIn": "Se connecter",
   "qrUnavailable": "QR indisponible : utilisez l'e-mail",
   "waitingPhone": "En attente de votre téléphone",

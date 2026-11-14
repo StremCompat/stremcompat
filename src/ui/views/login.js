@@ -175,10 +175,7 @@ var login = {
         function (r) {
           if (gen !== self.pollGen) return;
           self.polling = false;
-          if (r && r.result && r.result.authKey) {
-            lsSet('user', r.result.user);
-            return self.finish(r.result.authKey);
-          }
+          if (r && r.result && r.result.authKey) return self.finish(r.result.authKey, r.result.user);
           /* a code that ran out is replaced by a new one */
           if (r && (r.status === 'expired' || r.status === 'used' || r.status === 'cancelled')) {
             self.stopQr();
@@ -262,24 +259,16 @@ var login = {
         if (!r) self.explainNoConnection(self.pollGen);
         return;
       }
-      if (res.user) lsSet('user', res.user);
-      self.finish(res.authKey);
+      self.finish(res.authKey, res.user);
     });
   },
-  finish: function (ak) {
+  finish: function (ak, user) {
     this.stopQr();
-    lsSet('authKey', ak);
     this.setStatus('accountConnected');
-    /* a Nuvio account first asks whose profile this is */
-    if (isNuvioAccount()) return profilePanel.show(ak, reloadWithProfile);
-    postJson(API + '/api/getUser', { authKey: ak }, function (j) {
-      if (j && j.result) lsSet('user', j.result);
-      syncAddons(function () {
-        location.reload();
-      });
-      setTimeout(function () {
-        location.reload();
-      }, 4000);
+    completeSignIn(ak, user, function (nuvio) {
+      /* a Nuvio account first asks whose profile this is */
+      if (nuvio) profilePanel.show(ak, reloadWithProfile);
+      else location.reload();
     });
   },
   paint: function () {

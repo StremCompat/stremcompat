@@ -276,6 +276,8 @@
   "emailSignIn": "Oder per E-Mail",
   "email": "E-Mail",
   "password": "Passwort",
+  "keyboardSpace": "Leerzeichen",
+  "keyboardDone": "Fertig",
   "signIn": "Anmelden",
   "qrUnavailable": "QR nicht verfügbar – E-Mail verwenden",
   "waitingPhone": "Warten auf dein Handy",

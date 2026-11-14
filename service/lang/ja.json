@@ -335,6 +335,8 @@
   "emailSignIn": "またはメールアドレスで",
   "email": "メールアドレス",
   "password": "パスワード",
+  "keyboardSpace": "スペース",
+  "keyboardDone": "完了",
   "signIn": "ログイン",
   "qrUnavailable": "QRは使えません — メールアドレスを使ってください",
   "waitingPhone": "スマートフォンを待っています",

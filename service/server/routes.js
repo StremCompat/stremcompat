@@ -29,6 +29,7 @@ var SUPPORT_URL = 'https://buymeacoffee.com/Alexesmm';
 var { diagnostics, netcheck, recordEvent, speedTest } = require('./diag');
 var { cachedAddonJson } = require('./addon-cache');
 var appApi = require('./app-api');
+var appLogin = require('./app-login');
 var { handleTakeover } = require('./takeover');
 var { decodeField, seriesVideos, setWatched } = require('./watched');
 
@@ -393,6 +394,8 @@ function addRoutes(table, more) {
 }
 addRoutes(ROUTES, appApi.routes);
 addRoutes(POST_ONLY, appApi.postRoutes);
+addRoutes(ROUTES, appLogin.routes);
+addRoutes(POST_ONLY, appLogin.postRoutes);
 
 function handleRequest(req, res) {
   var parsed = urlmod.parse(req.url, true);

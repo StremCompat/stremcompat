@@ -335,6 +335,8 @@
   "emailSignIn": "或使用邮箱",
   "email": "邮箱",
   "password": "密码",
+  "keyboardSpace": "空格",
+  "keyboardDone": "完成",
   "signIn": "登录",
   "qrUnavailable": "二维码不可用 — 请使用邮箱",
   "waitingPhone": "正在等待你的手机",

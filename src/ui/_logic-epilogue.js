@@ -12,6 +12,7 @@ window.__logic = {
   clearContinueWatching: clearContinueWatching,
   clearRecentSearches: clearRecentSearches,
   compactSourcePool: compactSourcePool,
+  completeSignIn: completeSignIn,
   cwItems: cwItems,
   cwCard: cwCard,
   cwSubtitle: cwSubtitle,
@@ -54,10 +55,25 @@ window.__logic = {
   pullLib: pullLib,
   pushLib: pushLib,
   qualityChips: qualityChips,
+  /* after another profile was chosen: its user, addons and collections */
+  reloadAccount: function (done) {
+    postJson(API + '/api/getUser', { authKey: authKey() }, function (u) {
+      if (u && u.result) lsSet('user', u.result);
+      lsRawSet('addons', '');
+      syncAddons(function () {
+        syncCollections(function () {
+          done();
+        });
+      });
+    });
+  },
   releasedTime: releasedTime,
   resumeInfoFor: resumeInfoFor,
   resumeLabel: resumeLabel,
   setting: lsRaw,
+  signInRequest: function (body, cb) {
+    postJson(API + '/api/login', body, cb);
+  },
   simpleMode: simpleMode,
   removeFromCw: removeFromCw,
   setEpisodesWatched: setEpisodesWatched,

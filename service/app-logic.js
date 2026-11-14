@@ -592,6 +592,8 @@ var UI_TEXT = {
     emailSignIn: 'Or use your email',
     email: 'Email',
     password: 'Password',
+    keyboardSpace: 'Space',
+    keyboardDone: 'Done',
     signIn: 'Sign in',
     qrUnavailable: 'QR unavailable — use email',
     waitingPhone: 'Waiting for your phone',
@@ -1031,6 +1033,8 @@ var UI_TEXT = {
     emailSignIn: 'Ou use seu e-mail',
     email: 'Email',
     password: 'Senha',
+    keyboardSpace: 'Espaço',
+    keyboardDone: 'Concluir',
     signIn: 'Entrar',
     qrUnavailable: 'QR indisponível — use o e-mail',
     waitingPhone: 'Aguardando seu celular',
@@ -1948,6 +1952,25 @@ function pullLib(cb) {
   });
 }
 /* push one library item up to the account (datastorePut = how Stremio persists it) */
+/* After a sign-in: the key, then the account's user and addons; done(true) for a Nuvio
+   account, which asks whose profile it is first. Addons that take long are not waited for
+   more than 4 s once the account answered. */
+function completeSignIn(ak, user, done) {
+  lsSet('authKey', ak);
+  if (user) lsSet('user', user);
+  if (isNuvioAccount()) return done(true);
+  postJson(API + '/api/getUser', { authKey: ak }, function (j) {
+    if (j && j.result) lsSet('user', j.result);
+    var called = false;
+    function once() {
+      if (called) return;
+      called = true;
+      done(false);
+    }
+    syncAddons(once);
+    setTimeout(once, 4000);
+  });
+}
 function pushLib(item) {
   if (item && item._id) pushLibItems([item]);
 }
@@ -3695,6 +3718,7 @@ window.__logic = {
   clearContinueWatching: clearContinueWatching,
   clearRecentSearches: clearRecentSearches,
   compactSourcePool: compactSourcePool,
+  completeSignIn: completeSignIn,
   cwItems: cwItems,
   cwCard: cwCard,
   cwSubtitle: cwSubtitle,
@@ -3737,10 +3761,25 @@ window.__logic = {
   pullLib: pullLib,
   pushLib: pushLib,
   qualityChips: qualityChips,
+  /* after another profile was chosen: its user, addons and collections */
+  reloadAccount: function (done) {
+    postJson(API + '/api/getUser', { authKey: authKey() }, function (u) {
+      if (u && u.result) lsSet('user', u.result);
+      lsRawSet('addons', '');
+      syncAddons(function () {
+        syncCollections(function () {
+          done();
+        });
+      });
+    });
+  },
   releasedTime: releasedTime,
   resumeInfoFor: resumeInfoFor,
   resumeLabel: resumeLabel,
   setting: lsRaw,
+  signInRequest: function (body, cb) {
+    postJson(API + '/api/login', body, cb);
+  },
   simpleMode: simpleMode,
   removeFromCw: removeFromCw,
   setEpisodesWatched: setEpisodesWatched,
