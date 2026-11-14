@@ -85,6 +85,21 @@ function library(req, res) {
   sendJson(res, { rows: rows });
 }
 
+/* ---------- the addons of the account (read only: the account decides them) ---------- */
+function addonList(req, res) {
+  sendJson(res, {
+    addons: logic()
+      .addons()
+      .map(function (ad) {
+        var m = ad.manifest || {};
+        return {
+          name: m.name || m.id || 'Addon',
+          info: [m.id || '', m.version || '', (m.types || []).join(' · ')].join('   ').replace(/\s+/g, ' ')
+        };
+      })
+  });
+}
+
 /* one catalog's titles: the saved copy when there is one, otherwise the addon's answer */
 function catalog(req, res, q) {
   if (!q.url || !q.key) return fail(res, 400, 'url and key are needed');
@@ -339,6 +354,7 @@ function migrate(req, res) {
 
 module.exports = {
   routes: {
+    '/app/addons': addonList,
     '/app/catalog': catalog,
     '/app/home': home,
     '/app/img': appImage,
