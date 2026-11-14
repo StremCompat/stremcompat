@@ -8,6 +8,7 @@ window.__logic = {
   bgOf: bgOf,
   bgSmall: bgSmall,
   buildEpisodeModel: buildEpisodeModel,
+  calendarEpisodes: calendarEpisodes,
   checkNewEpisodes: checkNewEpisodes,
   clearContinueWatching: clearContinueWatching,
   clearRecentSearches: clearRecentSearches,

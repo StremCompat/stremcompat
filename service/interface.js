@@ -656,6 +656,25 @@ var UI_TEXT = {
     password: 'Password',
     keyboardSpace: 'Space',
     keyboardDone: 'Done',
+    navCalendar: 'Calendar',
+    calendarEmpty: 'No episodes of your series in the coming weeks',
+    calendarToday: 'Today',
+    calendarTomorrow: 'Tomorrow',
+    navChannels: 'Channels',
+    channelsEmpty: 'No channels yet: install an addon with TV channels, or add an M3U list in Settings',
+    channelsAll: 'All',
+    m3uGroup: 'Channels',
+    m3uAdd: 'Add an M3U list',
+    m3uRemove: 'Remove the M3U lists',
+    m3uAddress: 'Address of the M3U list',
+    m3uAdded: 'List added: {0} channels',
+    m3uFailed: 'Could not read that list',
+    m3uRemoved: 'M3U lists removed',
+    liveNow: 'Now',
+    updateInstallNow: 'Install version {0}',
+    updateDownloading: 'Downloading the update…',
+    updateFailed: 'The update could not be installed: {0}',
+    updateCurrent: 'You have the latest version',
     signIn: 'Sign in',
     qrUnavailable: 'QR unavailable — use email',
     waitingPhone: 'Waiting for your phone',
@@ -1097,6 +1116,26 @@ var UI_TEXT = {
     password: 'Senha',
     keyboardSpace: 'Espaço',
     keyboardDone: 'Concluir',
+    navCalendar: 'Calendário',
+    calendarEmpty: 'Nenhum episódio das suas séries nas próximas semanas',
+    calendarToday: 'Hoje',
+    calendarTomorrow: 'Amanhã',
+    navChannels: 'Canais',
+    channelsEmpty:
+      'Nenhum canal ainda: instale um addon com canais de TV ou adicione uma lista M3U em Ajustes',
+    channelsAll: 'Todos',
+    m3uGroup: 'Canais',
+    m3uAdd: 'Adicionar lista M3U',
+    m3uRemove: 'Remover as listas M3U',
+    m3uAddress: 'Endereço da lista M3U',
+    m3uAdded: 'Lista adicionada: {0} canais',
+    m3uFailed: 'Não foi possível ler essa lista',
+    m3uRemoved: 'Listas M3U removidas',
+    liveNow: 'Agora',
+    updateInstallNow: 'Instalar a versão {0}',
+    updateDownloading: 'Baixando a atualização…',
+    updateFailed: 'Não foi possível instalar a atualização: {0}',
+    updateCurrent: 'Você está na versão mais recente',
     signIn: 'Entrar',
     qrUnavailable: 'QR indisponível — use o e-mail',
     waitingPhone: 'Aguardando seu celular',
@@ -6269,25 +6308,32 @@ function firstNewEpisode(meta, state) {
   return best ? { id: best.id, count: count } : null;
 }
 window.__SC_FIRST_NEW_EPISODE__ = firstNewEpisode;
+/* the series this TV follows: in the library, or watched even after leaving it */
+function followedSeries() {
+  var lib = allLib(),
+    out = [];
+  for (var i = 0; i < lib.length; i++) {
+    var it = lib[i],
+      s = it.state || {};
+    if (it.type !== 'series' || !it._id) continue;
+    if (it.removed && !(s.timeOffset > 0) && !(s.watchedEpisodes && s.watchedEpisodes.length)) continue;
+    out.push(it);
+  }
+  return out.sort(function (a, b) {
+    return String(b._mtime || '').localeCompare(String(a._mtime || ''));
+  });
+}
 function checkNewEpisodes(done) {
   var cached = lsJson(NEW_EPISODES_KEY);
   if (cached && cached.at && Date.now() - cached.at < NEW_EPISODES_EVERY) {
     done(false);
     return;
   }
-  var lib = allLib(),
-    series = [];
-  for (var i = 0; i < lib.length; i++) {
-    var it = lib[i],
-      s = it.state || {};
-    if (it.type !== 'series' || !it._id || hiddenNewEpisodes().indexOf(it._id) >= 0) continue;
-    if (it.removed && !(s.timeOffset > 0) && !(s.watchedEpisodes && s.watchedEpisodes.length)) continue;
-    series.push(it);
-  }
-  series.sort(function (a, b) {
-    return String(b._mtime || '').localeCompare(String(a._mtime || ''));
-  });
-  series = series.slice(0, TV_PROFILE.lowMemory ? 3 : 6);
+  var series = followedSeries()
+    .filter(function (it) {
+      return hiddenNewEpisodes().indexOf(it._id) < 0;
+    })
+    .slice(0, TV_PROFILE.lowMemory ? 3 : 6);
   var found = [],
     at = 0;
   function next() {

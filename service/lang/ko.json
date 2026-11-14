@@ -431,5 +431,24 @@
     "loaded": "자막을 불러왔습니다",
     "extracting": "추출 중",
     "language": "언어"
-  }
+  },
+  "navCalendar": "캘린더",
+  "calendarEmpty": "앞으로 몇 주 동안 시리즈의 에피소드가 없습니다",
+  "calendarToday": "오늘",
+  "calendarTomorrow": "내일",
+  "navChannels": "채널",
+  "channelsEmpty": "아직 채널이 없습니다. TV 채널 애드온을 설치하거나 설정에서 M3U 목록을 추가하세요",
+  "channelsAll": "전체",
+  "m3uGroup": "채널",
+  "m3uAdd": "M3U 목록 추가",
+  "m3uRemove": "M3U 목록 삭제",
+  "m3uAddress": "M3U 목록 주소",
+  "m3uAdded": "목록 추가됨: 채널 {0}개",
+  "m3uFailed": "목록을 읽을 수 없습니다",
+  "m3uRemoved": "M3U 목록을 삭제했습니다",
+  "liveNow": "지금",
+  "updateInstallNow": "버전 {0} 설치",
+  "updateDownloading": "업데이트 다운로드 중…",
+  "updateFailed": "업데이트를 설치할 수 없습니다: {0}",
+  "updateCurrent": "최신 버전입니다"
 }

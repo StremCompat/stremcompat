@@ -17,6 +17,7 @@
   "data/meta.js",
   "data/episodes.js",
   "data/new-episodes.js",
+  "data/calendar.js",
   "data/library-actions.js",
   "data/title.js",
   "data/settings-defs.js",

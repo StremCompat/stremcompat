@@ -431,5 +431,24 @@
     "loaded": "字幕を読み込みました",
     "extracting": "抽出中",
     "language": "言語"
-  }
+  },
+  "navCalendar": "カレンダー",
+  "calendarEmpty": "この先数週間、シリーズのエピソードはありません",
+  "calendarToday": "今日",
+  "calendarTomorrow": "明日",
+  "navChannels": "チャンネル",
+  "channelsEmpty": "チャンネルがまだありません。テレビチャンネルのアドオンを入れるか、設定でM3Uリストを追加してください",
+  "channelsAll": "すべて",
+  "m3uGroup": "チャンネル",
+  "m3uAdd": "M3Uリストを追加",
+  "m3uRemove": "M3Uリストを削除",
+  "m3uAddress": "M3UリストのURL",
+  "m3uAdded": "リストを追加しました：{0} チャンネル",
+  "m3uFailed": "リストを読み込めませんでした",
+  "m3uRemoved": "M3Uリストを削除しました",
+  "liveNow": "放送中",
+  "updateInstallNow": "バージョン {0} をインストール",
+  "updateDownloading": "アップデートをダウンロード中…",
+  "updateFailed": "アップデートをインストールできませんでした：{0}",
+  "updateCurrent": "最新バージョンです"
 }

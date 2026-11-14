@@ -396,6 +396,44 @@ function trailer(req, res, q) {
   });
 }
 
+/* ---------- the calendar: the followed series' episodes by day ---------- */
+var DAY_MS = 86400000;
+
+/* Today, Tomorrow, or the date as the interface's language writes it with numbers (the TV's
+   Node has no names of months) */
+function dayLabel(L, at, today) {
+  var d = new Date(at),
+    days = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - today) / DAY_MS);
+  if (days === 0) return L.tx('calendarToday');
+  if (days === 1) return L.tx('calendarTomorrow');
+  var day = ('0' + d.getDate()).slice(-2),
+    month = ('0' + (d.getMonth() + 1)).slice(-2);
+  return L.uiLanguage() === 'en-US' ? month + '/' + day : day + '/' + month;
+}
+
+function calendar(req, res) {
+  var L = logic(),
+    now = new Date(),
+    today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  L.calendarEpisodes(function (items) {
+    var days = [];
+    items.forEach(function (it) {
+      var label = dayLabel(L, it.released, today),
+        last = days[days.length - 1];
+      if (!last || last.title !== label) days.push((last = { title: label, items: [] }));
+      last.items.push(it);
+    });
+    days.forEach(function (d) {
+      d.items = decorate(d.items, true).map(function (it) {
+        /* the line under the title is the episode, not where the viewer stopped */
+        it.subtitle = L.tx('seasonEpisode', it.season, it.episode) + (it.title ? '  ·  ' + it.title : '');
+        return it;
+      });
+    });
+    sendJson(res, { days: days, empty: days.length ? '' : L.tx('calendarEmpty') });
+  });
+}
+
 /* ---------- what can be done with a title (web: card-menu.js and the title page) ----------
    { action, item: { id, type, name, poster, background, videoId }, vids, watched }:
    library (in or out), watched (a film or an episode), season (several episodes), cwWatched,
@@ -455,6 +493,7 @@ function migrate(req, res) {
 module.exports = {
   routes: {
     '/app/addons': addonList,
+    '/app/calendar': calendar,
     '/app/catalog': catalog,
     '/app/home': home,
     '/app/img': appImage,

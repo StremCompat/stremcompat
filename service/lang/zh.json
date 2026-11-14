@@ -431,5 +431,24 @@
     "loaded": "字幕已加载",
     "extracting": "正在提取",
     "language": "语言"
-  }
+  },
+  "navCalendar": "日历",
+  "calendarEmpty": "未来几周你的剧集没有新集",
+  "calendarToday": "今天",
+  "calendarTomorrow": "明天",
+  "navChannels": "频道",
+  "channelsEmpty": "还没有频道：安装带电视频道的插件，或在设置中添加 M3U 列表",
+  "channelsAll": "全部",
+  "m3uGroup": "频道",
+  "m3uAdd": "添加 M3U 列表",
+  "m3uRemove": "移除 M3U 列表",
+  "m3uAddress": "M3U 列表地址",
+  "m3uAdded": "已添加列表：{0} 个频道",
+  "m3uFailed": "无法读取该列表",
+  "m3uRemoved": "已移除 M3U 列表",
+  "liveNow": "正在播出",
+  "updateInstallNow": "安装 {0} 版",
+  "updateDownloading": "正在下载更新…",
+  "updateFailed": "无法安装更新：{0}",
+  "updateCurrent": "已是最新版本"
 }

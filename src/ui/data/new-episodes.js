@@ -50,25 +50,32 @@ function firstNewEpisode(meta, state) {
   return best ? { id: best.id, count: count } : null;
 }
 window.__SC_FIRST_NEW_EPISODE__ = firstNewEpisode;
+/* the series this TV follows: in the library, or watched even after leaving it */
+function followedSeries() {
+  var lib = allLib(),
+    out = [];
+  for (var i = 0; i < lib.length; i++) {
+    var it = lib[i],
+      s = it.state || {};
+    if (it.type !== 'series' || !it._id) continue;
+    if (it.removed && !(s.timeOffset > 0) && !(s.watchedEpisodes && s.watchedEpisodes.length)) continue;
+    out.push(it);
+  }
+  return out.sort(function (a, b) {
+    return String(b._mtime || '').localeCompare(String(a._mtime || ''));
+  });
+}
 function checkNewEpisodes(done) {
   var cached = lsJson(NEW_EPISODES_KEY);
   if (cached && cached.at && Date.now() - cached.at < NEW_EPISODES_EVERY) {
     done(false);
     return;
   }
-  var lib = allLib(),
-    series = [];
-  for (var i = 0; i < lib.length; i++) {
-    var it = lib[i],
-      s = it.state || {};
-    if (it.type !== 'series' || !it._id || hiddenNewEpisodes().indexOf(it._id) >= 0) continue;
-    if (it.removed && !(s.timeOffset > 0) && !(s.watchedEpisodes && s.watchedEpisodes.length)) continue;
-    series.push(it);
-  }
-  series.sort(function (a, b) {
-    return String(b._mtime || '').localeCompare(String(a._mtime || ''));
-  });
-  series = series.slice(0, TV_PROFILE.lowMemory ? 3 : 6);
+  var series = followedSeries()
+    .filter(function (it) {
+      return hiddenNewEpisodes().indexOf(it._id) < 0;
+    })
+    .slice(0, TV_PROFILE.lowMemory ? 3 : 6);
   var found = [],
     at = 0;
   function next() {

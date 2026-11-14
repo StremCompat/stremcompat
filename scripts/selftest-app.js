@@ -289,6 +289,21 @@ async function main() {
       'adding to the library did not answer like the web interface: ' + JSON.stringify(added)
     );
 
+    /* live channels: an M3U list is read with its groups and logos; none yet says what to do */
+    var m3u = require(path.join(serviceDir, 'server', 'app-channels.js')).parseM3u(
+      '#EXTM3U\n#EXTINF:-1 tvg-logo="http://l/a.png" group-title="News",Channel A\nhttp://s/a.m3u8\n'
+    );
+    assert.deepStrictEqual(
+      [m3u.channels[0].name, m3u.channels[0].group, m3u.channels[0].url],
+      ['Channel A', 'News', 'http://s/a.m3u8'],
+      'an M3U list was not read'
+    );
+    assert.ok(
+      (await request('/app/channels')).json.empty,
+      'with no channels the screen does not say what to do'
+    );
+    assert.ok((await request('/app/calendar')).json.days, 'the calendar did not answer');
+
     /* Settings: the web groups, and a value kept */
     var set = (await request('/app/settings')).json;
     assert.ok(set.groups.length > 3, 'the Settings groups are missing');
@@ -311,7 +326,7 @@ async function main() {
     assert.strictEqual(nothing.status, 404, '/app/img read something other than a web address');
 
     console.log(
-      'OK: storage handed over, account, texts, Home rows, catalog, title with episodes, title page, sources as they arrive, playing and progress, library, settings, pictures.'
+      'OK: storage handed over, account, texts, Home rows, catalog, title with episodes, title page, sources as they arrive, playing and progress, library, channels, calendar, settings, pictures.'
     );
   } catch (e) {
     console.error(log.slice(-3000));
