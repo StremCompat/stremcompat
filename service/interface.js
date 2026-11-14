@@ -10308,9 +10308,20 @@ window.__SC_PHASE__('M4');
 // Startup: choose login or Home, restore deep links and start the silent syncs.
 /* ================= boot ================= */
 var HOME_WAIT_MS = 7000;
+/* Version 5 draws the interface natively and keeps its data in the local server: what this
+   interface kept (account, library, settings; not the caches) is handed over at each start,
+   so the update opens signed in. The server keeps what it already has. */
+function handOverToNative() {
+  var kept = {},
+    keys = storageKeys();
+  for (var i = 0; i < keys.length; i++)
+    if (keys[i].indexOf('beta_') !== 0) kept[keys[i]] = lsRaw(keys[i], '');
+  postJson('/app/migrate', kept, function () {}, 8000);
+}
 function boot() {
   try {
     window.__SC_PHASE__('B0');
+    handOverToNative();
     if (TV_PROFILE.lowMemory) bodyAdd('lowmem');
     applyLook();
     applyTextSize();
