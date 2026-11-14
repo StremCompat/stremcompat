@@ -175,7 +175,7 @@
   "providerNuvio": "Nuvio（試験的）",
   "whoIsWatching": "誰が見ますか？",
   "profileNumber": "プロフィール{0}",
-  "profileLocked": "PINで保護されています。StremCompatではまだ使えません",
+  "profileLocked": "PINで保護",
   "addProfile": "プロフィールを追加",
   "editProfile": "プロフィールを編集",
   "profileName": "名前",
@@ -450,5 +450,16 @@
   "updateInstallNow": "バージョン {0} をインストール",
   "updateDownloading": "アップデートをダウンロード中…",
   "updateFailed": "アップデートをインストールできませんでした：{0}",
-  "updateCurrent": "最新バージョンです"
+  "updateCurrent": "最新バージョンです",
+  "pinEnter": "{0} のPINを入力",
+  "pinWrong": "PINが違います",
+  "pinWait": "試行回数が多すぎます。{0} 秒後に再試行",
+  "pinNew": "4桁のPINを選んでください",
+  "pinCurrent": "現在のPINを入力",
+  "pinSet": "PINを設定",
+  "pinRemove": "PINを削除",
+  "pinSaved": "PINを保存しました",
+  "pinRemoved": "PINを削除しました",
+  "pinNotSaved": "NuvioでPINを変更できませんでした",
+  "pinDelete": "削除"
 }

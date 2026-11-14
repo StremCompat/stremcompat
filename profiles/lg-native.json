@@ -1,11 +1,11 @@
 {
   "profile": "lg-native",
-  "channel": "stable",
-  "appId": "io.github.alexesmm.legacytv",
-  "serviceId": "io.github.alexesmm.legacytv.server",
-  "title": "StremCompat",
+  "channel": "beta",
+  "appId": "io.github.alexesmm.stremcompat.native",
+  "serviceId": "io.github.alexesmm.stremcompat.native.server",
+  "title": "StremCompat Native",
   "version": "5.0.0",
-  "port": 8082,
+  "port": 8083,
   "graphicsResolution": "1920x1080",
   "ecmaTarget": "chrome38",
   "targetLabel": "LG webOS 3 and newer, ARM, native interface",
@@ -19,7 +19,7 @@
   "backdropCache": 24,
   "backdropWorkers": 2,
   "serverSemiSpaceMB": 2,
-  "updateManifest": "https://alexesmm.github.io/stremcompat-lg-webos/api/apps/io.github.alexesmm.legacytv/manifest.json",
+  "updateManifest": "https://stremcompat.github.io/webos/api/apps/io.github.alexesmm.stremcompat.native/manifest.json",
   "smallTv": {
     "lowMemory": true,
     "sourceCap": 30,
@@ -31,5 +31,6 @@
     "backdropCache": 6,
     "backdropWorkers": 1
   },
-  "nativeApp": "../../LG-C/build/webos"
+  "nativeApp": "../../LG-C/build/webos",
+  "handoverPort": 8082
 }

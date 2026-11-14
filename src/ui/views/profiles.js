@@ -174,22 +174,39 @@ var profilePanel = {
   choose: function (i) {
     var p = this.list[i];
     if (!p) return this.edit(null);
-    if (p.locked) return toast(tx('profileLocked'));
+    var self = this;
+    if (p.locked && !p.current)
+      return this.askPin(tx('pinEnter', p.name || tx('profileNumber', p.index)), p, function (pin) {
+        self.use(p, pin);
+      });
     this.use(p);
   },
-  /* the server switches the session to it; the account's user id names the profile's library */
-  use: function (p) {
+  /* the server switches the session to it; the account's user id names the profile's library.
+     A protected profile comes with its PIN; a wrong one asks again. */
+  use: function (p, pin) {
     var self = this;
-    lsSet('profileFace', { name: p.name, color: p.color, avatar: p.avatar });
     this.open = false;
-    if (p.current) return this.done(false);
+    if (p.current) {
+      lsSet('profileFace', { name: p.name, color: p.color, avatar: p.avatar });
+      return this.done(false);
+    }
     xhrJson(
-      '/nuvioprofile?key=' + encodeURIComponent(this.account) + '&index=' + p.index,
+      '/nuvioprofile?key=' +
+        encodeURIComponent(this.account) +
+        '&index=' +
+        p.index +
+        '&pin=' +
+        encodeURIComponent(pin || ''),
       function (j) {
         if (!j || !j.ok) {
           self.open = true;
+          if (j && j.reason === 'wrong') {
+            toast(j.retryAfter ? tx('pinWait', j.retryAfter) : tx('pinWrong'));
+            return self.choose(self.idx);
+          }
           return toast(tx('profilesUnavailable'));
         }
+        lsSet('profileFace', { name: p.name, color: p.color, avatar: p.avatar });
         postJson(API + '/api/getUser', { authKey: self.account }, function (u) {
           if (u && u.result) lsSet('user', u.result);
           lsRawSet('addons', '');
@@ -199,6 +216,82 @@ var profilePanel = {
       20000
     );
   },
+  /* ---------- a PIN: four digits, with the remote's numbers or the keys on screen ---------- */
+  askPin: function (title, face, then) {
+    this.pinFrom = this.mode;
+    this.mode = 'pin';
+    this.pin = '';
+    this.pinKey = 0;
+    this.pinThen = then;
+    $('pfPick').style.display = 'none';
+    $('pfEditor').style.display = 'none';
+    $('pfPin').style.display = 'block';
+    $('pfTitle').textContent = title;
+    $('pfHint').textContent = '';
+    drawFace($('pfPinFace'), face);
+    var keys = $('pfPinKeys');
+    keys.innerHTML = '';
+    this.pinEls = [];
+    for (var i = 0; i < 11; i++) {
+      var k = document.createElement('span');
+      k.textContent = i < 10 ? String((i + 1) % 10) : tx('pinDelete');
+      if (i === 10) k.className = 'wide';
+      keys.appendChild(k);
+      this.pinEls.push(k);
+    }
+    this.paint();
+  },
+  pinType: function (digit) {
+    if (digit === null) this.pin = this.pin.slice(0, -1);
+    else if (this.pin.length < 4) this.pin += digit;
+    this.paint();
+    if (this.pin.length === 4) {
+      var pin = this.pin;
+      this.leavePin();
+      this.pinThen(pin);
+    }
+  },
+  leavePin: function () {
+    $('pfPin').style.display = 'none';
+    if (this.pinFrom === 'edit') {
+      this.mode = 'edit';
+      $('pfEditor').style.display = '';
+      $('pfTitle').textContent = tx('editProfile');
+      $('pfHint').textContent = tx('profileEditHint');
+      this.paint();
+    } else this.buildPick();
+  },
+  keyPin: function (k) {
+    if (k >= 48 && k <= 57) return this.pinType(String(k - 48));
+    if (k >= 96 && k <= 105) return this.pinType(String(k - 96));
+    if (k === 8) return this.pinType(null);
+    if (k === 37) this.pinKey = Math.max(0, this.pinKey - 1);
+    else if (k === 39) this.pinKey = Math.min(10, this.pinKey + 1);
+    else if (k === 13) return this.pinType(this.pinKey === 10 ? null : String((this.pinKey + 1) % 10));
+    this.paint();
+  },
+  /* the editor's PIN button: sets one, or takes it away after the current one */
+  changePin: function () {
+    var self = this,
+      d = this.draft;
+    function send(query, done) {
+      xhrJson(
+        '/nuvioprofilepin?key=' + encodeURIComponent(self.account) + '&index=' + d.index + query,
+        function (j) {
+          toast(j && j.ok ? tx(done) : tx('pinNotSaved'));
+          if (j && j.ok) self.show(self.account, self.done, self.cancel);
+        },
+        20000
+      );
+    }
+    if (d.locked)
+      return this.askPin(tx('pinCurrent'), d, function (pin) {
+        send('&current=' + encodeURIComponent(pin), 'pinRemoved');
+      });
+    this.askPin(tx('pinNew'), d, function (pin) {
+      send('&pin=' + encodeURIComponent(pin), 'pinSaved');
+    });
+  },
   /* ---------- adding or changing a profile ---------- */
   edit: function (p) {
     var self = this;
@@ -206,10 +299,13 @@ var profilePanel = {
     this.zone = 'name';
     this.btnIdx = 0;
     this.draft = p
-      ? { index: p.index, name: p.name, color: p.color, avatar: p.avatar || '' }
+      ? { index: p.index, name: p.name, color: p.color, avatar: p.avatar || '', locked: p.locked }
       : { index: 0, name: '', color: PROFILE_COLORS[this.list.length % PROFILE_COLORS.length], avatar: '' };
     $('pfPick').style.display = 'none';
     $('pfEditor').style.display = '';
+    /* a new profile gets its PIN once it exists */
+    $('pfEdPin').style.display = p ? '' : 'none';
+    $('pfPinBtn').textContent = tx(p && p.locked ? 'pinRemove' : 'pinSet');
     $('pfTitle').textContent = tx(p ? 'editProfile' : 'addProfile');
     $('pfHint').textContent = tx('profileEditHint');
     $('pfEdName').value = this.draft.name;
@@ -302,6 +398,14 @@ var profilePanel = {
   },
   /* ---------- drawing the focus ---------- */
   paint: function () {
+    if (this.mode === 'pin') {
+      var dots = '';
+      for (var i = 0; i < 4; i++) dots += '<span' + (i < this.pin.length ? ' class="on"' : '') + '></span>';
+      $('pfPinDots').innerHTML = dots;
+      for (var e = 0; e < this.pinEls.length; e++)
+        this.pinEls[e].className = (e === 10 ? 'wide' : '') + (e === this.pinKey ? ' f' : '');
+      return;
+    }
     if (this.mode === 'pick') {
       setF(this.els, this.zone === 'row' ? this.idx : -1);
       var canEdit = !!this.list[this.idx];
@@ -325,6 +429,7 @@ var profilePanel = {
       off = Math.max(0, this.avatarIdx - 4) * step;
     $('pfEdAvatars').style.webkitTransform = 'translateX(-' + off + 'px)';
     $('pfEdAvatars').style.transform = 'translateX(-' + off + 'px)';
+    $('pfPinBtn').className = this.zone === 'pin' ? 'f' : '';
     setF([$('pfSave'), $('pfCancel')], this.zone === 'btns' ? this.btnIdx : -1);
     this.paintDraft();
   },
@@ -334,6 +439,7 @@ var profilePanel = {
     $('pfScreen').style.display = 'none';
   },
   back: function () {
+    if (this.mode === 'pin') return this.leavePin();
     if (this.mode === 'edit') return this.buildPick();
     if (!this.cancel) return;
     this.close();
@@ -345,7 +451,10 @@ var profilePanel = {
   },
   key: function (k) {
     if (this.mode === 'pick') return this.keyPick(k);
-    var zones = ['name', 'colors', 'avatars', 'btns'],
+    if (this.mode === 'pin') return this.keyPin(k);
+    var zones = this.draft.index
+        ? ['name', 'colors', 'avatars', 'pin', 'btns']
+        : ['name', 'colors', 'avatars', 'btns'],
       z = zones.indexOf(this.zone);
     if (k === 40 && z < zones.length - 1) this.zone = zones[z + 1];
     else if (k === 38 && z > 0) this.zone = zones[z - 1];
@@ -359,6 +468,7 @@ var profilePanel = {
     } else if (k === 13) {
       if (this.zone === 'name') return $('pfEdName').focus();
       if (this.zone === 'btns') return this.btnIdx ? this.buildPick() : this.save();
+      if (this.zone === 'pin') return this.changePin();
       this.zone = zones[z + 1];
     }
     this.paint();

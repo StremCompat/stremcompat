@@ -196,6 +196,8 @@ function nuvioTests() {
         return send(200, [{ id: 'av1', storage_path: 'set/fox.png' }]);
       if (u === '/meta/series/tt0000003.json')
         return send(200, { meta: { name: 'Found Show', poster: 'found.jpg' } });
+      if (u === '/rest/v1/rpc/verify_profile_pin')
+        return send(200, [{ unlocked: json.p_profile_id === 3 && json.p_pin === '1234', retry_after_seconds: 0 }]);
       if (u === '/rest/v1/rpc/sync_pull_profiles')
         return send(200, [
           {
@@ -327,20 +329,17 @@ function nuvioTests() {
           }),
           'an ended token was not renewed'
         );
-        assert.strictEqual(
-          await new Promise(function (ok) {
-            nuvio.chooseProfile(key, 3, ok);
-          }),
-          false,
-          'a PIN-protected profile was opened without its PIN'
-        );
-        assert.strictEqual(
-          await new Promise(function (ok) {
-            nuvio.chooseProfile(key, 2, ok);
-          }),
-          true,
-          'a profile could not be chosen'
-        );
+        function choose(index, pin) {
+          return new Promise(function (ok) {
+            nuvio.chooseProfile(key, index, pin, function (opened, reason) {
+              ok(opened ? 'open' : reason);
+            });
+          });
+        }
+        assert.strictEqual(await choose(3, ''), 'pin', 'a PIN-protected profile was opened without its PIN');
+        assert.strictEqual(await choose(3, '0000'), 'wrong', 'a wrong PIN opened a profile');
+        assert.strictEqual(await choose(3, '1234'), 'open', 'the right PIN did not open its profile');
+        assert.strictEqual(await choose(2, ''), 'open', 'a profile could not be chosen');
         assert.strictEqual(
           (await api('/api/getUser', { authKey: key })).result._id,
           'nv02user42',

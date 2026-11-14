@@ -139,6 +139,50 @@ LocalRequest.prototype.abort = function () {
   this.readyState = 4;
 };
 
+/* ---------- taking over the web version's data ---------- */
+/* The native app has an ID, a service and a port of its own, so it can sit next to the web
+   app. On its first start, with nothing kept yet, it asks the web app's server (the port in the
+   profile's handoverPort) for what the web interface handed it (boot.js -> /app/migrate):
+   accounts, library and settings come along and nobody signs in again. Asked once a start. */
+var handoverAsked = false;
+function takeOver(done) {
+  var from = parseInt(PROFILE.handoverPort, 10);
+  if (handoverAsked || !from || from === PORT || storage.length) return done();
+  handoverAsked = true;
+  var req = http.get({ host: '127.0.0.1', port: from, path: '/app/handover', timeout: 3000 }, function (res) {
+    var chunks = [];
+    res.on('data', function (c) {
+      chunks.push(c);
+    });
+    res.on('end', function () {
+      try {
+        var got = JSON.parse(Buffer.concat(chunks).toString('utf8')).items || {};
+        Object.keys(got).forEach(function (k) {
+          if (typeof got[k] === 'string' && storage.getItem(k) === null) storage.setItem(k, got[k]);
+        });
+        restart();
+      } catch (e) {
+        dbg('handover not read: ' + e.message);
+      }
+      done();
+    });
+  });
+  req.on('timeout', function () {
+    req.abort();
+  });
+  req.on('error', function () {
+    done();
+  });
+}
+
+/* what this server keeps, for the native app's takeOver; only to another program on the TV
+   (a request with an Origin comes from a page and gets nothing) */
+function handover(req, res) {
+  var body = req.headers.origin ? '{}' : JSON.stringify({ items: load() });
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(body);
+}
+
 /* ---------- the context ---------- */
 var logic = null,
   tvLanguage = '';
@@ -178,7 +222,9 @@ function setTvLanguage(code) {
 }
 
 module.exports = {
+  handover: handover,
   logic: start,
+  takeOver: takeOver,
   restart: restart,
   setTvLanguage: setTvLanguage,
   storage: storage

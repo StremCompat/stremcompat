@@ -3,7 +3,7 @@
 // the phone approves, or an email and password. The QR comes as rows of modules to draw.
 
 var { fetchJson, readJsonBody, sendJson } = require('./http-util');
-var { avatars, chooseProfile, profiles, qrPoll, qrStart, saveProfile } = require('./nuvio-account');
+var { avatars, chooseProfile, profiles, qrPoll, qrStart, saveProfile, setProfilePin } = require('./nuvio-account');
 var { qrRows } = require('./qr');
 var runtime = require('./app-runtime');
 
@@ -70,7 +70,8 @@ function profileList(req, res) {
 }
 
 /* Switches to a profile as the web profile screen does (views/profiles.js): the account then
-   names that profile's library, and its addons and collections are fetched again. */
+   names that profile's library, and its addons and collections are fetched again. A protected
+   one comes with its PIN: { ok: false, reason: 'pin' } asks for it, 'wrong' refuses it. */
 function useProfile(req, res, q) {
   var L = runtime.logic(),
     key = L.authKey() || '';
@@ -78,13 +79,13 @@ function useProfile(req, res, q) {
     var p = (list || []).filter(function (x) {
       return x.index === Number(q.index);
     })[0];
-    if (!p || p.locked) return sendJson(res, { ok: false });
-    runtime.storage.setItem(
-      'profileFace',
-      JSON.stringify({ name: p.name, color: p.color, avatar: p.avatar })
-    );
-    chooseProfile(key, p.index, function (ok) {
-      if (!ok) return sendJson(res, { ok: false });
+    if (!p) return sendJson(res, { ok: false });
+    chooseProfile(key, p.index, q.pin || '', function (ok, reason, retryAfter) {
+      if (!ok) return sendJson(res, { ok: false, reason: reason || '', retryAfter: retryAfter || 0 });
+      runtime.storage.setItem(
+        'profileFace',
+        JSON.stringify({ name: p.name, color: p.color, avatar: p.avatar })
+      );
       L.reloadAccount(function () {
         runtime.restart();
         sendJson(res, { ok: true });
@@ -114,6 +115,22 @@ function saveOne(req, res) {
   });
 }
 
+/* { index, pin, current } sets or changes a PIN; no pin takes it away */
+function pinOne(req, res) {
+  readJsonBody(req, 1024, function (body) {
+    if (!body || !body.index) return sendJson(res, { ok: false });
+    setProfilePin(
+      runtime.logic().authKey() || '',
+      body.index,
+      body.pin || '',
+      body.current || '',
+      function (ok) {
+        sendJson(res, { ok: ok });
+      }
+    );
+  });
+}
+
 module.exports = {
   routes: {
     '/app/login/start': start,
@@ -122,5 +139,5 @@ module.exports = {
     '/app/profile': useProfile,
     '/app/avatars': avatarList
   },
-  postRoutes: { '/app/login/email': email, '/app/profile/save': saveOne }
+  postRoutes: { '/app/login/email': email, '/app/profile/save': saveOne, '/app/profile/pin': pinOne }
 };

@@ -413,7 +413,7 @@
   "providerNuvio": "Nuvio (экспериментально)",
   "whoIsWatching": "Кто смотрит?",
   "profileNumber": "Профиль {0}",
-  "profileLocked": "Защищён PIN-кодом, пока недоступен в StremCompat",
+  "profileLocked": "Защищён PIN-кодом",
   "addProfile": "Добавить профиль",
   "editProfile": "Изменить профиль",
   "profileName": "Имя",
@@ -450,5 +450,16 @@
   "updateInstallNow": "Установить версию {0}",
   "updateDownloading": "Загрузка обновления…",
   "updateFailed": "Не удалось установить обновление: {0}",
-  "updateCurrent": "У вас последняя версия"
+  "updateCurrent": "У вас последняя версия",
+  "pinEnter": "Введите PIN для {0}",
+  "pinWrong": "Неверный PIN",
+  "pinWait": "Слишком много попыток. Повторите через {0} с",
+  "pinNew": "Выберите PIN из 4 цифр",
+  "pinCurrent": "Введите текущий PIN",
+  "pinSet": "Задать PIN",
+  "pinRemove": "Убрать PIN",
+  "pinSaved": "PIN сохранён",
+  "pinRemoved": "PIN убран",
+  "pinNotSaved": "Не удалось изменить PIN в Nuvio",
+  "pinDelete": "Стереть"
 }

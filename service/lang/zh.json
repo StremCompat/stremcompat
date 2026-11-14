@@ -175,7 +175,7 @@
   "providerNuvio": "Nuvio（实验性）",
   "whoIsWatching": "谁在观看？",
   "profileNumber": "个人资料 {0}",
-  "profileLocked": "已用 PIN 保护，StremCompat 暂不支持",
+  "profileLocked": "已用 PIN 保护",
   "addProfile": "添加个人资料",
   "editProfile": "编辑个人资料",
   "profileName": "名称",
@@ -450,5 +450,16 @@
   "updateInstallNow": "安装 {0} 版",
   "updateDownloading": "正在下载更新…",
   "updateFailed": "无法安装更新：{0}",
-  "updateCurrent": "已是最新版本"
+  "updateCurrent": "已是最新版本",
+  "pinEnter": "输入 {0} 的 PIN",
+  "pinWrong": "PIN 错误",
+  "pinWait": "尝试次数过多。请在 {0} 秒后重试",
+  "pinNew": "设置 4 位数字 PIN",
+  "pinCurrent": "输入当前 PIN",
+  "pinSet": "设置 PIN",
+  "pinRemove": "移除 PIN",
+  "pinSaved": "PIN 已保存",
+  "pinRemoved": "PIN 已移除",
+  "pinNotSaved": "无法在 Nuvio 上更改 PIN",
+  "pinDelete": "删除"
 }

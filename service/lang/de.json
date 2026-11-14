@@ -413,7 +413,7 @@
   "providerNuvio": "Nuvio (experimentell)",
   "whoIsWatching": "Wer schaut zu?",
   "profileNumber": "Profil {0}",
-  "profileLocked": "Mit PIN geschützt, in StremCompat noch nicht verfügbar",
+  "profileLocked": "Mit PIN geschützt",
   "addProfile": "Profil hinzufügen",
   "editProfile": "Profil bearbeiten",
   "profileName": "Name",
@@ -450,5 +450,16 @@
   "updateInstallNow": "Version {0} installieren",
   "updateDownloading": "Update wird geladen…",
   "updateFailed": "Das Update konnte nicht installiert werden: {0}",
-  "updateCurrent": "Du hast die neueste Version"
+  "updateCurrent": "Du hast die neueste Version",
+  "pinEnter": "PIN für {0} eingeben",
+  "pinWrong": "Falsche PIN",
+  "pinWait": "Zu viele Versuche. Erneut in {0} s",
+  "pinNew": "Wähle eine 4-stellige PIN",
+  "pinCurrent": "Aktuelle PIN eingeben",
+  "pinSet": "PIN festlegen",
+  "pinRemove": "PIN entfernen",
+  "pinSaved": "PIN gespeichert",
+  "pinRemoved": "PIN entfernt",
+  "pinNotSaved": "Die PIN konnte bei Nuvio nicht geändert werden",
+  "pinDelete": "Löschen"
 }

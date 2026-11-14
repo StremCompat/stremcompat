@@ -18,7 +18,15 @@ var { playerConstants, playerContext, playerPage } = require('./player-page');
 var { embCues, embStart, embTracks, subtitleCues } = require('./subtitles');
 var { addonSubtitles } = require('./subtitle-addons');
 var { postStremioApi } = require('./stremio-api');
-var { avatars, chooseProfile, profiles, qrPoll, qrStart, saveProfile } = require('./nuvio-account');
+var {
+  avatars,
+  chooseProfile,
+  profiles,
+  qrPoll,
+  qrStart,
+  saveProfile,
+  setProfilePin
+} = require('./nuvio-account');
 var { ytResolve } = require('./youtube');
 var { grabFrame, probeInfo, spriteGen } = require('./media');
 var { bgResize } = require('./images');
@@ -327,7 +335,13 @@ var ROUTES = {
     });
   },
   '/nuvioprofile': function (req, res, q) {
-    chooseProfile(q.key || '', q.index, function (ok) {
+    chooseProfile(q.key || '', q.index, q.pin || '', function (ok, reason, retryAfter) {
+      sendJson(res, { ok: ok, reason: reason || '', retryAfter: retryAfter || 0 });
+    });
+  },
+  /* a profile's PIN set (pin), changed (pin and current) or taken away (no pin) */
+  '/nuvioprofilepin': function (req, res, q) {
+    setProfilePin(q.key || '', q.index, q.pin || '', q.current || '', function (ok) {
       sendJson(res, { ok: ok });
     });
   },

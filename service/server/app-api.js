@@ -27,14 +27,16 @@ function fail(res, status, why) {
 /* ---------- who is signed in, in which language ---------- */
 function state(req, res, q) {
   if (q.tvLanguage) runtime.setTvLanguage(q.tvLanguage);
-  var L = logic(),
-    u = L.user();
-  sendJson(res, {
-    version: APP_VERSION,
-    language: L.uiLanguage(),
-    signedIn: !!L.authKey(),
-    provider: L.authKey() ? (L.isNuvioAccount() ? 'nuvio' : 'stremio') : '',
-    email: (u && u.email) || ''
+  runtime.takeOver(function () {
+    var L = logic(),
+      u = L.user();
+    sendJson(res, {
+      version: APP_VERSION,
+      language: L.uiLanguage(),
+      signedIn: !!L.authKey(),
+      provider: L.authKey() ? (L.isNuvioAccount() ? 'nuvio' : 'stremio') : '',
+      email: (u && u.email) || ''
+    });
   });
 }
 
@@ -506,6 +508,7 @@ module.exports = {
       playback.play(req, res, q, searches);
     },
     '/app/state': state,
+    '/app/handover': runtime.handover,
     '/app/streams': streams,
     '/app/strings': strings,
     '/app/subtitles': subtitles,

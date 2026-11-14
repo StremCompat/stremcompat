@@ -294,7 +294,7 @@ function profileRows(session, cb) {
             color: /^#[0-9a-f]{6}$/i.test(row.avatar_color_hex || '') ? row.avatar_color_hex : '#1E88E5',
             avatar: avatarAddress(row),
             primaryAddons: !!row.uses_primary_addons,
-            /* the PIN is not checked here yet, so a protected profile cannot be opened */
+            /* opened with its PIN (chooseProfile) */
             locked: !!row.pin_enabled,
             current: (Number(row.profile_index) || 1) === session.profile
           };
@@ -305,7 +305,14 @@ function profileRows(session, cb) {
     );
   });
 }
-function chooseProfile(key, index, cb) {
+/* Nuvio's PIN calls answer { unlocked, retry_after_seconds }, alone or in a list */
+function pinAnswer(rows) {
+  var row = rows && rows.length !== undefined ? rows[0] : rows;
+  return { unlocked: !!(row && row.unlocked), retryAfter: (row && Number(row.retry_after_seconds)) || 0 };
+}
+/* cb(ok, reason): a protected profile needs its PIN; reason 'pin' asks for it, 'wrong' says it
+   did not open it (retryAfter: seconds before the account takes another try) */
+function chooseProfile(key, index, pin, cb) {
   var session = sessionOf(key);
   if (!session) return cb(false);
   profiles(key, function (list) {
@@ -313,12 +320,32 @@ function chooseProfile(key, index, cb) {
     (list || []).forEach(function (p) {
       if (p.index === Number(index)) found = p;
     });
-    if (!found || found.locked) return cb(false);
-    session.profile = found.index;
-    session.primaryAddons = found.primaryAddons || found.index === 1;
-    delete titleCache[key];
-    saveSessions();
-    cb(true);
+    if (!found) return cb(false);
+    function use() {
+      session.profile = found.index;
+      session.primaryAddons = found.primaryAddons || found.index === 1;
+      delete titleCache[key];
+      saveSessions();
+      cb(true);
+    }
+    if (!found.locked) return use();
+    if (!pin) return cb(false, 'pin');
+    rpc(session, 'verify_profile_pin', { p_profile_id: found.index, p_pin: String(pin) }, function (rows) {
+      var answer = pinAnswer(rows);
+      if (answer.unlocked) return use();
+      cb(false, 'wrong', answer.retryAfter);
+    });
+  });
+}
+/* sets a profile's PIN (current: the one it had), or takes it away with pin '' */
+function setProfilePin(key, index, pin, current, cb) {
+  var session = sessionOf(key);
+  if (!session) return cb(false);
+  var body = { p_profile_id: Number(index) };
+  if (pin) body.p_pin = String(pin);
+  if (current) body.p_current_pin = String(current);
+  rpc(session, pin ? 'set_profile_pin' : 'clear_profile_pin', body, function (rows, status) {
+    cb(status >= 200 && status < 300);
   });
 }
 /* the avatars a profile can have, as { id, url } */
@@ -847,5 +874,6 @@ module.exports = {
   profiles: profiles,
   qrPoll: qrPoll,
   qrStart: qrStart,
-  saveProfile: saveProfile
+  saveProfile: saveProfile,
+  setProfilePin: setProfilePin
 };

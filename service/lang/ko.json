@@ -175,7 +175,7 @@
   "providerNuvio": "Nuvio (실험적)",
   "whoIsWatching": "누가 시청하나요?",
   "profileNumber": "프로필 {0}",
-  "profileLocked": "PIN으로 보호됨, 아직 StremCompat에서 사용할 수 없습니다",
+  "profileLocked": "PIN으로 보호됨",
   "addProfile": "프로필 추가",
   "editProfile": "프로필 편집",
   "profileName": "이름",
@@ -450,5 +450,16 @@
   "updateInstallNow": "버전 {0} 설치",
   "updateDownloading": "업데이트 다운로드 중…",
   "updateFailed": "업데이트를 설치할 수 없습니다: {0}",
-  "updateCurrent": "최신 버전입니다"
+  "updateCurrent": "최신 버전입니다",
+  "pinEnter": "{0}의 PIN 입력",
+  "pinWrong": "PIN이 틀렸습니다",
+  "pinWait": "시도가 너무 많습니다. {0}초 후 다시 시도",
+  "pinNew": "4자리 PIN을 정하세요",
+  "pinCurrent": "현재 PIN 입력",
+  "pinSet": "PIN 설정",
+  "pinRemove": "PIN 제거",
+  "pinSaved": "PIN 저장됨",
+  "pinRemoved": "PIN 제거됨",
+  "pinNotSaved": "Nuvio에서 PIN을 바꾸지 못했습니다",
+  "pinDelete": "지우기"
 }
