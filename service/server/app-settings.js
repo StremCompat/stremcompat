@@ -109,7 +109,13 @@ function act(req, res) {
   });
 }
 
+/* reading and changing share an address: GET reads, POST changes */
+function settings(req, res) {
+  if (req.method === 'POST') return change(req, res);
+  show(req, res);
+}
+
 module.exports = {
-  routes: { '/app/settings': show },
-  postRoutes: { '/app/settings': change, '/app/settings/action': act }
+  routes: { '/app/settings': settings },
+  postRoutes: { '/app/settings/action': act }
 };
