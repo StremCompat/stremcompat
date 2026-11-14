@@ -20,8 +20,9 @@ var LINK_HOST = process.env.SC_PHONE_HOST || '0.0.0.0';
 
 var link = null; /* { server, token, value, timer } while a panel waits */
 
-/* the TV's address on the home network */
+/* the TV's address on the home network; when the link listens on one given address (tests), that one */
 function homeAddress() {
+  if (LINK_HOST !== '0.0.0.0') return LINK_HOST;
   var nets = os.networkInterfaces(),
     found = '';
   Object.keys(nets).forEach(function (name) {
