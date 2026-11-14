@@ -325,4 +325,36 @@ service.register('start', function (message) {
   });
 });
 
+/* The native interface's update: the package the local server downloaded and checked
+   (server/app-update.js) goes to the system installer; once installed the app opens again. */
+var UPDATE_PACKAGE = path.join(process.env.HOME || '/home/root', '.stremcompat', 'update.ipk');
+service.register('install', function (message) {
+  if (!fs.existsSync(UPDATE_PACKAGE)) return message.respond({ returnValue: false, error: 'no package' });
+  var finished = false;
+  var installing = service.subscribe('luna://com.webos.appInstallService/dev/install', {
+    id: PROFILE.appId,
+    ipkUrl: UPDATE_PACKAGE,
+    subscribe: true
+  });
+  function finish(reply) {
+    if (finished) return;
+    finished = true;
+    try {
+      installing.cancel();
+    } catch (ignore) {}
+    message.respond(reply);
+  }
+  installing.on('response', function (answer) {
+    var payload = answer.payload || {};
+    var state = String((payload.details && payload.details.state) || payload.state || '');
+    log('install: ' + (state || JSON.stringify(payload).slice(0, 200)));
+    if (payload.returnValue === false || /fail|error/i.test(state))
+      return finish({ returnValue: false, error: payload.errorText || state || 'refused' });
+    if (/installed/i.test(state)) {
+      finish({ returnValue: true, installed: true });
+      service.call('luna://com.webos.applicationManager/launch', { id: PROFILE.appId }, function () {});
+    }
+  });
+});
+
 log('Legacy bootstrap loaded on system Node ' + process.version);

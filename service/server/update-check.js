@@ -18,18 +18,19 @@ function isNewer(candidate, current) {
 
 var latest = null;
 
-function checkUpdate(req, res) {
+/* cb({ current, version, ipkUrl, sha256 }); version and the rest only when there is a newer one */
+function newerVersion(cb) {
   var address = PROFILE.updateManifest;
   function answer() {
     var version = latest && latest.version;
     var reply = { current: APP_VERSION };
-    /* the package and its checksum, for installing it from the app (Homebrew Channel) */
+    /* the package and its checksum, for installing it from the app */
     if (version && isNewer(version, APP_VERSION)) {
       reply.version = version;
       reply.ipkUrl = latest.ipkUrl;
       reply.sha256 = latest.sha256;
     }
-    sendJson(res, reply);
+    cb(reply);
   }
   if (!address || (latest && Date.now() - latest.at < UPDATE_LIFETIME_MS)) return answer();
   fetchJson(address, function (manifest) {
@@ -43,7 +44,14 @@ function checkUpdate(req, res) {
   });
 }
 
+function checkUpdate(req, res) {
+  newerVersion(function (reply) {
+    sendJson(res, reply);
+  });
+}
+
 module.exports = {
   checkUpdate: checkUpdate,
+  newerVersion: newerVersion,
   isNewer: isNewer
 };
