@@ -30,7 +30,7 @@ android {
         buildConfigField 'int', 'SERVER_PORT', "${profile.port}"
         ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }
         externalNativeBuild {
-            cmake { arguments "-DNODE_DIR=${staged}/node", "-DLGC_DIR=${lgc.path.replace(File.separator, '/')}", '-DANDROID_STL=c++_shared' }
+            cmake { arguments "-DNODE_DIR=${staged}/node", "-DLGC_DIR=${lgc.path.replace(File.separator, '/')}", "-DAPP_VERSION=${profile.version}", '-DANDROID_STL=c++_shared' }
         }
     }
 
