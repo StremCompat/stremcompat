@@ -1,8 +1,8 @@
 // /app/...: what the native interface asks the server, in JSON. The answers come from the same
 // data logic the web interface runs (app-runtime.js); this file only shapes them.
 
-var { APP_VERSION, PROFILE } = require('./config');
-var { readJsonBody, sendJson } = require('./http-util');
+var { APP_VERSION, PROFILE, cinemeta } = require('./config');
+var { fetchAddonJson, readJsonBody, sendJson } = require('./http-util');
 var { appImage } = require('./app-images');
 var { title } = require('./app-title');
 var playback = require('./app-playback');
@@ -202,6 +202,58 @@ function streams(req, res, q) {
   s.waiters.push(woken);
 }
 
+/* ---------- search: films and series from Cinemeta, as the web search asks (views/search.js) ---------- */
+var SEARCH_RESULTS = 20;
+
+function searchType(type, q, cb) {
+  fetchAddonJson(
+    cinemeta() + '/catalog/' + type + '/top/search=' + encodeURIComponent(q) + '.json',
+    function (j) {
+      var metas = ((j && j.metas) || []).slice(0, SEARCH_RESULTS).map(function (m) {
+        return {
+          id: m.id,
+          type: m.type || type,
+          name: m.name,
+          poster: m.poster,
+          background: m.background,
+          logo: m.logo,
+          description: m.description,
+          releaseInfo: m.releaseInfo,
+          year: m.year,
+          runtime: m.runtime,
+          imdbRating: m.imdbRating,
+          /* the preview's line: 2026 48 min IMDb 8.1 */
+          info: [m.releaseInfo || m.year, m.runtime, m.imdbRating ? 'IMDb ' + m.imdbRating : '']
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+        };
+      });
+      cb(decorate(metas, false));
+    }
+  );
+}
+
+/* q: what was typed; live=1 while typing (only a submitted search is remembered) */
+function search(req, res, q) {
+  var L = logic(),
+    text = String(q.q || '').replace(/^\s+|\s+$/g, '');
+  if (!text) return sendJson(res, { rows: [], recent: L.recentSearches() });
+  if (!q.live) L.rememberSearch(text);
+  searchType('movie', text, function (movies) {
+    searchType('series', text, function (series) {
+      var rows = [];
+      if (movies.length) rows.push({ title: L.tx('movies'), items: movies });
+      if (series.length) rows.push({ title: L.tx('series'), items: series });
+      sendJson(res, {
+        rows: rows,
+        empty: rows.length ? '' : L.tx('noResults', text),
+        recent: L.recentSearches()
+      });
+    });
+  });
+}
+
 /* the subtitles of the account's subtitle addons for this video (OpenSubtitles without any),
    each read later through /sub?u= as cues */
 function subtitles(req, res, q) {
@@ -241,6 +293,7 @@ module.exports = {
     '/app/home': home,
     '/app/img': appImage,
     '/app/meta': meta,
+    '/app/search': search,
     '/app/play': function (req, res, q) {
       playback.play(req, res, q, searches);
     },

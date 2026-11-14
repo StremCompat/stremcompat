@@ -67,7 +67,9 @@ window.__logic = {
       });
     });
   },
+  recentSearches: recentSearches,
   releasedTime: releasedTime,
+  rememberSearch: rememberSearch,
   resumeInfoFor: resumeInfoFor,
   resumeLabel: resumeLabel,
   setting: lsRaw,

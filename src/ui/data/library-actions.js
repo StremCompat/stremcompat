@@ -90,8 +90,23 @@ function clearContinueWatching() {
   invalidateBoards();
   return changed.length;
 }
-/* the searches Search offers again (views/search.js) */
-var RECENT_SEARCH_KEY = 'recentSearches';
+/* The searches Search offers again: typing with the remote is slow, so the last ones stay
+   one key away (views/search.js). */
+var RECENT_SEARCH_KEY = 'recentSearches',
+  RECENT_SEARCH_MAX = 8;
+function recentSearches() {
+  var list = lsJson(RECENT_SEARCH_KEY);
+  return Object.prototype.toString.call(list) === '[object Array]' ? list : [];
+}
+function rememberSearch(q) {
+  q = String(q || '').replace(/^\s+|\s+$/g, '');
+  if (!q || lsRaw('noHistory', 'false') === 'true') return;
+  var list = recentSearches(),
+    out = [q];
+  for (var i = 0; i < list.length && out.length < RECENT_SEARCH_MAX; i++)
+    if (typeof list[i] === 'string' && list[i].toLowerCase() !== q.toLowerCase()) out.push(list[i]);
+  lsSet(RECENT_SEARCH_KEY, out);
+}
 function clearRecentSearches() {
   lsSet(RECENT_SEARCH_KEY, []);
   search.recentSig = null;
