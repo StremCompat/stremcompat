@@ -277,6 +277,18 @@ async function main() {
       'the progress was not kept like the web player keeps it'
     );
 
+    /* adding to the library, as the card menu does */
+    var added = (
+      await request('/app/act', {
+        action: 'library',
+        item: { id: 'tst2', type: 'movie', name: 'Other Show' }
+      })
+    ).json;
+    assert.ok(
+      added.inLibrary && added.message,
+      'adding to the library did not answer like the web interface: ' + JSON.stringify(added)
+    );
+
     /* Settings: the web groups, and a value kept */
     var set = (await request('/app/settings')).json;
     assert.ok(set.groups.length > 3, 'the Settings groups are missing');
@@ -299,7 +311,7 @@ async function main() {
     assert.strictEqual(nothing.status, 404, '/app/img read something other than a web address');
 
     console.log(
-      'OK: storage handed over, account, texts, Home rows, catalog, title with episodes, title page, sources as they arrive, playing and progress, settings, pictures.'
+      'OK: storage handed over, account, texts, Home rows, catalog, title with episodes, title page, sources as they arrive, playing and progress, library, settings, pictures.'
     );
   } catch (e) {
     console.error(log.slice(-3000));

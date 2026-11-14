@@ -7,3 +7,8 @@
    server again instead, so these stand in for the web screens. */
 function invalidateBoards() {}
 var search = {};
+/* what the web interface would show as a toast, kept for the native one to show */
+var lastMessage = '';
+function toast(message) {
+  lastMessage = message;
+}

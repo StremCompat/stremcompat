@@ -8,7 +8,6 @@
   "../shared/watch-state.js",
   "../shared/stream-addons.js",
   "../shared/source-info.js",
-  "core/format.js",
   "data/artwork.js",
   "data/account.js",
   "data/addons.js",

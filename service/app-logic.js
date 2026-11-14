@@ -7,6 +7,11 @@
    server again instead, so these stand in for the web screens. */
 function invalidateBoards() {}
 var search = {};
+/* what the web interface would show as a toast, kept for the native one to show */
+var lastMessage = '';
+function toast(message) {
+  lastMessage = message;
+}
 // Service endpoints, the build profile, viewport metrics and DOM/event helpers.
 /* ================= utils ================= */
 var CIN = 'https://v3-cinemeta.strem.io';
@@ -1681,24 +1686,6 @@ function matchingNextSource(items, pref) {
     }
   }
   return best;
-}
-// HTML escaping, time formatting and the toast notification.
-function esc(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-var toastT = null;
-function toast(m, ms) {
-  var t = $('toast');
-  t.textContent = m;
-  t.style.opacity = '1';
-  if (toastT) clearTimeout(toastT);
-  toastT = setTimeout(function () {
-    t.style.opacity = '0';
-  }, ms || 2800);
 }
 // Poster, backdrop and icon URLs, the look that decides their sizes, and the Simple mode.
 /* the look this TV had before anyone chose: light on the TVs the profile already treats as small.
@@ -4124,6 +4111,13 @@ window.__logic = {
     return lsJson(PRE + id);
   },
   libToggle: libToggle,
+  /* the last toast the data code said, then forgotten */
+  takeMessage: function () {
+    var m = lastMessage;
+    lastMessage = '';
+    return m;
+  },
+  markCwWatched: markCwWatched,
   matchingNextSource: matchingNextSource,
   newEpisodeItems: newEpisodeItems,
   nuvioCollections: nuvioCollections,

@@ -50,6 +50,13 @@ window.__logic = {
     return lsJson(PRE + id);
   },
   libToggle: libToggle,
+  /* the last toast the data code said, then forgotten */
+  takeMessage: function () {
+    var m = lastMessage;
+    lastMessage = '';
+    return m;
+  },
+  markCwWatched: markCwWatched,
   matchingNextSource: matchingNextSource,
   newEpisodeItems: newEpisodeItems,
   nuvioCollections: nuvioCollections,

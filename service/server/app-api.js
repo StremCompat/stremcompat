@@ -336,6 +336,84 @@ function subtitles(req, res, q) {
   );
 }
 
+/* ---------- similar titles: the top ones of the title's first genre (web: similar.js) ---------- */
+var SIMILAR_MAX = 30;
+function similar(req, res, q) {
+  var L = logic();
+  L.getMeta(q.type, q.id, function (m) {
+    var genre = m && m.genres && m.genres.length ? m.genres[0] : '';
+    fetchAddonJson(
+      cinemeta() +
+        '/catalog/' +
+        q.type +
+        '/top' +
+        (genre ? '/genre=' + encodeURIComponent(genre) : '') +
+        '.json',
+      function (j) {
+        var items = ((j && j.metas) || [])
+          .filter(function (mm) {
+            return mm.id !== q.id;
+          })
+          .slice(0, SIMILAR_MAX)
+          .map(function (mm) {
+            return {
+              id: mm.id,
+              type: mm.type || q.type,
+              name: mm.name,
+              poster: mm.poster,
+              background: mm.background
+            };
+          });
+        sendJson(res, {
+          title: m && m.name ? L.tx('similarTo', m.name) : L.tx('similar'),
+          empty: items.length ? '' : L.tx('nothingFound'),
+          items: decorate(items, false)
+        });
+      }
+    );
+  });
+}
+
+/* ---------- what can be done with a title (web: card-menu.js and the title page) ----------
+   { action, item: { id, type, name, poster, background, videoId }, vids, watched }:
+   library (in or out), watched (a film or an episode), season (several episodes), cwWatched,
+   cwRemove, hideNew. Answers the message the web interface would show. */
+function act(req, res) {
+  readJsonBody(req, 65536, function (body) {
+    var L = logic(),
+      it = (body && body.item) || {},
+      done = body && body.watched !== false;
+    if (!it.id || !it.type) return fail(res, 400, 'item.id and item.type are needed');
+    function answer(message) {
+      sendJson(res, { message: message || L.takeMessage(), inLibrary: !!L.libHas(it.id) });
+    }
+    switch (body.action) {
+      case 'library':
+        L.libToggle(it);
+        return answer();
+      case 'watched':
+        return L.setItemWatched(it, done, function () {
+          answer(L.tx(done ? 'markedWatched' : 'markedUnwatched'));
+        });
+      case 'season':
+        return L.setEpisodesWatched(it, body.vids || [], done, function () {
+          answer(L.tx(done ? 'markedWatched' : 'markedUnwatched'));
+        });
+      case 'cwWatched':
+        L.markCwWatched(it);
+        return answer(L.tx('markedWatched'));
+      case 'cwRemove':
+        L.removeFromCw(it);
+        return answer(L.tx('removedFromCw'));
+      case 'hideNew':
+        L.hideNewEpisodes(it.id);
+        return answer(L.tx('newEpisodesHidden'));
+      default:
+        fail(res, 400, 'unknown action');
+    }
+  });
+}
+
 /* ---------- moving to the native interface: the web interface hands over what it kept ---------- */
 function migrate(req, res) {
   readJsonBody(req, MIGRATE_MAX_BYTES, function (body) {
@@ -361,6 +439,7 @@ module.exports = {
     '/app/library': library,
     '/app/meta': meta,
     '/app/search': search,
+    '/app/similar': similar,
     '/app/discover': discover,
     '/app/play': function (req, res, q) {
       playback.play(req, res, q, searches);
@@ -372,6 +451,7 @@ module.exports = {
     '/app/title': title
   },
   postRoutes: {
+    '/app/act': act,
     '/app/migrate': migrate,
     '/app/progress': playback.progress
   }
