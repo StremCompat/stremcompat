@@ -9,7 +9,16 @@ var { getStreamRef, storeStreamRef } = require('./stream-refs');
 var { seriesVideos, setWatched } = require('./watched');
 var runtime = require('./app-runtime');
 
-var WATCHED_THRESHOLD = 0.7; /* watched once 70 % was really played, as stremio-core */
+var WATCHED_THRESHOLD = 0.7;
+var SUBTITLE_SIZES = {
+  0: 72,
+  1: 80,
+  2: 100,
+  3: 120,
+  4: 140,
+  5: 160,
+  6: 180
+}; /* watched once 70 % was really played, as stremio-core */
 var PUSH_EVERY_MS = 60000;
 var LONGEST_STEP_MS = 15000; /* more than this between two reports is a jump, not playback */
 
@@ -61,7 +70,14 @@ function answerStream(res, q, ref) {
       resume: resume,
       seekStep: parseInt(L.setting('seekStep', '10'), 10) || 10,
       /* the subtitles chosen in Settings, or the interface's language until then (web: subtitles.js) */
-      subtitleLanguage: L.setting('subsLang', L.defaultMediaLanguage())
+      subtitleLanguage: L.setting('subsLang', L.defaultMediaLanguage()),
+      /* Settings > Subtitles: size, colour, outline and background (web: subtitles.js) */
+      subtitleStyle: {
+        size: Math.round((38 * (SUBTITLE_SIZES[L.setting('subtitleSize', '2')] || 100)) / 100),
+        color: L.setting('subsColor', '#ffffff'),
+        outline: L.setting('subsOutlineColor', '#000000'),
+        background: parseFloat(L.setting('subsBgStyle', '0')) || 0
+      }
     });
   });
 }
