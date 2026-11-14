@@ -7,6 +7,8 @@ var { appImage } = require('./app-images');
 var { title } = require('./app-title');
 var playback = require('./app-playback');
 var { addonSubtitles } = require('./subtitle-addons');
+var { ytResolve } = require('./youtube');
+var { localProxy } = require('./proxy');
 var runtime = require('./app-runtime');
 
 var STREAM_WAIT_MS = 8000;
@@ -375,6 +377,25 @@ function similar(req, res, q) {
   });
 }
 
+/* ---------- trailers, played inside the app: a direct link an addon gives, otherwise the trailer
+   the server can resolve (youtube.js); none means "Trailer unavailable", never another app ---------- */
+function trailer(req, res, q) {
+  var L = logic();
+  L.getMeta(q.type, q.id, function (m) {
+    var streams = (m && m.trailerStreams) || [],
+      direct = streams.filter(function (t) {
+        return /^https?:\/\//i.test(t.url || '');
+      })[0];
+    if (direct) return sendJson(res, { url: localProxy(direct.url), name: (m && m.name) || '' });
+    var yt =
+      (m && m.trailers && m.trailers[0] && m.trailers[0].source) || (streams[0] && streams[0].ytId) || '';
+    if (!yt) return sendJson(res, { error: L.tx('noTrailer') });
+    ytResolve(String(yt), false, function (link) {
+      sendJson(res, link ? { url: link, name: (m && m.name) || '' } : { error: L.tx('trailerUnavailable') });
+    });
+  });
+}
+
 /* ---------- what can be done with a title (web: card-menu.js and the title page) ----------
    { action, item: { id, type, name, poster, background, videoId }, vids, watched }:
    library (in or out), watched (a film or an episode), season (several episodes), cwWatched,
@@ -449,7 +470,8 @@ module.exports = {
     '/app/streams': streams,
     '/app/strings': strings,
     '/app/subtitles': subtitles,
-    '/app/title': title
+    '/app/title': title,
+    '/app/trailer': trailer
   },
   postRoutes: {
     '/app/act': act,
