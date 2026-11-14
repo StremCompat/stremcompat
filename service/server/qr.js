@@ -328,7 +328,19 @@ function qrSvg(text) {
   );
 }
 
+/* the symbol as rows of '1' (dark) and '0', for an interface that draws its own squares */
+function qrRows(text) {
+  return qrMatrix(text).map(function (row) {
+    return row
+      .map(function (on) {
+        return on ? '1' : '0';
+      })
+      .join('');
+  });
+}
+
 module.exports = {
   qrMatrix: qrMatrix,
+  qrRows: qrRows,
   qrSvg: qrSvg
 };

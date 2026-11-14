@@ -304,6 +304,10 @@ async function main() {
     );
     assert.ok((await request('/app/calendar')).json.days, 'the calendar did not answer');
 
+    var diagLines = (await request('/app/diag')).json.lines;
+    assert.ok(diagLines.length > 3, 'the diagnostics did not come as lines');
+    assert.ok((await request('/app/support')).json.qr.length > 20, 'the support QR did not come');
+
     /* Settings: the web groups, and a value kept */
     var set = (await request('/app/settings')).json;
     assert.ok(set.groups.length > 3, 'the Settings groups are missing');

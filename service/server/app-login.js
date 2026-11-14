@@ -4,21 +4,11 @@
 
 var { fetchJson, readJsonBody, sendJson } = require('./http-util');
 var { chooseProfile, profiles, qrPoll, qrStart } = require('./nuvio-account');
-var { qrMatrix } = require('./qr');
+var { qrRows } = require('./qr');
 var runtime = require('./app-runtime');
 
 var LINK = 'https://link.stremio.com/api/';
 var STREMIO_POLL_S = 2.5; /* as the web sign-in asks */
-
-function rows(link) {
-  return qrMatrix(link).map(function (row) {
-    return row
-      .map(function (on) {
-        return on ? '1' : '0';
-      })
-      .join('');
-  });
-}
 
 function signedIn(res, ak, user) {
   runtime.logic().completeSignIn(ak, user || null, function (nuvio) {
@@ -33,11 +23,11 @@ function start(req, res, q) {
   if (q.provider === 'nuvio')
     return qrStart(function (j) {
       if (!j) return sendJson(res, { error: 'unavailable' });
-      sendJson(res, { id: j.id, code: j.code, link: j.link, qr: rows(j.link), every: j.interval });
+      sendJson(res, { id: j.id, code: j.code, link: j.link, qr: qrRows(j.link), every: j.interval });
     });
   fetchJson(LINK + 'create', function (j) {
     if (!j || !j.code || !j.link) return sendJson(res, { error: 'unavailable' });
-    sendJson(res, { id: j.code, code: j.code, link: j.link, qr: rows(j.link), every: STREMIO_POLL_S });
+    sendJson(res, { id: j.code, code: j.code, link: j.link, qr: qrRows(j.link), every: STREMIO_POLL_S });
   });
 }
 

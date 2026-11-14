@@ -18,6 +18,8 @@ window.__logic = {
   cwCard: cwCard,
   cwSubtitle: cwSubtitle,
   defaultMediaLanguage: defaultMediaLanguage,
+  diagEventLine: diagEventLine,
+  diagStreamingState: diagStreamingState,
   discoverCatalogs: discoverCatalogs,
   discoverGenres: discoverGenres,
   discoverPageUrl: discoverPageUrl,

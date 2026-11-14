@@ -3,6 +3,8 @@
 
 var { readJsonBody, sendJson } = require('./http-util');
 var { clearTorrentCache, setUsbFirst } = require('./streaming-server');
+var { diagnostics } = require('./diag');
+var { qrRows } = require('./qr');
 var runtime = require('./app-runtime');
 
 /* an option as the screen needs it: a switch, a list of values or an action */
@@ -109,6 +111,45 @@ function act(req, res) {
   });
 }
 
+/* Diagnostics as lines (web: settings showDiag), without what only the web interface measures */
+function diag(req, res) {
+  var L = runtime.logic();
+  /* the server's own diagnostics, read as the web interface reads them */
+  diagnostics({
+    writeHead: function () {},
+    end: function (body) {
+      var j = null;
+      try {
+        j = JSON.parse(body);
+      } catch (e) {}
+      if (!j || !j.server) return sendJson(res, { lines: [L.tx('diagUnavailable')] });
+      var events = j.events || [],
+        lines = [
+          L.tx('diagServer', j.server.rssMb, j.server.heapMb, j.uptimeMin),
+          L.tx('diagTv', j.system.availableMb, j.system.totalMb, j.load),
+          j.disk ? L.tx('diagDisk', j.disk.freeMb, j.disk.totalMb) : '',
+          L.tx('diagStreaming', L.diagStreamingState(j)),
+          L.tx('diagPeak', j.peakRssMb, j.minAvailableMb),
+          events.length ? L.tx('diagRecent') : L.tx('diagNoProblems')
+        ].concat(events.slice(0, 5).map(L.diagEventLine));
+      sendJson(res, {
+        lines: lines.filter(function (l) {
+          return l;
+        })
+      });
+    }
+  });
+}
+
+var SUPPORT_URL = 'https://buymeacoffee.com/Alexesmm';
+function support(req, res) {
+  sendJson(res, {
+    text: runtime.logic().tx('supportText'),
+    address: 'buymeacoffee.com/Alexesmm',
+    qr: qrRows(SUPPORT_URL)
+  });
+}
+
 /* reading and changing share an address: GET reads, POST changes */
 function settings(req, res) {
   if (req.method === 'POST') return change(req, res);
@@ -116,6 +157,6 @@ function settings(req, res) {
 }
 
 module.exports = {
-  routes: { '/app/settings': settings },
+  routes: { '/app/settings': settings, '/app/diag': diag, '/app/support': support },
   postRoutes: { '/app/settings/action': act }
 };

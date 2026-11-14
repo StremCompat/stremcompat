@@ -5324,6 +5324,32 @@ function isSwitch(def) {
     /^(true|false)$/.test(def.opts[1][0])
   );
 }
+/* one recorded problem as '14:32 · Source would not play (Torrentio 1080p)' */
+function diagEventLine(e) {
+  var d = new Date(e.at),
+    hh = (d.getHours() < 10 ? '0' : '') + d.getHours(),
+    mm = (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(),
+    key = {
+      media_error: 'evMediaError',
+      media_start_retry: 'evSlowStart',
+      streamref_failed: 'evPrepareFailed',
+      play_rejected: 'evPlayRejected',
+      addon_unavailable: 'evAddonDown',
+      network_unreachable: 'evNoNetwork'
+    }[e.kind];
+  return hh + ':' + mm + '  ·  ' + tx(key || e.kind) + (e.detail ? ' (' + e.detail + ')' : '');
+}
+/* running or stopped; the engine itself only runs while a torrent plays */
+function diagStreamingState(j) {
+  var f = j.torrentEngine || {};
+  if (j.serverAddress)
+    return j.serverAddress + '  ·  ' + tx(j.streamingServer ? 'diagRunning' : 'diagStopped');
+  if (f.state === 'failed') return tx('diagStreamFailed', 'sc-engine');
+  if (f.state === 'no-room') return tx('torrentsNoRoom');
+  var where = f.usb ? '  ·  ' + tx('diagOnUsb') : '',
+    cache = f.cacheMb != null && f.cacheCapMb ? '  ·  ' + tx('diagCache', f.cacheMb, f.cacheCapMb) : '';
+  return tx(f.running ? 'diagRunning' : 'diagEngineReady') + where + cache;
+}
 /* the groups of Settings, each with its options: what this TV and this account can use */
 function settingsCategories() {
   var defs,
@@ -8598,32 +8624,6 @@ var addonPanel = {
 };
 // Settings and account screen.
 /* ================= SETTINGS + ACCOUNT ================= */
-/* one recorded problem as '14:32 · Source would not play (Torrentio 1080p)' */
-function diagEventLine(e) {
-  var d = new Date(e.at),
-    hh = (d.getHours() < 10 ? '0' : '') + d.getHours(),
-    mm = (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(),
-    key = {
-      media_error: 'evMediaError',
-      media_start_retry: 'evSlowStart',
-      streamref_failed: 'evPrepareFailed',
-      play_rejected: 'evPlayRejected',
-      addon_unavailable: 'evAddonDown',
-      network_unreachable: 'evNoNetwork'
-    }[e.kind];
-  return hh + ':' + mm + '  ·  ' + tx(key || e.kind) + (e.detail ? ' (' + e.detail + ')' : '');
-}
-/* running or stopped; the engine itself only runs while a torrent plays */
-function diagStreamingState(j) {
-  var f = j.torrentEngine || {};
-  if (j.serverAddress)
-    return j.serverAddress + '  ·  ' + tx(j.streamingServer ? 'diagRunning' : 'diagStopped');
-  if (f.state === 'failed') return tx('diagStreamFailed', 'sc-engine');
-  if (f.state === 'no-room') return tx('torrentsNoRoom');
-  var where = f.usb ? '  ·  ' + tx('diagOnUsb') : '',
-    cache = f.cacheMb != null && f.cacheCapMb ? '  ·  ' + tx('diagCache', f.cacheMb, f.cacheCapMb) : '';
-  return tx(f.running ? 'diagRunning' : 'diagEngineReady') + where + cache;
-}
 /* Settings in two columns, as the big streaming apps lay them out: the groups on the left and
    the options of the chosen group on the right. Moving through the groups shows their options
    at once; Right or OK goes into them and Left comes back. */
