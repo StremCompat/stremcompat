@@ -2674,6 +2674,23 @@ function discoverGenres(cat) {
     for (var n = 0; n < DGEN.length; n++) out.push({ value: DGEN[n][0], label: tx(DGEN[n][1]) });
   return out;
 }
+/* a page of a Discover catalog, in a genre ('' for all), from the title number offset */
+function discoverPageUrl(cat, genre, offset) {
+  var extra = [];
+  if (!cat) return '';
+  if (genre) extra.push('genre=' + encodeURIComponent(genre));
+  if (offset > 0) extra.push('skip=' + offset);
+  return (
+    cat.base +
+    '/catalog/' +
+    cat.type +
+    '/' +
+    encodeURIComponent(cat.id) +
+    (extra.length ? '/' + extra.join('&') : '') +
+    '.json' +
+    (cat.query || '')
+  );
+}
 function getCatalogUrl(url, key, type, cb) {
   var ck = 'beta_cat_' + key,
     cached = lsJson(ck);
@@ -4339,22 +4356,7 @@ var disc = {
     this.load();
   },
   pageUrl: function (offset) {
-    var cat = this.currentCatalog(),
-      genre = this.currentGenre(),
-      extra = [];
-    if (!cat) return '';
-    if (genre.value) extra.push('genre=' + encodeURIComponent(genre.value));
-    if (offset > 0) extra.push('skip=' + offset);
-    return (
-      cat.base +
-      '/catalog/' +
-      cat.type +
-      '/' +
-      encodeURIComponent(cat.id) +
-      (extra.length ? '/' + extra.join('&') : '') +
-      '.json' +
-      (cat.query || '')
-    );
+    return discoverPageUrl(this.currentCatalog(), this.currentGenre().value, offset);
   },
   load: function () {
     var cat = this.currentCatalog(),

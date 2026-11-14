@@ -70,6 +70,21 @@ function home(req, res) {
   sendJson(res, { rows: rows });
 }
 
+/* ---------- the Library: the films and the series added to it (web: loadLibraryRows) ---------- */
+function library(req, res) {
+  var L = logic(),
+    movies = [],
+    series = [];
+  L.libGridItems().forEach(function (l) {
+    var item = { id: l._id, type: l.type, name: l.name, poster: l.poster, background: l.background };
+    (l.type === 'series' ? series : movies).push(item);
+  });
+  var rows = [];
+  if (movies.length) rows.push({ title: L.tx('movies'), items: decorate(movies, false) });
+  if (series.length) rows.push({ title: L.tx('series'), items: decorate(series, false) });
+  sendJson(res, { rows: rows });
+}
+
 /* one catalog's titles: the saved copy when there is one, otherwise the addon's answer */
 function catalog(req, res, q) {
   if (!q.url || !q.key) return fail(res, 400, 'url and key are needed');
@@ -254,6 +269,41 @@ function search(req, res, q) {
   });
 }
 
+/* ---------- Discover: a type, one of its catalogs and a genre, a page at a time ---------- */
+/* type, catalog, genre (positions in the lists answered), skip (titles already shown) */
+function discover(req, res, q) {
+  var L = logic(),
+    types = L.discoverTypes(),
+    type = (types[parseInt(q.type, 10) || 0] || types[0]).value,
+    catalogs = L.discoverCatalogs(type),
+    cat = catalogs[parseInt(q.catalog, 10) || 0] || catalogs[0],
+    genres = L.discoverGenres(cat),
+    genre = genres[parseInt(q.genre, 10) || 0] || { value: '' },
+    skip = parseInt(q.skip, 10) || 0;
+  function answer(items, ended) {
+    sendJson(res, {
+      types: types,
+      catalogs: catalogs.map(function (c) {
+        return { label: c.label };
+      }),
+      genres: genres,
+      items: decorate(items, false),
+      ended: ended
+    });
+  }
+  var url = L.discoverPageUrl(cat, genre.value, skip);
+  if (!url) return answer([], true);
+  fetchAddonJson(url, function (j) {
+    var metas = (j && j.metas) || [];
+    answer(
+      metas.map(function (m) {
+        return { id: m.id, type: m.type || type, name: m.name, poster: m.poster, background: m.background };
+      }),
+      !metas.length
+    );
+  });
+}
+
 /* the subtitles of the account's subtitle addons for this video (OpenSubtitles without any),
    each read later through /sub?u= as cues */
 function subtitles(req, res, q) {
@@ -292,8 +342,10 @@ module.exports = {
     '/app/catalog': catalog,
     '/app/home': home,
     '/app/img': appImage,
+    '/app/library': library,
     '/app/meta': meta,
     '/app/search': search,
+    '/app/discover': discover,
     '/app/play': function (req, res, q) {
       playback.play(req, res, q, searches);
     },

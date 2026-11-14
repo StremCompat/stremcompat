@@ -19,6 +19,7 @@ window.__logic = {
   defaultMediaLanguage: defaultMediaLanguage,
   discoverCatalogs: discoverCatalogs,
   discoverGenres: discoverGenres,
+  discoverPageUrl: discoverPageUrl,
   discoverTypes: discoverTypes,
   enrichEpisodeMetadata: enrichEpisodeMetadata,
   episodeBadge: episodeBadge,
