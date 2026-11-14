@@ -19,7 +19,7 @@
   "backdropCache": 24,
   "backdropWorkers": 2,
   "serverSemiSpaceMB": 2,
-  "updateManifest": "https://stremcompat.github.io/webos/api/apps/io.github.alexesmm.stremcompat.native/manifest.json",
+  "updateManifest": "https://stremcompat.github.io/webos/native/api/apps/io.github.alexesmm.stremcompat.native/manifest.json",
   "smallTv": {
     "lowMemory": true,
     "sourceCap": 30,

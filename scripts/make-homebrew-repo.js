@@ -4,7 +4,8 @@
 // the manifest it and the app's update check read, the icon and the package. Anyone can add its address
 // in the channel's settings; it needs nobody's approval.
 //
-// Usage: node scripts/make-homebrew-repo.js <the .ipk> <output folder> [address it will be served from]
+// Usage: node scripts/make-homebrew-repo.js <the .ipk> <output folder> [address it will be served from] [profile]
+// (a profile with nativeApp, such as lg-native, makes the native app's repository)
 
 var crypto = require('crypto');
 var fs = require('fs');
@@ -17,17 +18,24 @@ var base = (process.argv[4] || 'https://alexesmm.github.io/stremcompat-lg-webos'
 if (!ipk || !out) throw new Error('Usage: node make-homebrew-repo.js <the .ipk> <output folder> [address]');
 
 var appInfo = JSON.parse(fs.readFileSync(path.join(root, 'app', 'appinfo.json'), 'utf8'));
-var id = appInfo.id;
-var version = appInfo.version;
-var fileName = id + '_' + version + '_all.ipk';
+var profile = process.argv[5]
+  ? JSON.parse(fs.readFileSync(path.join(root, 'profiles', process.argv[5] + '.json'), 'utf8'))
+  : null;
+var native = !!(profile && profile.nativeApp);
+var id = profile ? profile.appId : appInfo.id;
+var version = profile ? profile.version : appInfo.version;
+var title = profile ? profile.title : appInfo.title;
+var fileName = id + '_' + version + (native ? '_arm.ipk' : '_all.ipk');
 var data = fs.readFileSync(ipk);
-var summary = 'Your Stremio or Nuvio account and addons on older LG TVs (webOS 3 and newer). Unofficial, and it needs no root.';
+var summary = native
+  ? 'The native StremCompat: faster, drawn by the TV itself, still in test. Your Stremio or Nuvio account and addons, no root.'
+  : 'Your Stremio or Nuvio account and addons on older LG TVs (webOS 3 and newer). Unofficial, and it needs no root.';
 
 var manifest = {
   id: id,
   version: version,
-  type: 'web',
-  title: appInfo.title,
+  type: native ? 'native' : 'web',
+  title: title,
   appDescription: summary,
   iconUri: base + '/icon.png',
   sourceUrl: 'https://github.com/Alexesmm/stremcompat-lg-webos',
@@ -40,7 +48,7 @@ var listing = {
   packages: [
     {
       id: id,
-      title: appInfo.title,
+      title: title,
       iconUri: manifest.iconUri,
       pool: 'main',
       manifestUrl: base + '/api/apps/' + id + '/manifest.json',
