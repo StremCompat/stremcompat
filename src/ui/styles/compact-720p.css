@@ -98,6 +98,8 @@
   #fdGrid .card{margin-bottom:16px}
   .card.folder{height:264px}
   .card.folder .fart{bottom:32px}
+  .card.folder.nolabel{height:232px}
+  .card.folder.nolabel .fart{bottom:0}
   .card.folder .flabel{height:28px;line-height:28px;font-size:14px}
   .card.folder.f-poster{width:155px}
   .card.folder.f-square{width:232px}

@@ -68,6 +68,8 @@ body.plainboard #rowsClip{top:150px}
 .card.folder .fglyph{position:absolute;left:0;right:0;top:50%;margin-top:-0.6em;font-size:58px;font-weight:800;color:rgba(255,255,255,.85)}
 .card.folder .flabel{position:absolute;left:0;right:0;bottom:0;height:38px;line-height:38px;font-size:21px;font-weight:600;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card.folder.f .fart{box-shadow:0 0 0 4px #fff}
+.card.folder.nolabel,#rows .card.folder.nolabel{height:304px}
+.card.folder.nolabel .fart{bottom:0}
 .card.folder.f-poster,#rows .card.folder.f-poster{width:232px}
 .card.folder.f-square,#rows .card.folder.f-square{width:304px}
 .card.folder.f-wide,#rows .card.folder.f-wide{width:540px}

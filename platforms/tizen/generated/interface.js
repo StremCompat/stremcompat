@@ -4972,11 +4972,12 @@ function unloadBoard(b) {
   if (!b) return;
   for (var r = 0; r < b.rows.length; r++) setRowLoaded(b.rows[r], false);
 }
-/* a Collections folder tile: its cover, else its emoji or first letters, and its name under it */
+/* a Collections folder tile: its cover, else its emoji or first letters, and its name under it
+   (no room kept under it when the folder hides its title) */
 function makeFolderCard(it, eager) {
   var d = document.createElement('div'),
     art = document.createElement('div');
-  d.className = 'card folder f-' + (it.shape || 'poster');
+  d.className = 'card folder f-' + (it.shape || 'poster') + (it.name ? '' : ' nolabel');
   art.className = 'fart';
   if (it.poster) {
     var img = new Image();
