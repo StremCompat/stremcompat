@@ -41,6 +41,7 @@ var appLogin = require('./app-login');
 var appSettings = require('./app-settings');
 var appChannels = require('./app-channels');
 var appUpdate = require('./app-update');
+var addonStore = require('./addon-store');
 var { handleTakeover } = require('./takeover');
 var { decodeField, seriesVideos, setWatched } = require('./watched');
 
@@ -405,7 +406,7 @@ var POST_ONLY = {
   '/streamref': storeStream
 };
 
-/* the native interface's addresses (app-api.js) */
+/* the native interface's addresses (app-api.js), and the addon store both interfaces use */
 function addRoutes(table, more) {
   for (var name in more) if (Object.prototype.hasOwnProperty.call(more, name)) table[name] = more[name];
 }
@@ -418,6 +419,8 @@ addRoutes(POST_ONLY, appSettings.postRoutes);
 addRoutes(ROUTES, appChannels.routes);
 addRoutes(POST_ONLY, appChannels.postRoutes);
 addRoutes(ROUTES, appUpdate.routes);
+addRoutes(ROUTES, addonStore.routes);
+addRoutes(POST_ONLY, addonStore.postRoutes);
 
 function handleRequest(req, res) {
   var parsed = urlmod.parse(req.url, true);

@@ -2,11 +2,11 @@
   "profile": "tizen-native",
   "platform": "tizen",
   "channel": "beta",
-  "appId": "StrmCompat.App",
-  "serviceId": "StrmCompat.Server",
-  "title": "StremCompat",
+  "appId": "StrmCmpNtv.App",
+  "serviceId": "StrmCmpNtv.Server",
+  "title": "StremCompat Native",
   "version": "5.0.0",
-  "port": 8096,
+  "port": 8097,
   "localTorrents": false,
   "graphicsResolution": "1920x1080",
   "ecmaTarget": "chrome47",
@@ -21,5 +21,6 @@
   "backdropCache": 6,
   "backdropWorkers": 1,
   "serverSemiSpaceMB": 2,
-  "nativeApp": "../../LG-C/build/tizen"
+  "nativeApp": "../../LG-C/build/tizen",
+  "handoverPort": 8096
 }

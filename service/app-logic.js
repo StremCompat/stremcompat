@@ -434,12 +434,40 @@ var UI_TEXT = {
     providerNuvio: 'Nuvio (experimental)',
     whoIsWatching: 'Who is watching?',
     profileNumber: 'Profile {0}',
-    profileLocked: 'Protected with a PIN, not available in StremCompat yet',
+    profileLocked: 'Protected with a PIN',
     addProfile: 'Add profile',
     editProfile: 'Edit profile',
     profileName: 'Name',
     profileNameNeeded: 'Give the profile a name',
     profileNotSaved: 'Could not save the profile on Nuvio',
+    pinEnter: 'Enter the PIN for {0}',
+    pinWrong: 'Wrong PIN',
+    pinWait: 'Too many tries. Try again in {0} s',
+    pinNew: 'Choose a 4-digit PIN',
+    pinCurrent: 'Enter the current PIN',
+    pinSet: 'Set PIN',
+    pinRemove: 'Remove PIN',
+    pinSaved: 'PIN saved',
+    pinRemoved: 'PIN removed',
+    pinNotSaved: 'Could not change the PIN on Nuvio',
+    pinDelete: 'Delete',
+    organizeCatalogs: 'Organize catalogs',
+    rowsHint: 'OK on a name to move it with up and down. Right to show or hide it.',
+    rowShown: 'Shown',
+    rowHidden: 'Hidden',
+    noRows: 'Install addons with catalogs to organize Home.',
+    addonStore: 'Addon store',
+    addAddon: 'Add by address',
+    addonUrlHint: 'Type or paste the addon address (manifest.json)',
+    addonInstalled: 'Addon installed',
+    addonRemoved: 'Addon removed',
+    addonNotChanged: 'Could not change the addons on your account',
+    installAddon: 'Install',
+    addonIsInstalled: 'Installed',
+    removeAddon: 'Remove',
+    removeAddonConfirm: 'Press OK again to remove',
+    storeUnavailable: 'The store did not answer. Try again later.',
+    addonsHint: 'Addons are saved on your account and show up on every device.',
     profilesHint: 'OK chooses · Down edits the profile',
     profileEditHint: 'OK on the name opens the keyboard · Back returns',
     hideNewEpisodes: 'Hide from New episodes',
@@ -893,12 +921,40 @@ var UI_TEXT = {
     providerNuvio: 'Nuvio (experimental)',
     whoIsWatching: 'Quem está assistindo?',
     profileNumber: 'Perfil {0}',
-    profileLocked: 'Protegido por PIN, ainda não disponível no StremCompat',
+    profileLocked: 'Protegido por PIN',
     addProfile: 'Adicionar perfil',
     editProfile: 'Editar perfil',
     profileName: 'Nome',
     profileNameNeeded: 'Dê um nome ao perfil',
     profileNotSaved: 'Não foi possível salvar o perfil no Nuvio',
+    pinEnter: 'Digite o PIN de {0}',
+    pinWrong: 'PIN errado',
+    pinWait: 'Muitas tentativas. Tente de novo em {0} s',
+    pinNew: 'Escolha um PIN de 4 números',
+    pinCurrent: 'Digite o PIN atual',
+    pinSet: 'Definir PIN',
+    pinRemove: 'Remover PIN',
+    pinSaved: 'PIN salvo',
+    pinRemoved: 'PIN removido',
+    pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
+    pinDelete: 'Apagar',
+    organizeCatalogs: 'Organizar catálogos',
+    rowsHint: 'OK no nome para mover com cima e baixo. Direita para mostrar ou ocultar.',
+    rowShown: 'Visível',
+    rowHidden: 'Oculto',
+    noRows: 'Instale addons com catálogos para organizar a Home.',
+    addonStore: 'Loja de addons',
+    addAddon: 'Adicionar por endereço',
+    addonUrlHint: 'Digite ou cole o endereço do addon (manifest.json)',
+    addonInstalled: 'Addon instalado',
+    addonRemoved: 'Addon removido',
+    addonNotChanged: 'Não foi possível mudar os addons da sua conta',
+    installAddon: 'Instalar',
+    addonIsInstalled: 'Instalado',
+    removeAddon: 'Remover',
+    removeAddonConfirm: 'Aperte OK de novo para remover',
+    storeUnavailable: 'A loja não respondeu. Tente mais tarde.',
+    addonsHint: 'Os addons ficam salvos na sua conta e aparecem em todos os aparelhos.',
     profilesHint: 'OK escolhe · Para baixo edita o perfil',
     profileEditHint: 'OK no nome abre o teclado · Voltar retorna',
     hideNewEpisodes: 'Não mostrar em Novos episódios',
@@ -2257,10 +2313,10 @@ function collectionTileDefs() {
   }
   return out;
 }
-function homeCatalogs() {
+/* every addon catalog that can be a Home row, in the addons' order */
+function boardCatalogs() {
   var out = [],
-    a = remoteAddons(),
-    maxRows = TV_PROFILE.catalogRowsCap || 16;
+    a = remoteAddons();
   for (var i = 0; i < a.length; i++) {
     var man = a[i] && a[i].manifest;
     if (!man || !man.catalogs) continue;
@@ -2279,10 +2335,52 @@ function homeCatalogs() {
         url: base + '/catalog/' + cat.type + '/' + encodeURIComponent(cat.id) + '.json' + addonQuery(a[i]),
         key: catalogCacheKey(a[i], cat)
       });
-      if (out.length >= maxRows) return out;
     }
   }
   return out;
+}
+function homeCatalogs() {
+  return arrangeRows(boardCatalogs()).slice(0, TV_PROFILE.catalogRowsCap || 16);
+}
+/* ---------- the Home rows as the viewer arranged them (Settings > Organize catalogs) ---------- */
+/* { order: [row keys], hidden: [row keys] }; rows not named keep their place after the others */
+function homeLayout() {
+  var l = lsJson('homeLayout') || {};
+  return { order: l.order || [], hidden: l.hidden || [] };
+}
+function arrangeRows(rows, keepHidden) {
+  var l = homeLayout(),
+    placed = [];
+  for (var i = 0; i < rows.length; i++) {
+    var at = l.order.indexOf(rows[i].key);
+    placed.push({ row: rows[i], rank: at < 0 ? l.order.length + i : at });
+  }
+  placed.sort(function (a, b) {
+    return a.rank - b.rank;
+  });
+  var out = [];
+  for (var p = 0; p < placed.length; p++)
+    if (keepHidden || l.hidden.indexOf(placed[p].row.key) < 0) out.push(placed[p].row);
+  return out;
+}
+/* every row Home can show, in the viewer's order, with the hidden ones marked */
+function homeRowChoices() {
+  var hidden = homeLayout().hidden,
+    rows = arrangeRows(boardCatalogs(), true),
+    out = [];
+  for (var r = 0; r < rows.length; r++)
+    out.push({ key: rows[r].key, title: rows[r].title, hidden: hidden.indexOf(rows[r].key) >= 0 });
+  return out;
+}
+/* rows: [{ key, hidden }] in the order wanted */
+function saveHomeLayout(rows) {
+  var order = [],
+    hidden = [];
+  for (var i = 0; i < rows.length; i++) {
+    order.push(String(rows[i].key));
+    if (rows[i].hidden) hidden.push(String(rows[i].key));
+  }
+  lsSet('homeLayout', { order: order, hidden: hidden });
 }
 /* HOME rows = YOUR addon catalogs (in order); Cinemeta defaults if none configured */
 function homeDefs() {
@@ -4091,6 +4189,8 @@ function settingsCategories() {
       ],
       d: 'false'
     },
+    { k: '__rows', lb: tx('organizeCatalogs'), action: true },
+    { k: '__m3u', lb: tx('m3uAdd'), action: true },
     { head: tx('accountGroup'), id: 'account' },
     { k: '__profile', lb: tx('nuvioProfile'), action: true },
     { k: '__sync', lb: tx('syncAddons'), action: true },
@@ -4211,6 +4311,8 @@ window.__logic = {
   hideNewEpisodes: hideNewEpisodes,
   homeDefs: homeDefs,
   homeLibraryRows: homeLibraryRows,
+  homeRowChoices: homeRowChoices,
+  saveHomeLayout: saveHomeLayout,
   isNuvioAccount: isNuvioAccount,
   isSwitch: isSwitch,
   knownArtwork: knownArtwork,

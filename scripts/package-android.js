@@ -124,6 +124,11 @@ async function nodeMobile() {
   fs.cpSync(path.join(cache, 'include'), path.join(stage, 'node', 'include'), { recursive: true });
   fs.cpSync(path.join(cache, 'bin'), path.join(stage, 'node', 'bin'), { recursive: true });
 
+  /* the native app's own files (fonts, icons), next to this repository (LG-C/build.sh android) */
+  var lgc = path.resolve(root, '..', '..', 'LG-C');
+  fs.rmSync(path.join(lgc, 'build', 'android'), { recursive: true, force: true });
+  fs.cpSync(path.join(lgc, 'assets'), path.join(lgc, 'build', 'android', 'assets'), { recursive: true });
+
   var env = Object.assign({}, process.env);
   if (!env.ANDROID_HOME) env.ANDROID_HOME = path.join(os.homedir(), 'Android', 'sdk');
   var android = path.join(root, 'android');
@@ -133,15 +138,30 @@ async function nodeMobile() {
     { cwd: android, env: env }
   );
 
-  var apk = path.join(android, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
-  if (!fs.existsSync(apk))
-    throw new Error(
-      'Gradle finished without a signed package: is the signing file in place? See android/README.md'
+  /* two apps with their own IDs: the web one and the native one */
+  [
+    ['web', 'AndroidTV'],
+    ['native', 'AndroidTV-Native']
+  ].forEach(function (flavor) {
+    var apk = path.join(
+      android,
+      'app',
+      'build',
+      'outputs',
+      'apk',
+      flavor[0],
+      'release',
+      'app-' + flavor[0] + '-release.apk'
     );
-  var out = path.join(root, 'dist', 'StremCompat-v' + profile.version + '-AndroidTV.apk');
-  fs.mkdirSync(path.dirname(out), { recursive: true });
-  fs.copyFileSync(apk, out);
-  console.log('APK ready: ' + out + ' (' + (fs.statSync(out).size / 1048576).toFixed(1) + ' MB)');
+    if (!fs.existsSync(apk))
+      throw new Error(
+        'Gradle finished without a signed package: is the signing file in place? See android/README.md'
+      );
+    var out = path.join(root, 'dist', 'StremCompat-v' + profile.version + '-' + flavor[1] + '.apk');
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.copyFileSync(apk, out);
+    console.log('APK ready: ' + out + ' (' + (fs.statSync(out).size / 1048576).toFixed(1) + ' MB)');
+  });
 })().catch(function (e) {
   console.error(e.message);
   process.exit(1);

@@ -461,5 +461,22 @@
   "pinSaved": "PIN сохранён",
   "pinRemoved": "PIN убран",
   "pinNotSaved": "Не удалось изменить PIN в Nuvio",
-  "pinDelete": "Стереть"
+  "pinDelete": "Стереть",
+  "organizeCatalogs": "Упорядочить каталоги",
+  "rowsHint": "OK на названии, затем вверх и вниз, чтобы переместить. Вправо — показать или скрыть.",
+  "rowShown": "Показан",
+  "rowHidden": "Скрыт",
+  "noRows": "Установите аддоны с каталогами, чтобы упорядочить главную.",
+  "addonStore": "Магазин аддонов",
+  "addAddon": "Добавить по адресу",
+  "addonUrlHint": "Введите или вставьте адрес аддона (manifest.json)",
+  "addonInstalled": "Аддон установлен",
+  "addonRemoved": "Аддон удалён",
+  "addonNotChanged": "Не удалось изменить аддоны аккаунта",
+  "installAddon": "Установить",
+  "addonIsInstalled": "Установлен",
+  "removeAddon": "Удалить",
+  "removeAddonConfirm": "Нажмите OK ещё раз, чтобы удалить",
+  "storeUnavailable": "Магазин не ответил. Попробуйте позже.",
+  "addonsHint": "Аддоны хранятся в аккаунте и видны на всех устройствах."
 }

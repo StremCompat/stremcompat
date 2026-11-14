@@ -76,7 +76,7 @@ function showHome(libraryPulled) {
       });
     } else if (ms) {
       goScr('sim', { type: ms[1], id: ms[2] });
-    }
+    } else if (h === '#tv') goScr('tv');
     try {
       history.replaceState(history.state, '', appUrl('/beta'));
     } catch (e) {}

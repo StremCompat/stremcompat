@@ -1,7 +1,7 @@
 // Sidebar navigation.
 /* ================= top nav — centered; moving Left/Right auto-loads each page ================= */
 function curBoard() {
-  return SCR === 'home' ? home : SCR === 'lib' ? lib : SCR === 'fold' ? fold : null;
+  return { home: home, lib: lib, fold: fold, cal: cal, tv: tv }[SCR] || null;
 }
 function resetBoardPosition(board) {
   board.rowIdx = 0;
@@ -49,8 +49,7 @@ var topNav = {
       return;
     this.idx = i;
     var t = chipTarget[i];
-    if (t === 'home') resetBoardPosition(home);
-    else if (t === 'lib') resetBoardPosition(lib);
+    if (BOARD_SCR[t]) resetBoardPosition({ home: home, lib: lib, cal: cal, tv: tv }[t]);
     backStack = [];
     scrParams = null;
     if (t !== 'search') search.reset();
@@ -61,9 +60,9 @@ var topNav = {
     } else if (t === 'disc') {
       showScr('disc');
       disc.enter();
-    } else if (t === 'lib') {
-      showScr('lib');
-      lib.enter();
+    } else if (t === 'lib' || t === 'cal' || t === 'tv') {
+      showScr(t);
+      curBoard().enter();
     } else if (t === 'search') {
       showScr('search');
       search.enterNav();

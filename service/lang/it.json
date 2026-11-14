@@ -461,5 +461,22 @@
   "pinSaved": "PIN salvato",
   "pinRemoved": "PIN rimosso",
   "pinNotSaved": "Impossibile cambiare il PIN su Nuvio",
-  "pinDelete": "Cancella"
+  "pinDelete": "Cancella",
+  "organizeCatalogs": "Organizza cataloghi",
+  "rowsHint": "OK su un nome per spostarlo con su e giù. Destra per mostrarlo o nasconderlo.",
+  "rowShown": "Visibile",
+  "rowHidden": "Nascosto",
+  "noRows": "Installa addon con cataloghi per organizzare la Home.",
+  "addonStore": "Negozio addon",
+  "addAddon": "Aggiungi per indirizzo",
+  "addonUrlHint": "Scrivi o incolla l’indirizzo dell’addon (manifest.json)",
+  "addonInstalled": "Addon installato",
+  "addonRemoved": "Addon rimosso",
+  "addonNotChanged": "Impossibile cambiare gli addon del tuo account",
+  "installAddon": "Installa",
+  "addonIsInstalled": "Installato",
+  "removeAddon": "Rimuovi",
+  "removeAddonConfirm": "Premi di nuovo OK per rimuovere",
+  "storeUnavailable": "Il negozio non ha risposto. Riprova più tardi.",
+  "addonsHint": "Gli addon sono salvati nel tuo account e compaiono su ogni dispositivo."
 }

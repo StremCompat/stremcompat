@@ -42,6 +42,10 @@ function loadProfile() {
       if (Object.prototype.hasOwnProperty.call(built, key)) out[key] = built[key];
     }
   }
+  /* an app that packs this same server twice (Android's web and native apps) gives each its port */
+  if (parseInt(process.env.SC_PORT, 10)) out.port = parseInt(process.env.SC_PORT, 10);
+  if (parseInt(process.env.SC_HANDOVER_PORT, 10))
+    out.handoverPort = parseInt(process.env.SC_HANDOVER_PORT, 10);
   return out;
 }
 

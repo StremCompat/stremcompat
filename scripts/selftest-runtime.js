@@ -340,6 +340,37 @@ function nuvioTests() {
         assert.strictEqual(await choose(3, '0000'), 'wrong', 'a wrong PIN opened a profile');
         assert.strictEqual(await choose(3, '1234'), 'open', 'the right PIN did not open its profile');
         assert.strictEqual(await choose(2, ''), 'open', 'a profile could not be chosen');
+        /* addons from the TV: Nuvio takes the whole list back, the disabled ones and the order kept */
+        function changeAddons(url, remove) {
+          return new Promise(function (ok) {
+            nuvio.changeNuvioAddons(key, url, remove, function (error) {
+              var pushes = seen.filter(function (r) {
+                return r.url === '/rest/v1/rpc/sync_push_addons';
+              });
+              ok({ error: error, sent: pushes.length ? pushes[pushes.length - 1].body : null });
+            });
+          });
+        }
+        var removed = await changeAddons(base + '/off/manifest.json', true);
+        assert.deepStrictEqual(
+          removed.sent && removed.sent.p_addons.map(function (a) {
+            return a.url;
+          }),
+          [base + '/addon/manifest.json'],
+          'removing an addon did not keep the others'
+        );
+        var added = await changeAddons(base + '/addon', false);
+        assert.ok(!added.error && added.sent.p_profile_id === 2, 'an addon was not added to the profile in use');
+        assert.deepStrictEqual(
+          added.sent.p_addons.map(function (a) {
+            return [a.name || '', a.enabled, a.sort_order];
+          }),
+          [
+            ['', false, 0],
+            ['Demo', true, 1]
+          ],
+          'adding an addon lost the disabled one or the order'
+        );
         assert.strictEqual(
           (await api('/api/getUser', { authKey: key })).result._id,
           'nv02user42',

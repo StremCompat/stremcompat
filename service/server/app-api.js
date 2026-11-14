@@ -99,6 +99,7 @@ function addonList(req, res) {
         var m = ad.manifest || {};
         return {
           name: m.name || m.id || 'Addon',
+          url: ad.transportUrl || '',
           info: [m.id || '', m.version || '', (m.types || []).join(' · ')].join('   ').replace(/\s+/g, ' ')
         };
       })
@@ -476,6 +477,17 @@ function act(req, res) {
   });
 }
 
+/* Settings > Organize catalogs: GET every Home row in the viewer's order, the hidden ones
+   marked; POST { rows: [{ key, hidden }] } keeps that order */
+function rows(req, res) {
+  if (req.method !== 'POST') return sendJson(res, { rows: logic().homeRowChoices() });
+  readJsonBody(req, 65536, function (body) {
+    if (!body || !body.rows || typeof body.rows.length !== 'number') return fail(res, 400, 'rows are needed');
+    logic().saveHomeLayout(body.rows);
+    sendJson(res, { ok: true });
+  });
+}
+
 /* ---------- moving to the native interface: the web interface hands over what it kept ---------- */
 function migrate(req, res) {
   readJsonBody(req, MIGRATE_MAX_BYTES, function (body) {
@@ -508,6 +520,7 @@ module.exports = {
       playback.play(req, res, q, searches);
     },
     '/app/state': state,
+    '/app/rows': rows,
     '/app/handover': runtime.handover,
     '/app/streams': streams,
     '/app/strings': strings,

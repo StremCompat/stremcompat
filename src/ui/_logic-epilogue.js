@@ -38,6 +38,8 @@ window.__logic = {
   hideNewEpisodes: hideNewEpisodes,
   homeDefs: homeDefs,
   homeLibraryRows: homeLibraryRows,
+  homeRowChoices: homeRowChoices,
+  saveHomeLayout: saveHomeLayout,
   isNuvioAccount: isNuvioAccount,
   isSwitch: isSwitch,
   knownArtwork: knownArtwork,

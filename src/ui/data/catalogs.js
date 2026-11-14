@@ -147,10 +147,10 @@ function collectionTileDefs() {
   }
   return out;
 }
-function homeCatalogs() {
+/* every addon catalog that can be a Home row, in the addons' order */
+function boardCatalogs() {
   var out = [],
-    a = remoteAddons(),
-    maxRows = TV_PROFILE.catalogRowsCap || 16;
+    a = remoteAddons();
   for (var i = 0; i < a.length; i++) {
     var man = a[i] && a[i].manifest;
     if (!man || !man.catalogs) continue;
@@ -169,10 +169,52 @@ function homeCatalogs() {
         url: base + '/catalog/' + cat.type + '/' + encodeURIComponent(cat.id) + '.json' + addonQuery(a[i]),
         key: catalogCacheKey(a[i], cat)
       });
-      if (out.length >= maxRows) return out;
     }
   }
   return out;
+}
+function homeCatalogs() {
+  return arrangeRows(boardCatalogs()).slice(0, TV_PROFILE.catalogRowsCap || 16);
+}
+/* ---------- the Home rows as the viewer arranged them (Settings > Organize catalogs) ---------- */
+/* { order: [row keys], hidden: [row keys] }; rows not named keep their place after the others */
+function homeLayout() {
+  var l = lsJson('homeLayout') || {};
+  return { order: l.order || [], hidden: l.hidden || [] };
+}
+function arrangeRows(rows, keepHidden) {
+  var l = homeLayout(),
+    placed = [];
+  for (var i = 0; i < rows.length; i++) {
+    var at = l.order.indexOf(rows[i].key);
+    placed.push({ row: rows[i], rank: at < 0 ? l.order.length + i : at });
+  }
+  placed.sort(function (a, b) {
+    return a.rank - b.rank;
+  });
+  var out = [];
+  for (var p = 0; p < placed.length; p++)
+    if (keepHidden || l.hidden.indexOf(placed[p].row.key) < 0) out.push(placed[p].row);
+  return out;
+}
+/* every row Home can show, in the viewer's order, with the hidden ones marked */
+function homeRowChoices() {
+  var hidden = homeLayout().hidden,
+    rows = arrangeRows(boardCatalogs(), true),
+    out = [];
+  for (var r = 0; r < rows.length; r++)
+    out.push({ key: rows[r].key, title: rows[r].title, hidden: hidden.indexOf(rows[r].key) >= 0 });
+  return out;
+}
+/* rows: [{ key, hidden }] in the order wanted */
+function saveHomeLayout(rows) {
+  var order = [],
+    hidden = [];
+  for (var i = 0; i < rows.length; i++) {
+    order.push(String(rows[i].key));
+    if (rows[i].hidden) hidden.push(String(rows[i].key));
+  }
+  lsSet('homeLayout', { order: order, hidden: hidden });
 }
 /* HOME rows = YOUR addon catalogs (in order); Cinemeta defaults if none configured */
 function homeDefs() {

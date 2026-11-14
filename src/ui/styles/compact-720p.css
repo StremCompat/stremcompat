@@ -136,7 +136,9 @@
   #aHead{height:78px;padding-right:175px}
   #aTitle{font-size:36px;margin-bottom:6px}
   #aHelp{font-size:18px}
-  #aSync{padding:10px 19px;font-size:18px;top:5px}
+  #aBtns{top:5px}
+  #aBtns span{margin-left:9px;padding:10px 19px;font-size:18px}
+  #aUrl{margin-top:14px;padding:10px 15px;font-size:18px}
   #aClip{top:90px}
   .addon{padding:12px 17px;margin-bottom:6px}
   .addon .an{font-size:21px}.addon .ai{font-size:16px}

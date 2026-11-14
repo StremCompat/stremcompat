@@ -190,6 +190,46 @@ function loadLibraryRows(board) {
   }
   board.rowIdx = 0;
 }
+/* rows the server lays out ({ title, items }); an M3U channel plays its address straight away */
+function loadServerRows(board, path, key) {
+  board.rows = [];
+  xhrJson(
+    path,
+    function (j) {
+      var groups = (j && j[key]) || [];
+      board.rows = [];
+      for (var g = 0; g < groups.length; g++) {
+        var items = [];
+        for (var i = 0; i < groups[g].items.length; i++) {
+          var it = groups[g].items[i];
+          items.push({
+            id: it.id || it.url,
+            type: it.type || 'tv',
+            name: it.name,
+            poster: it.art || it.poster || it.logo,
+            background: it.backdrop || it.background || '',
+            live: it.kind === 'm3u' ? it.url : ''
+          });
+        }
+        var row = buildRow(groups[g].title, items, false, true);
+        row.el.className = 'row in';
+        board.rows.push(row);
+      }
+      if (!board.rows.length) {
+        var e = document.createElement('div');
+        e.className = 'row in';
+        e.innerHTML = emptyState((j && j.empty) || '', '');
+        board.rows.push({ el: e, items: [], cardEls: [], cardsEl: document.createElement('div'), col: 0 });
+      }
+      board.rowIdx = 0;
+      if (curBoard() === board) {
+        board.mount();
+        board.paint(true);
+      }
+    },
+    60000
+  );
+}
 /* rebuild boards that surface library/CW state after a change */
 function invalidateBoards() {
   home.built = false;
@@ -210,6 +250,7 @@ function buildHomeRows(keep) {
 }
 
 function openItem(it) {
+  if (it.live) return playUrl({ url: it.live, title: it.name }, 'tv', it.id, it.id, 'beta#tv');
   if (it.folder) {
     goScr('fold', { folder: it.folder });
     return;

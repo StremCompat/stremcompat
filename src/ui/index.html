@@ -16,6 +16,8 @@
   <div class="chip" id="chipHome"><svg viewBox="0 0 24 24"><path d="M3 11.5L12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5M9.5 20v-6h5v6"/></svg><span class="navlabel">Home</span></div>
   <div class="chip" id="chipDisc"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M15.7 8.3l-2.2 5.2-5.2 2.2 2.2-5.2z"/></svg><span class="navlabel">Discover</span></div>
   <div class="chip" id="chipLib"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" rx="2"/><path d="M8 3h8M8 10h8"/></svg><span class="navlabel">Library</span></div>
+  <div class="chip" id="chipCal"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span class="navlabel">Calendar</span></div>
+  <div class="chip" id="chipTv"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 3l4 4 4-4"/></svg><span class="navlabel">Channels</span></div>
   <div class="chip" id="chipAddons"><svg viewBox="0 0 24 24"><path d="M4 4h6v3a2 2 0 104 0V4h6v6h-3a2 2 0 100 4h3v6h-6v-3a2 2 0 10-4 0v3H4v-6h3a2 2 0 100-4H4z"/></svg><span class="navlabel">Addons</span></div>
   <div class="chip" id="chipSet"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1l2-1.5-2-3.4-2.4 1A7 7 0 0015 6.2L14.6 3h-5L9 6.2a7 7 0 00-1.5.9l-2.4-1-2 3.4L5.1 11a7 7 0 000 2l-2 1.5 2 3.4 2.4-1a7 7 0 001.5.9l.6 3.2h5l.4-3.2a7 7 0 001.5-.9l2.4 1 2-3.4-2-1.5a7 7 0 00.1-1z"/></svg><span class="navlabel">Settings</span></div>
   <div class="chip" id="chipUpdate"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 20h14"/></svg><span class="navlabel">Update</span></div>
@@ -58,6 +60,7 @@
 
 <div class="scr" id="scrSet">
   <div id="setWrap">
+    <input id="m3uBox" maxlength="600" autocomplete="off">
     <div id="setTitle">Settings</div>
     <div id="setCats"></div>
     <div id="setPane"><div id="setInner">
@@ -70,7 +73,7 @@
 
 <div class="scr" id="scrAddons">
   <div id="aWrap">
-    <div id="aHead"><div id="aTitle">Addons</div><div id="aHelp">Addons synchronized with your Stremio account</div><div id="aSync">Sync</div></div>
+    <div id="aHead"><div id="aTitle">Addons</div><div id="aHelp">Addons synchronized with your Stremio account</div><div id="aBtns"><span id="aStore"></span><span id="aAdd"></span><span id="aSync"></span></div><input id="aUrl" maxlength="400" autocomplete="off"></div>
     <div id="aClip"><div id="aInner"></div></div>
   </div>
 </div>

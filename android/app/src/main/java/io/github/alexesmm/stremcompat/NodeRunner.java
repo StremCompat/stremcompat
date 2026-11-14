@@ -77,6 +77,9 @@ final class NodeRunner {
         Os.setenv("SC_SERVER_LOG", new File(data, "local server.log").getAbsolutePath(), true);
         Os.setenv("TV_FFMPEG", program(context, "ffmpeg").getAbsolutePath(), true);
         Os.setenv("TV_FFPROBE", program(context, "ffprobe").getAbsolutePath(), true);
+        /* the web and the native app each have their port (build.gradle) */
+        Os.setenv("SC_PORT", String.valueOf(BuildConfig.SERVER_PORT), true);
+        Os.setenv("SC_HANDOVER_PORT", String.valueOf(BuildConfig.HANDOVER_PORT), true);
     }
 
     /** The server's files are copied out of the package once per version of the app. */

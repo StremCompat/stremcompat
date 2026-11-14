@@ -766,9 +766,11 @@ function put(key, session, changes, cb) {
 
 /* ---------- the profile's addons, with their manifests ---------- */
 var manifests = {};
+/* an addon's address as its manifest's (stremio:// links as https) */
 function manifestUrl(url) {
   var clean = String(url || '')
     .trim()
+    .replace(/^stremio:\/\//i, 'https://')
     .replace(/\/+$/, '');
   if (!/^https?:\/\//i.test(clean)) return '';
   if (/\/manifest\.json(\?.*)?$/i.test(clean)) return clean;
@@ -827,6 +829,54 @@ function collections(session, cb) {
   });
 }
 
+/* Adds an addon to the profile's list (the first profile's when it shares it) or takes it away.
+   Nuvio takes the whole list back, disabled ones and the order included (sync_push_addons). */
+function changeNuvioAddons(key, address, remove, cb) {
+  var session = sessionOf(key),
+    url = manifestUrl(address);
+  if (!session) return cb('account');
+  if (!url) return cb('address');
+  var profile = session.primaryAddons ? 1 : session.profile;
+  authed(
+    session,
+    'GET',
+    '/rest/v1/addons?select=*&profile_id=eq.' + profile + '&order=sort_order',
+    null,
+    function (status, rows) {
+      if (status < 200 || status >= 300 || !rows) return cb('account');
+      var list = rows
+        .filter(function (r) {
+          return manifestUrl(r.url) && (!remove || manifestUrl(r.url) !== url);
+        })
+        .map(function (r) {
+          return { url: manifestUrl(r.url), name: String(r.name || ''), enabled: r.enabled !== false };
+        });
+      function push(entries) {
+        var body = {
+          p_profile_id: profile,
+          p_addons: entries.map(function (e, i) {
+            return { url: e.url, name: e.name, enabled: e.enabled, sort_order: i };
+          })
+        };
+        rpc(session, 'sync_push_addons', body, function (answer, code) {
+          cb(code >= 200 && code < 300 ? '' : 'account');
+        });
+      }
+      if (remove) return push(list);
+      fetchAddonJson(url, function (manifest) {
+        if (!manifest || !manifest.id) return cb('manifest');
+        push(
+          list
+            .filter(function (e) {
+              return e.url !== url;
+            })
+            .concat([{ url: url, name: String(manifest.name || ''), enabled: true }])
+        );
+      });
+    }
+  );
+}
+
 /* ---------- the account API calls, answered as Stremio answers them ---------- */
 function expired() {
   return { error: { code: 1, message: 'Session expired. Sign in again.' } };
@@ -866,7 +916,9 @@ function nuvioApi(apiPath, body, cb) {
 
 module.exports = {
   avatars: avatars,
+  changeNuvioAddons: changeNuvioAddons,
   chooseProfile: chooseProfile,
+  manifestUrl: manifestUrl,
   isNuvioKey: function (key) {
     return /^nuvio:/.test(String(key || ''));
   },

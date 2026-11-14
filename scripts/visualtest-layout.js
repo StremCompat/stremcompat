@@ -228,7 +228,7 @@ async function main() {
     assert.ok(sourcesState.compat.bottom > sourcesState.compat.top, 'Compatibility warning is not visible.');
     var sourcesShot = await protocol.call('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
     fs.writeFileSync(output.replace(/\.png$/i, '-sources.png'), Buffer.from(sourcesShot.data, 'base64'));
-    await protocol.call('Runtime.evaluate', { expression: "document.getElementById('streams').style.display='none';(function(){function key(code){var e=document.createEvent('Event');e.initEvent('keydown',true,true);e.keyCode=code;document.dispatchEvent(e);}key(37);key(40);key(40);key(40);key(40);key(39);})()" });
+    await protocol.call('Runtime.evaluate', { expression: "document.getElementById('streams').style.display='none';(function(){function key(code){var e=document.createEvent('Event');e.initEvent('keydown',true,true);e.keyCode=code;document.dispatchEvent(e);}key(37);key(40);key(40);key(40);key(40);key(40);key(40);key(39);})()" });
     await delay(150);
     await protocol.call('Runtime.evaluate', { expression: "(function(){function key(code){var e=document.createEvent('Event');e.initEvent('keydown',true,true);e.keyCode=code;document.dispatchEvent(e);}for(var i=0;i<12;i++){var g=document.querySelector('#setCats .setcat.f');if(!g||g.textContent==='Interface')break;key(40);}key(39);})()" });
     var settingsView = await protocol.call('Runtime.evaluate', { expression: "(function(){var labels=document.querySelectorAll('#setItems .set .lb'),values=document.querySelectorAll('#setItems .set .vl'),language=-1;for(var i=0;i<labels.length;i++)if(labels[i].textContent==='Interface language')language=i;return JSON.stringify({screen:document.getElementById('scrSet').className,groups:document.querySelectorAll('#setCats .setcat').length,languageRow:language,languageValue:language>=0?values[language].textContent:''});})()", returnByValue: true });
@@ -252,6 +252,22 @@ async function main() {
     assert.ok(addonsState.clipTop >= addonsState.headBottom, 'Addon list overlaps its header.');
     assert.ok(addonsState.syncBottom <= addonsState.headBottom, 'Sync button overlaps the addon list.');
     assert.ok(parseFloat(addonsState.watermark) < 0.02, 'Decorative watermark is visible behind the addon list.');
+    /* the three addon buttons fit the header; the whole side menu fits the screen */
+    var fitView = await protocol.call('Runtime.evaluate', { expression: "(function(){var b=document.getElementById('aBtns').getBoundingClientRect(),t=document.getElementById('aHelp').getBoundingClientRect(),x=document.getElementById('chipExit').getBoundingClientRect();return JSON.stringify({btnLeft:b.left,btnRight:b.right,helpRight:t.right,btnTop:b.top,helpTop:t.top,helpBottom:t.bottom,exitBottom:x.bottom,texts:document.getElementById('aStore').textContent.length*document.getElementById('aAdd').textContent.length});})()", returnByValue: true });
+    var fitState = JSON.parse(fitView.result.value);
+    assert.ok(fitState.texts > 0, 'The addon store and add buttons have no text.');
+    assert.ok(fitState.btnRight <= width && fitState.btnLeft >= 0, 'Addon buttons are clipped.');
+    assert.ok(fitState.exitBottom <= height, 'The side menu does not fit the screen.');
+    var addonsShot = await protocol.call('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
+    fs.writeFileSync(output.replace(/\.png$/i, '-addons.png'), Buffer.from(addonsShot.data, 'base64'));
+    /* Organize catalogs: the mock addon's catalogs listed, the panel inside the screen */
+    var rowsView = await protocol.call('Runtime.evaluate', { expression: "(function(){function key(code){var e=document.createEvent('Event');e.initEvent('keydown',true,true);e.keyCode=code;document.dispatchEvent(e);}key(37);key(40);key(39);var cats=document.querySelectorAll('#setCats .setcat');for(var c=0;c<cats.length;c++)if(cats[c].textContent==='Interface')cats[c].click();var rows=document.querySelectorAll('#setItems .set'),hit=null;for(var i=0;i<rows.length;i++)if(rows[i].textContent.indexOf('Organize catalogs')>=0)hit=rows[i];if(hit)hit.click();var box=document.getElementById('suBox').getBoundingClientRect(),n=document.querySelectorAll('#suOptions .suopt').length;return JSON.stringify({rows:n,bottom:box.bottom,right:box.right});})()", returnByValue: true });
+    var rowsState = JSON.parse(rowsView.result.value);
+    assert.ok(rowsState.rows > 0, 'Organize catalogs lists no rows.');
+    assert.ok(rowsState.bottom <= height && rowsState.right <= width, 'Organize catalogs panel is clipped.');
+    var rowsShot = await protocol.call('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
+    fs.writeFileSync(output.replace(/\.png$/i, '-rows.png'), Buffer.from(rowsShot.data, 'base64'));
+    await protocol.call('Runtime.evaluate', { expression: "(function(){var e=document.createEvent('Event');e.initEvent('keydown',true,true);e.keyCode=461;document.dispatchEvent(e);})()" });
     var episodeList = [];
     for (var ei = 1; ei <= 8; ei++) episodeList.push({ id: 'visual-series:1:' + ei, season: 1, episode: ei, name: 'Episode ' + ei, overview: 'A lightweight episode summary used to verify the television layout.' });
     var seriesMeta = { id: 'visual-series', type: 'series', name: 'Visual Series', year: '2026', description: 'Series overview', genres: ['Drama'], videos: episodeList };

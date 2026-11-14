@@ -247,7 +247,7 @@ function pointerUI(target, activate) {
       topNav.active = false;
       addonPanel.idx = i;
       addonPanel.paint();
-      if (activate && i === 0) addonPanel.syncNow();
+      if (activate) addonPanel.activate(i);
       return true;
     }
   }

@@ -461,5 +461,22 @@
   "pinSaved": "PIN 已保存",
   "pinRemoved": "PIN 已移除",
   "pinNotSaved": "无法在 Nuvio 上更改 PIN",
-  "pinDelete": "删除"
+  "pinDelete": "删除",
+  "organizeCatalogs": "整理目录",
+  "rowsHint": "在名称上按 OK,再用上下移动。按右显示或隐藏。",
+  "rowShown": "显示",
+  "rowHidden": "隐藏",
+  "noRows": "安装带目录的插件后即可整理首页。",
+  "addonStore": "插件商店",
+  "addAddon": "按地址添加",
+  "addonUrlHint": "输入或粘贴插件地址 (manifest.json)",
+  "addonInstalled": "插件已安装",
+  "addonRemoved": "插件已移除",
+  "addonNotChanged": "无法更改账号中的插件",
+  "installAddon": "安装",
+  "addonIsInstalled": "已安装",
+  "removeAddon": "移除",
+  "removeAddonConfirm": "再按一次 OK 移除",
+  "storeUnavailable": "商店没有响应,请稍后再试。",
+  "addonsHint": "插件保存在你的账号中,所有设备都会显示。"
 }

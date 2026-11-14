@@ -109,14 +109,16 @@ function playerPage() {
 /* The native interface: boot.js starts the service, then the page loads LG-C's build. */
 function nativePage() {
   var boot = tokens(read(path.join(root, 'platforms', 'tizen', 'boot.js')));
+  /* the base names the server for boot.js; the app's own files are read from the package */
   var setup =
+    'var ROOT=String(location.href).replace(/[?#].*$/,"").replace(/[^\/]*$/,"");' +
     'var Module={canvas:document.getElementById("canvas"),arguments:["--port","' + profile.port + '","--size","1920x1080"]};' +
     'window.__SC_BOOT_ERROR__=function(m){document.getElementById("boot").textContent=m;};' +
     'window.__SC_SCRIPT_LOADED__=function(){};' +
-    'window.__STREMCOMPAT_APP__=function(){var s=document.createElement("script");s.src="stremcompat.js";document.body.appendChild(s);};';
+    'window.__STREMCOMPAT_APP__=function(){var s=document.createElement("script");s.src=ROOT+"stremcompat.js";document.body.appendChild(s);};';
   return (
     '<!doctype html><html><head><meta charset="utf-8">' + viewportTag +
-    '<script src="$WEBAPIS/webapis/webapis.js"></script>' +
+    '<script src="$WEBAPIS/webapis/webapis.js"></script>' + baseTag +
     '<style>html,body{margin:0;background:transparent;overflow:hidden}canvas{display:block;width:1920px;height:1080px}' +
     '#boot{position:absolute;left:0;right:0;top:50%;text-align:center;color:#fff;font:32px sans-serif}' +
     '#v{position:absolute;left:0;top:0;width:1920px;height:1080px;z-index:-1}</style></head><body>' +

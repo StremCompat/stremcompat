@@ -76,6 +76,8 @@ function makeBoard(loader) {
       if (disc !== this) unloadBoard(disc);
       if (lib !== this) unloadBoard(lib);
       if (fold !== this) unloadBoard(fold);
+      if (cal !== this) unloadBoard(cal);
+      if (tv !== this) unloadBoard(tv);
       this._act = null;
       if (!fresh) this.reveal();
       this.paint(true);

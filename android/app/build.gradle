@@ -1,4 +1,5 @@
-// The Android TV app: the native app (LG-C over SDL2) above ExoPlayer, and the local server on an embedded Node.
+// The Android TV apps, side by side with their own IDs: web (the pages in a WebView) and native
+// (LG-C over SDL2), both above ExoPlayer and with the local server on an embedded Node.
 // scripts/package-android.js stages what the app carries into ../../.build/android-tv-app:
 //   assets/service  the local server and the pages, as for LG (build-stage.js, profile android-tv)
 //   jniLibs/<abi>   libnode.so (nodejs-mobile) and the FFmpeg, FFprobe and torrent programs
@@ -27,10 +28,31 @@ android {
         versionName profile.version
         def v = profile.version.tokenize('.').collect { it as int }
         versionCode v[0] * 10000 + v[1] * 100 + v[2]
-        buildConfigField 'int', 'SERVER_PORT', "${profile.port}"
         ndk { abiFilters 'armeabi-v7a', 'arm64-v8a' }
         externalNativeBuild {
-            cmake { arguments "-DNODE_DIR=${staged}/node", "-DLGC_DIR=${lgc.path.replace(File.separator, '/')}", "-DAPP_VERSION=${profile.version}", '-DANDROID_STL=c++_shared' }
+            cmake { arguments "-DNODE_DIR=${staged}/node", '-DANDROID_STL=c++_shared' }
+        }
+    }
+
+    /* each app runs its own server, on its own port; the native one takes over the web one's
+       data on its first start (handover, server/app-runtime.js) */
+    flavorDimensions 'ui'
+    productFlavors {
+        web {
+            dimension 'ui'
+            buildConfigField 'int', 'SERVER_PORT', "${profile.port}"
+            buildConfigField 'int', 'HANDOVER_PORT', '0'
+            resValue 'string', 'app_name', 'StremCompat'
+        }
+        'native' {
+            dimension 'ui'
+            applicationIdSuffix '.native'
+            buildConfigField 'int', 'SERVER_PORT', "${profile.port + 1}"
+            buildConfigField 'int', 'HANDOVER_PORT', "${profile.port}"
+            resValue 'string', 'app_name', 'StremCompat Native'
+            externalNativeBuild {
+                cmake { arguments "-DLGC_DIR=${lgc.path.replace(File.separator, '/')}", "-DAPP_VERSION=${profile.version}", "-DSC_PORT=${profile.port + 1}" }
+            }
         }
     }
 
@@ -60,9 +82,12 @@ android {
     }
     sourceSets {
         main {
-            assets.srcDirs = ["${staged}/assets", "${lgc}/build/android"]
-            java.srcDirs += "${lgc}/third_party/sdl-src/SDL2-2.30.9/android-project/app/src/main/java"
+            assets.srcDirs = ["${staged}/assets"]
             jniLibs.srcDirs = ["${staged}/jniLibs"]
+        }
+        'native' {
+            assets.srcDirs += "${lgc}/build/android"
+            java.srcDirs += "${lgc}/third_party/sdl-src/SDL2-2.30.9/android-project/app/src/main/java"
         }
     }
     /* the programs are run from the folder the libraries are unpacked to */

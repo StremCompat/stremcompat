@@ -67,6 +67,65 @@ var languagePanel = {
     setF(this.els, this.idx);
   }
 };
+/* Settings > Organize catalogs: the Home rows in a list; OK picks one up to move it with up and
+   down, right shows or hides it. Each change is kept at once; Home is built again on leaving. */
+var rowsPanel = {
+  open: false,
+  idx: 0,
+  els: [],
+  rows: [],
+  moving: false,
+  show: function () {
+    this.rows = homeRowChoices();
+    if (!this.rows.length) return toast(tx('noRows'));
+    this.idx = 0;
+    this.moving = false;
+    this.open = true;
+    this.draw();
+  },
+  draw: function () {
+    var shown = [];
+    for (var i = 0; i < this.rows.length; i++)
+      shown.push({
+        name: this.rows[i].title,
+        help: tx(this.rows[i].hidden ? 'rowHidden' : 'rowShown'),
+        cls: (this.rows[i].hidden ? 'rowoff' : '') + (this.moving && i === this.idx ? ' moving' : '')
+      });
+    this.els = drawChoices(tx('organizeCatalogs'), shown, tx('rowsHint'));
+    this.paint();
+  },
+  paint: function () {
+    setF(this.els, this.idx);
+    /* the focused row stays in view */
+    var host = $('suOptions'),
+      el = this.els[this.idx];
+    if (el && el.offsetTop + el.offsetHeight > host.scrollTop + host.clientHeight)
+      host.scrollTop = el.offsetTop + el.offsetHeight - host.clientHeight;
+    else if (el && el.offsetTop < host.scrollTop) host.scrollTop = el.offsetTop;
+  },
+  key: function (k) {
+    var next = this.idx + (k === 40 ? 1 : k === 38 ? -1 : 0);
+    if (next !== this.idx && next >= 0 && next < this.rows.length) {
+      if (this.moving) {
+        var row = this.rows[this.idx];
+        this.rows[this.idx] = this.rows[next];
+        this.rows[next] = row;
+        saveHomeLayout(this.rows);
+      }
+      this.idx = next;
+    } else if (k === 39 || k === 37) {
+      this.rows[this.idx].hidden = !this.rows[this.idx].hidden;
+      saveHomeLayout(this.rows);
+    } else if (k === 13) this.moving = !this.moving;
+    else return;
+    this.draw();
+  },
+  close: function () {
+    this.open = false;
+    $('setupPanel').style.display = 'none';
+    invalidateBoards();
+  }
+};
 var setupPanel = {
   open: false,
   step: 0,

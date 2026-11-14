@@ -163,7 +163,15 @@ var settings = {
     } else if (k === '__diag') this.showDiag();
     else if (k === '__support') this.showSupport();
     else if (k === '__profile') openProfile();
-    else if (k === '__logout') this.logout();
+    else if (k === '__rows') rowsPanel.show();
+    else if (k === '__m3u') {
+      /* the list is read by the server, which keeps it for the Channels section */
+      var box = $('m3uBox');
+      box.value = '';
+      box.placeholder = tx('m3uAddress');
+      box.style.display = 'block';
+      box.focus();
+    } else if (k === '__logout') this.logout();
     else if (k === '__clearSearches') {
       clearRecentSearches();
       toast(tx('searchesCleared'));
@@ -399,3 +407,23 @@ var settings = {
     return true;
   }
 };
+
+on($('m3uBox'), 'keydown', function (e) {
+  if (e.keyCode !== 13 && !isRemoteBack(e.keyCode)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  var url = String($('m3uBox').value || '').trim();
+  $('m3uBox').blur();
+  $('m3uBox').style.display = 'none';
+  if (e.keyCode !== 13 || !url) return;
+  toast(tx('saving'));
+  postJson(
+    '/app/channels/lists',
+    { url: url },
+    function (j) {
+      toast((j && j.message) || tx('m3uFailed'));
+      tv.built = false;
+    },
+    60000
+  );
+});

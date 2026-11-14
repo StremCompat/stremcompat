@@ -15,6 +15,8 @@ function applyStaticLanguage() {
     chipHome: 'navHome',
     chipDisc: 'navDiscover',
     chipLib: 'navLibrary',
+    chipCal: 'navCalendar',
+    chipTv: 'navChannels',
     chipAddons: 'navAddons',
     chipSet: 'navSettings',
     chipUpdate: 'updateNav',

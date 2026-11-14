@@ -467,12 +467,40 @@ var UI_TEXT = {
     providerNuvio: 'Nuvio (experimental)',
     whoIsWatching: 'Who is watching?',
     profileNumber: 'Profile {0}',
-    profileLocked: 'Protected with a PIN, not available in StremCompat yet',
+    profileLocked: 'Protected with a PIN',
     addProfile: 'Add profile',
     editProfile: 'Edit profile',
     profileName: 'Name',
     profileNameNeeded: 'Give the profile a name',
     profileNotSaved: 'Could not save the profile on Nuvio',
+    pinEnter: 'Enter the PIN for {0}',
+    pinWrong: 'Wrong PIN',
+    pinWait: 'Too many tries. Try again in {0} s',
+    pinNew: 'Choose a 4-digit PIN',
+    pinCurrent: 'Enter the current PIN',
+    pinSet: 'Set PIN',
+    pinRemove: 'Remove PIN',
+    pinSaved: 'PIN saved',
+    pinRemoved: 'PIN removed',
+    pinNotSaved: 'Could not change the PIN on Nuvio',
+    pinDelete: 'Delete',
+    organizeCatalogs: 'Organize catalogs',
+    rowsHint: 'OK on a name to move it with up and down. Right to show or hide it.',
+    rowShown: 'Shown',
+    rowHidden: 'Hidden',
+    noRows: 'Install addons with catalogs to organize Home.',
+    addonStore: 'Addon store',
+    addAddon: 'Add by address',
+    addonUrlHint: 'Type or paste the addon address (manifest.json)',
+    addonInstalled: 'Addon installed',
+    addonRemoved: 'Addon removed',
+    addonNotChanged: 'Could not change the addons on your account',
+    installAddon: 'Install',
+    addonIsInstalled: 'Installed',
+    removeAddon: 'Remove',
+    removeAddonConfirm: 'Press OK again to remove',
+    storeUnavailable: 'The store did not answer. Try again later.',
+    addonsHint: 'Addons are saved on your account and show up on every device.',
     profilesHint: 'OK chooses · Down edits the profile',
     profileEditHint: 'OK on the name opens the keyboard · Back returns',
     hideNewEpisodes: 'Hide from New episodes',
@@ -926,12 +954,40 @@ var UI_TEXT = {
     providerNuvio: 'Nuvio (experimental)',
     whoIsWatching: 'Quem está assistindo?',
     profileNumber: 'Perfil {0}',
-    profileLocked: 'Protegido por PIN, ainda não disponível no StremCompat',
+    profileLocked: 'Protegido por PIN',
     addProfile: 'Adicionar perfil',
     editProfile: 'Editar perfil',
     profileName: 'Nome',
     profileNameNeeded: 'Dê um nome ao perfil',
     profileNotSaved: 'Não foi possível salvar o perfil no Nuvio',
+    pinEnter: 'Digite o PIN de {0}',
+    pinWrong: 'PIN errado',
+    pinWait: 'Muitas tentativas. Tente de novo em {0} s',
+    pinNew: 'Escolha um PIN de 4 números',
+    pinCurrent: 'Digite o PIN atual',
+    pinSet: 'Definir PIN',
+    pinRemove: 'Remover PIN',
+    pinSaved: 'PIN salvo',
+    pinRemoved: 'PIN removido',
+    pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
+    pinDelete: 'Apagar',
+    organizeCatalogs: 'Organizar catálogos',
+    rowsHint: 'OK no nome para mover com cima e baixo. Direita para mostrar ou ocultar.',
+    rowShown: 'Visível',
+    rowHidden: 'Oculto',
+    noRows: 'Instale addons com catálogos para organizar a Home.',
+    addonStore: 'Loja de addons',
+    addAddon: 'Adicionar por endereço',
+    addonUrlHint: 'Digite ou cole o endereço do addon (manifest.json)',
+    addonInstalled: 'Addon instalado',
+    addonRemoved: 'Addon removido',
+    addonNotChanged: 'Não foi possível mudar os addons da sua conta',
+    installAddon: 'Instalar',
+    addonIsInstalled: 'Instalado',
+    removeAddon: 'Remover',
+    removeAddonConfirm: 'Aperte OK de novo para remover',
+    storeUnavailable: 'A loja não respondeu. Tente mais tarde.',
+    addonsHint: 'Os addons ficam salvos na sua conta e aparecem em todos os aparelhos.',
     profilesHint: 'OK escolhe · Para baixo edita o perfil',
     profileEditHint: 'OK no nome abre o teclado · Voltar retorna',
     hideNewEpisodes: 'Não mostrar em Novos episódios',
@@ -1776,6 +1832,8 @@ function applyStaticLanguage() {
     chipHome: 'navHome',
     chipDisc: 'navDiscover',
     chipLib: 'navLibrary',
+    chipCal: 'navCalendar',
+    chipTv: 'navChannels',
     chipAddons: 'navAddons',
     chipSet: 'navSettings',
     chipUpdate: 'updateNav',
@@ -2591,10 +2649,10 @@ function collectionTileDefs() {
   }
   return out;
 }
-function homeCatalogs() {
+/* every addon catalog that can be a Home row, in the addons' order */
+function boardCatalogs() {
   var out = [],
-    a = remoteAddons(),
-    maxRows = TV_PROFILE.catalogRowsCap || 16;
+    a = remoteAddons();
   for (var i = 0; i < a.length; i++) {
     var man = a[i] && a[i].manifest;
     if (!man || !man.catalogs) continue;
@@ -2613,10 +2671,52 @@ function homeCatalogs() {
         url: base + '/catalog/' + cat.type + '/' + encodeURIComponent(cat.id) + '.json' + addonQuery(a[i]),
         key: catalogCacheKey(a[i], cat)
       });
-      if (out.length >= maxRows) return out;
     }
   }
   return out;
+}
+function homeCatalogs() {
+  return arrangeRows(boardCatalogs()).slice(0, TV_PROFILE.catalogRowsCap || 16);
+}
+/* ---------- the Home rows as the viewer arranged them (Settings > Organize catalogs) ---------- */
+/* { order: [row keys], hidden: [row keys] }; rows not named keep their place after the others */
+function homeLayout() {
+  var l = lsJson('homeLayout') || {};
+  return { order: l.order || [], hidden: l.hidden || [] };
+}
+function arrangeRows(rows, keepHidden) {
+  var l = homeLayout(),
+    placed = [];
+  for (var i = 0; i < rows.length; i++) {
+    var at = l.order.indexOf(rows[i].key);
+    placed.push({ row: rows[i], rank: at < 0 ? l.order.length + i : at });
+  }
+  placed.sort(function (a, b) {
+    return a.rank - b.rank;
+  });
+  var out = [];
+  for (var p = 0; p < placed.length; p++)
+    if (keepHidden || l.hidden.indexOf(placed[p].row.key) < 0) out.push(placed[p].row);
+  return out;
+}
+/* every row Home can show, in the viewer's order, with the hidden ones marked */
+function homeRowChoices() {
+  var hidden = homeLayout().hidden,
+    rows = arrangeRows(boardCatalogs(), true),
+    out = [];
+  for (var r = 0; r < rows.length; r++)
+    out.push({ key: rows[r].key, title: rows[r].title, hidden: hidden.indexOf(rows[r].key) >= 0 });
+  return out;
+}
+/* rows: [{ key, hidden }] in the order wanted */
+function saveHomeLayout(rows) {
+  var order = [],
+    hidden = [];
+  for (var i = 0; i < rows.length; i++) {
+    order.push(String(rows[i].key));
+    if (rows[i].hidden) hidden.push(String(rows[i].key));
+  }
+  lsSet('homeLayout', { order: order, hidden: hidden });
 }
 /* HOME rows = YOUR addon catalogs (in order); Cinemeta defaults if none configured */
 function homeDefs() {
@@ -3642,7 +3742,7 @@ var SCR = 'home';
 var backStack = [];
 var BACK_LIMIT = 20;
 var scrParams = null;
-var BOARD_SCR = { home: 1, lib: 1, fold: 1 };
+var BOARD_SCR = { home: 1, lib: 1, fold: 1, cal: 1, tv: 1 };
 function showScr(name) {
   var el = BOARD_SCR[name]
     ? 'scrBoard'
@@ -3726,6 +3826,9 @@ function goScr(name, params, noStack) {
   } else if (name === 'lib') {
     showScr('lib');
     lib.enter();
+  } else if (name === 'cal' || name === 'tv') {
+    showScr(name);
+    curBoard().enter();
   } else if (name === 'fold') {
     showScr('fold');
     fold.built = false;
@@ -3797,12 +3900,14 @@ var chips = [
   $('chipHome'),
   $('chipDisc'),
   $('chipLib'),
+  $('chipCal'),
+  $('chipTv'),
   $('chipAddons'),
   $('chipSet'),
   $('chipUpdate'),
   $('chipExit')
 ];
-var chipTarget = ['profile', 'search', 'home', 'disc', 'lib', 'addons', 'set', 'update', 'exit'];
+var chipTarget = ['profile', 'search', 'home', 'disc', 'lib', 'cal', 'tv', 'addons', 'set', 'update', 'exit'];
 window.__SC_PHASE__('M2');
 function paintChips() {
   if (topNav.active) bodyAdd('navopen');
@@ -3817,7 +3922,7 @@ function paintChips() {
 // Sidebar navigation.
 /* ================= top nav — centered; moving Left/Right auto-loads each page ================= */
 function curBoard() {
-  return SCR === 'home' ? home : SCR === 'lib' ? lib : SCR === 'fold' ? fold : null;
+  return { home: home, lib: lib, fold: fold, cal: cal, tv: tv }[SCR] || null;
 }
 function resetBoardPosition(board) {
   board.rowIdx = 0;
@@ -3865,8 +3970,7 @@ var topNav = {
       return;
     this.idx = i;
     var t = chipTarget[i];
-    if (t === 'home') resetBoardPosition(home);
-    else if (t === 'lib') resetBoardPosition(lib);
+    if (BOARD_SCR[t]) resetBoardPosition({ home: home, lib: lib, cal: cal, tv: tv }[t]);
     backStack = [];
     scrParams = null;
     if (t !== 'search') search.reset();
@@ -3877,9 +3981,9 @@ var topNav = {
     } else if (t === 'disc') {
       showScr('disc');
       disc.enter();
-    } else if (t === 'lib') {
-      showScr('lib');
-      lib.enter();
+    } else if (t === 'lib' || t === 'cal' || t === 'tv') {
+      showScr(t);
+      curBoard().enter();
     } else if (t === 'search') {
       showScr('search');
       search.enterNav();
@@ -4022,6 +4126,8 @@ function makeBoard(loader) {
       if (disc !== this) unloadBoard(disc);
       if (lib !== this) unloadBoard(lib);
       if (fold !== this) unloadBoard(fold);
+      if (cal !== this) unloadBoard(cal);
+      if (tv !== this) unloadBoard(tv);
       this._act = null;
       if (!fresh) this.reveal();
       this.paint(true);
@@ -4627,6 +4733,14 @@ var disc = {
 var lib = makeBoard(function (b, keep) {
   loadLibraryRows(b);
 });
+/* The calendar (the followed series' next episodes by day) and the channels (the addons' and
+   the M3U lists'), as the server lays them out for both interfaces (app-api.js, app-channels.js) */
+var cal = makeBoard(function (b) {
+  loadServerRows(b, '/app/calendar', 'days');
+});
+var tv = makeBoard(function (b) {
+  loadServerRows(b, '/app/channels', 'groups');
+});
 /* A Nuvio Collections folder opened from Home: one row per catalog it holds */
 var fold = makeBoard(function (b, keep) {
   var folder = (scrParams && scrParams.folder) || {};
@@ -4976,6 +5090,46 @@ function loadLibraryRows(board) {
   }
   board.rowIdx = 0;
 }
+/* rows the server lays out ({ title, items }); an M3U channel plays its address straight away */
+function loadServerRows(board, path, key) {
+  board.rows = [];
+  xhrJson(
+    path,
+    function (j) {
+      var groups = (j && j[key]) || [];
+      board.rows = [];
+      for (var g = 0; g < groups.length; g++) {
+        var items = [];
+        for (var i = 0; i < groups[g].items.length; i++) {
+          var it = groups[g].items[i];
+          items.push({
+            id: it.id || it.url,
+            type: it.type || 'tv',
+            name: it.name,
+            poster: it.art || it.poster || it.logo,
+            background: it.backdrop || it.background || '',
+            live: it.kind === 'm3u' ? it.url : ''
+          });
+        }
+        var row = buildRow(groups[g].title, items, false, true);
+        row.el.className = 'row in';
+        board.rows.push(row);
+      }
+      if (!board.rows.length) {
+        var e = document.createElement('div');
+        e.className = 'row in';
+        e.innerHTML = emptyState((j && j.empty) || '', '');
+        board.rows.push({ el: e, items: [], cardEls: [], cardsEl: document.createElement('div'), col: 0 });
+      }
+      board.rowIdx = 0;
+      if (curBoard() === board) {
+        board.mount();
+        board.paint(true);
+      }
+    },
+    60000
+  );
+}
 /* rebuild boards that surface library/CW state after a change */
 function invalidateBoards() {
   home.built = false;
@@ -4996,6 +5150,7 @@ function buildHomeRows(keep) {
 }
 
 function openItem(it) {
+  if (it.live) return playUrl({ url: it.live, title: it.name }, 'tv', it.id, it.id, 'beta#tv');
   if (it.folder) {
     goScr('fold', { folder: it.folder });
     return;
@@ -5592,6 +5747,8 @@ function settingsCategories() {
       ],
       d: 'false'
     },
+    { k: '__rows', lb: tx('organizeCatalogs'), action: true },
+    { k: '__m3u', lb: tx('m3uAdd'), action: true },
     { head: tx('accountGroup'), id: 'account' },
     { k: '__profile', lb: tx('nuvioProfile'), action: true },
     { k: '__sync', lb: tx('syncAddons'), action: true },
@@ -7225,6 +7382,65 @@ var languagePanel = {
     setF(this.els, this.idx);
   }
 };
+/* Settings > Organize catalogs: the Home rows in a list; OK picks one up to move it with up and
+   down, right shows or hides it. Each change is kept at once; Home is built again on leaving. */
+var rowsPanel = {
+  open: false,
+  idx: 0,
+  els: [],
+  rows: [],
+  moving: false,
+  show: function () {
+    this.rows = homeRowChoices();
+    if (!this.rows.length) return toast(tx('noRows'));
+    this.idx = 0;
+    this.moving = false;
+    this.open = true;
+    this.draw();
+  },
+  draw: function () {
+    var shown = [];
+    for (var i = 0; i < this.rows.length; i++)
+      shown.push({
+        name: this.rows[i].title,
+        help: tx(this.rows[i].hidden ? 'rowHidden' : 'rowShown'),
+        cls: (this.rows[i].hidden ? 'rowoff' : '') + (this.moving && i === this.idx ? ' moving' : '')
+      });
+    this.els = drawChoices(tx('organizeCatalogs'), shown, tx('rowsHint'));
+    this.paint();
+  },
+  paint: function () {
+    setF(this.els, this.idx);
+    /* the focused row stays in view */
+    var host = $('suOptions'),
+      el = this.els[this.idx];
+    if (el && el.offsetTop + el.offsetHeight > host.scrollTop + host.clientHeight)
+      host.scrollTop = el.offsetTop + el.offsetHeight - host.clientHeight;
+    else if (el && el.offsetTop < host.scrollTop) host.scrollTop = el.offsetTop;
+  },
+  key: function (k) {
+    var next = this.idx + (k === 40 ? 1 : k === 38 ? -1 : 0);
+    if (next !== this.idx && next >= 0 && next < this.rows.length) {
+      if (this.moving) {
+        var row = this.rows[this.idx];
+        this.rows[this.idx] = this.rows[next];
+        this.rows[next] = row;
+        saveHomeLayout(this.rows);
+      }
+      this.idx = next;
+    } else if (k === 39 || k === 37) {
+      this.rows[this.idx].hidden = !this.rows[this.idx].hidden;
+      saveHomeLayout(this.rows);
+    } else if (k === 13) this.moving = !this.moving;
+    else return;
+    this.draw();
+  },
+  close: function () {
+    this.open = false;
+    $('setupPanel').style.display = 'none';
+    invalidateBoards();
+  }
+};
 var setupPanel = {
   open: false,
   step: 0,
@@ -7469,22 +7685,39 @@ var profilePanel = {
   choose: function (i) {
     var p = this.list[i];
     if (!p) return this.edit(null);
-    if (p.locked) return toast(tx('profileLocked'));
+    var self = this;
+    if (p.locked && !p.current)
+      return this.askPin(tx('pinEnter', p.name || tx('profileNumber', p.index)), p, function (pin) {
+        self.use(p, pin);
+      });
     this.use(p);
   },
-  /* the server switches the session to it; the account's user id names the profile's library */
-  use: function (p) {
+  /* the server switches the session to it; the account's user id names the profile's library.
+     A protected profile comes with its PIN; a wrong one asks again. */
+  use: function (p, pin) {
     var self = this;
-    lsSet('profileFace', { name: p.name, color: p.color, avatar: p.avatar });
     this.open = false;
-    if (p.current) return this.done(false);
+    if (p.current) {
+      lsSet('profileFace', { name: p.name, color: p.color, avatar: p.avatar });
+      return this.done(false);
+    }
     xhrJson(
-      '/nuvioprofile?key=' + encodeURIComponent(this.account) + '&index=' + p.index,
+      '/nuvioprofile?key=' +
+        encodeURIComponent(this.account) +
+        '&index=' +
+        p.index +
+        '&pin=' +
+        encodeURIComponent(pin || ''),
       function (j) {
         if (!j || !j.ok) {
           self.open = true;
+          if (j && j.reason === 'wrong') {
+            toast(j.retryAfter ? tx('pinWait', j.retryAfter) : tx('pinWrong'));
+            return self.choose(self.idx);
+          }
           return toast(tx('profilesUnavailable'));
         }
+        lsSet('profileFace', { name: p.name, color: p.color, avatar: p.avatar });
         postJson(API + '/api/getUser', { authKey: self.account }, function (u) {
           if (u && u.result) lsSet('user', u.result);
           lsRawSet('addons', '');
@@ -7494,6 +7727,82 @@ var profilePanel = {
       20000
     );
   },
+  /* ---------- a PIN: four digits, with the remote's numbers or the keys on screen ---------- */
+  askPin: function (title, face, then) {
+    this.pinFrom = this.mode;
+    this.mode = 'pin';
+    this.pin = '';
+    this.pinKey = 0;
+    this.pinThen = then;
+    $('pfPick').style.display = 'none';
+    $('pfEditor').style.display = 'none';
+    $('pfPin').style.display = 'block';
+    $('pfTitle').textContent = title;
+    $('pfHint').textContent = '';
+    drawFace($('pfPinFace'), face);
+    var keys = $('pfPinKeys');
+    keys.innerHTML = '';
+    this.pinEls = [];
+    for (var i = 0; i < 11; i++) {
+      var k = document.createElement('span');
+      k.textContent = i < 10 ? String((i + 1) % 10) : tx('pinDelete');
+      if (i === 10) k.className = 'wide';
+      keys.appendChild(k);
+      this.pinEls.push(k);
+    }
+    this.paint();
+  },
+  pinType: function (digit) {
+    if (digit === null) this.pin = this.pin.slice(0, -1);
+    else if (this.pin.length < 4) this.pin += digit;
+    this.paint();
+    if (this.pin.length === 4) {
+      var pin = this.pin;
+      this.leavePin();
+      this.pinThen(pin);
+    }
+  },
+  leavePin: function () {
+    $('pfPin').style.display = 'none';
+    if (this.pinFrom === 'edit') {
+      this.mode = 'edit';
+      $('pfEditor').style.display = '';
+      $('pfTitle').textContent = tx('editProfile');
+      $('pfHint').textContent = tx('profileEditHint');
+      this.paint();
+    } else this.buildPick();
+  },
+  keyPin: function (k) {
+    if (k >= 48 && k <= 57) return this.pinType(String(k - 48));
+    if (k >= 96 && k <= 105) return this.pinType(String(k - 96));
+    if (k === 8) return this.pinType(null);
+    if (k === 37) this.pinKey = Math.max(0, this.pinKey - 1);
+    else if (k === 39) this.pinKey = Math.min(10, this.pinKey + 1);
+    else if (k === 13) return this.pinType(this.pinKey === 10 ? null : String((this.pinKey + 1) % 10));
+    this.paint();
+  },
+  /* the editor's PIN button: sets one, or takes it away after the current one */
+  changePin: function () {
+    var self = this,
+      d = this.draft;
+    function send(query, done) {
+      xhrJson(
+        '/nuvioprofilepin?key=' + encodeURIComponent(self.account) + '&index=' + d.index + query,
+        function (j) {
+          toast(j && j.ok ? tx(done) : tx('pinNotSaved'));
+          if (j && j.ok) self.show(self.account, self.done, self.cancel);
+        },
+        20000
+      );
+    }
+    if (d.locked)
+      return this.askPin(tx('pinCurrent'), d, function (pin) {
+        send('&current=' + encodeURIComponent(pin), 'pinRemoved');
+      });
+    this.askPin(tx('pinNew'), d, function (pin) {
+      send('&pin=' + encodeURIComponent(pin), 'pinSaved');
+    });
+  },
   /* ---------- adding or changing a profile ---------- */
   edit: function (p) {
     var self = this;
@@ -7501,10 +7810,13 @@ var profilePanel = {
     this.zone = 'name';
     this.btnIdx = 0;
     this.draft = p
-      ? { index: p.index, name: p.name, color: p.color, avatar: p.avatar || '' }
+      ? { index: p.index, name: p.name, color: p.color, avatar: p.avatar || '', locked: p.locked }
       : { index: 0, name: '', color: PROFILE_COLORS[this.list.length % PROFILE_COLORS.length], avatar: '' };
     $('pfPick').style.display = 'none';
     $('pfEditor').style.display = '';
+    /* a new profile gets its PIN once it exists */
+    $('pfEdPin').style.display = p ? '' : 'none';
+    $('pfPinBtn').textContent = tx(p && p.locked ? 'pinRemove' : 'pinSet');
     $('pfTitle').textContent = tx(p ? 'editProfile' : 'addProfile');
     $('pfHint').textContent = tx('profileEditHint');
     $('pfEdName').value = this.draft.name;
@@ -7597,6 +7909,14 @@ var profilePanel = {
   },
   /* ---------- drawing the focus ---------- */
   paint: function () {
+    if (this.mode === 'pin') {
+      var dots = '';
+      for (var i = 0; i < 4; i++) dots += '<span' + (i < this.pin.length ? ' class="on"' : '') + '></span>';
+      $('pfPinDots').innerHTML = dots;
+      for (var e = 0; e < this.pinEls.length; e++)
+        this.pinEls[e].className = (e === 10 ? 'wide' : '') + (e === this.pinKey ? ' f' : '');
+      return;
+    }
     if (this.mode === 'pick') {
       setF(this.els, this.zone === 'row' ? this.idx : -1);
       var canEdit = !!this.list[this.idx];
@@ -7620,6 +7940,7 @@ var profilePanel = {
       off = Math.max(0, this.avatarIdx - 4) * step;
     $('pfEdAvatars').style.webkitTransform = 'translateX(-' + off + 'px)';
     $('pfEdAvatars').style.transform = 'translateX(-' + off + 'px)';
+    $('pfPinBtn').className = this.zone === 'pin' ? 'f' : '';
     setF([$('pfSave'), $('pfCancel')], this.zone === 'btns' ? this.btnIdx : -1);
     this.paintDraft();
   },
@@ -7629,6 +7950,7 @@ var profilePanel = {
     $('pfScreen').style.display = 'none';
   },
   back: function () {
+    if (this.mode === 'pin') return this.leavePin();
     if (this.mode === 'edit') return this.buildPick();
     if (!this.cancel) return;
     this.close();
@@ -7640,7 +7962,10 @@ var profilePanel = {
   },
   key: function (k) {
     if (this.mode === 'pick') return this.keyPick(k);
-    var zones = ['name', 'colors', 'avatars', 'btns'],
+    if (this.mode === 'pin') return this.keyPin(k);
+    var zones = this.draft.index
+        ? ['name', 'colors', 'avatars', 'pin', 'btns']
+        : ['name', 'colors', 'avatars', 'btns'],
       z = zones.indexOf(this.zone);
     if (k === 40 && z < zones.length - 1) this.zone = zones[z + 1];
     else if (k === 38 && z > 0) this.zone = zones[z - 1];
@@ -7654,6 +7979,7 @@ var profilePanel = {
     } else if (k === 13) {
       if (this.zone === 'name') return $('pfEdName').focus();
       if (this.zone === 'btns') return this.btnIdx ? this.buildPick() : this.save();
+      if (this.zone === 'pin') return this.changePin();
       this.zone = zones[z + 1];
     }
     this.paint();
@@ -8596,32 +8922,55 @@ var search = {
 };
 // Addons screen.
 /* ================= ADDONS =================
-   Read-only on the TV for now: account installation remains authoritative, while
-   the user can inspect and resync the exact set driving Home and source results. */
+   The account's addons, with three buttons on top: the store (Stremio's list of community
+   addons, OK installs one), adding one by its address, and syncing. OK twice on an installed
+   addon removes it. Changes are made on the account (server/addon-store.js), so they show up
+   on the person's other devices too. */
 var addonPanel = {
   idx: 0,
   els: [],
   list: [],
+  store: null,
+  inStore: false,
+  armed: -1,
   enter: function () {
-    this.idx = 0;
-    this.els = [$('aSync')];
-    this.list = addons();
-    var host = $('aInner');
+    this.inStore = false;
+    this.draw();
+    animIn($('aWrap'));
+  },
+  /* the three buttons, then the list: the installed addons or the store's */
+  draw: function () {
+    var buttons = [$('aStore'), $('aAdd'), $('aSync')];
+    $('aStore').textContent = tx('addonStore');
+    $('aAdd').textContent = tx('addAddon');
+    $('aSync').textContent = tx('syncAddons');
+    $('aTitle').textContent = this.inStore ? tx('addonStore') : 'Addons';
+    $('aHelp').textContent = tx('addonsHint');
+    $('aBtns').style.display = this.inStore ? 'none' : '';
+    this.els = this.inStore ? [] : buttons;
+    this.idx = Math.min(this.idx, 2);
+    this.armed = -1;
+    this.list = this.inStore ? this.store || [] : addons();
+    var host = $('aInner'),
+      mine = {};
     host.innerHTML = '';
+    var have = addons();
+    for (var h = 0; h < have.length; h++) mine[String(have[h].transportUrl || '')] = 1;
     for (var i = 0; i < this.list.length; i++) {
       var ad = this.list[i],
-        m = ad.manifest || {},
-        d = document.createElement('div');
+        m = this.inStore ? ad : ad.manifest || {},
+        d = document.createElement('div'),
+        n = document.createElement('div'),
+        info = document.createElement('div');
       d.className = 'addon';
-      var n = document.createElement('div');
       n.className = 'an';
       n.textContent = m.name || m.id || 'Addon';
-      d.appendChild(n);
-      var info = document.createElement('div');
       info.className = 'ai';
-      info.textContent = [m.id || '', m.version || '', (m.types || []).join(' · ')]
-        .join('   ')
-        .replace(/\s+/g, ' ');
+      info.textContent = this.inStore
+        ? (mine[ad.url] ? tx('addonIsInstalled') + '  ·  ' : '') +
+          (ad.description || (ad.types || []).join(' · '))
+        : [m.id || '', m.version || '', (m.types || []).join(' · ')].join('   ').replace(/\s+/g, ' ');
+      d.appendChild(n);
       d.appendChild(info);
       host.appendChild(d);
       this.els.push(d);
@@ -8629,11 +8978,15 @@ var addonPanel = {
     if (!this.list.length) {
       var empty = document.createElement('div');
       empty.className = 'stmsg';
-      empty.textContent = tx('noAddons');
+      empty.textContent = this.inStore ? tx('storeUnavailable') : tx('noAddons');
       host.appendChild(empty);
     }
+    if (this.inStore) this.idx = 0;
     this.paint();
-    animIn($('aWrap'));
+  },
+  /* the buttons sit side by side; the list starts after them */
+  first: function () {
+    return this.inStore ? 0 : 3;
   },
   focusTop: function () {
     topNav.active = false;
@@ -8643,37 +8996,106 @@ var addonPanel = {
   },
   paint: function () {
     setF(this.els, topNav.active ? -1 : this.idx);
-    var y = 0;
-    if (this.idx > 3) {
+    var y = 0,
+      row = this.idx - this.first();
+    if (row > 3) {
       var el = this.els[this.idx];
       if (el) y = Math.max(0, el.offsetTop - 220);
     }
     $('aInner').style.transform = 'translateY(-' + y + 'px)';
     $('aInner').style.webkitTransform = 'translateY(-' + y + 'px)';
   },
-  syncNow: function () {
+  syncNow: function (quiet) {
     var self = this;
-    toast(tx('syncing'));
+    if (!quiet) toast(tx('syncing'));
     syncAddons(function (changed) {
-      toast(changed ? tx('addonsUpdated') : tx('addonsCurrent'));
-      self.enter();
+      if (!quiet) toast(changed ? tx('addonsUpdated') : tx('addonsCurrent'));
+      self.draw();
       invalidateBoards();
     });
   },
+  openStore: function () {
+    var self = this;
+    this.inStore = true;
+    this.draw();
+    if (this.store) return;
+    xhrJson(
+      '/addons/store',
+      function (j) {
+        self.store = (j && j.addons && j.addons.length && j.addons) || null;
+        if (self.inStore) self.draw();
+      },
+      20000
+    );
+  },
+  /* on the account; the addons are synced again after it */
+  change: function (url, remove) {
+    var self = this;
+    toast(tx('saving'));
+    postJson(
+      '/addons/change',
+      { authKey: authKey(), url: url, remove: !!remove },
+      function (j) {
+        if (!j || !j.ok) return toast(tx('addonNotChanged'));
+        toast(tx(remove ? 'addonRemoved' : 'addonInstalled'));
+        self.syncNow(true);
+      },
+      30000
+    );
+  },
+  askAddress: function () {
+    var box = $('aUrl');
+    box.value = '';
+    box.placeholder = tx('addonUrlHint');
+    box.style.display = 'block';
+    box.focus();
+  },
+  activate: function (i) {
+    if (!this.inStore && i === 0) return this.openStore();
+    if (!this.inStore && i === 1) return this.askAddress();
+    if (!this.inStore && i === 2) return this.syncNow();
+    var ad = this.list[i - this.first()];
+    if (!ad) return;
+    if (this.inStore) return this.change(ad.url);
+    /* removing asks for a second OK */
+    if (this.armed !== i) {
+      this.armed = i;
+      return toast(tx('removeAddonConfirm'));
+    }
+    this.change(ad.transportUrl, true);
+  },
+  back: function () {
+    if (!this.inStore) return false;
+    this.inStore = false;
+    this.draw();
+    return true;
+  },
   key: function (k) {
-    if (k === 40) {
-      this.idx = Math.min(this.els.length - 1, this.idx + 1);
-      this.paint();
-    } else if (k === 38) {
-      if (this.idx > 0) {
-        this.idx--;
-        this.paint();
-      }
-    } else if (k === 37) topNav.focus();
-    else if (k === 13 && this.idx === 0) this.syncNow();
+    var top = !this.inStore && this.idx < 3;
+    if (k === 40)
+      this.idx = top ? Math.min(this.els.length - 1, 3) : Math.min(this.els.length - 1, this.idx + 1);
+    else if (k === 38) {
+      if (this.idx > this.first()) this.idx--;
+      else if (!this.inStore && this.idx >= 3) this.idx = 0;
+    } else if (k === 39 && top) this.idx = Math.min(2, this.idx + 1);
+    else if (k === 37) {
+      if (top && this.idx > 0) this.idx--;
+      else topNav.focus();
+    } else if (k === 13) return this.activate(this.idx), true;
+    this.armed = this.armed === this.idx ? this.armed : -1;
+    this.paint();
     return true;
   }
 };
+on($('aUrl'), 'keydown', function (e) {
+  if (e.keyCode !== 13 && !isRemoteBack(e.keyCode)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  var url = String($('aUrl').value || '').trim();
+  $('aUrl').blur();
+  $('aUrl').style.display = 'none';
+  if (e.keyCode === 13 && url) addonPanel.change(url);
+});
 // Settings and account screen.
 /* ================= SETTINGS + ACCOUNT ================= */
 /* Settings in two columns, as the big streaming apps lay them out: the groups on the left and
@@ -8839,7 +9261,15 @@ var settings = {
     } else if (k === '__diag') this.showDiag();
     else if (k === '__support') this.showSupport();
     else if (k === '__profile') openProfile();
-    else if (k === '__logout') this.logout();
+    else if (k === '__rows') rowsPanel.show();
+    else if (k === '__m3u') {
+      /* the list is read by the server, which keeps it for the Channels section */
+      var box = $('m3uBox');
+      box.value = '';
+      box.placeholder = tx('m3uAddress');
+      box.style.display = 'block';
+      box.focus();
+    } else if (k === '__logout') this.logout();
     else if (k === '__clearSearches') {
       clearRecentSearches();
       toast(tx('searchesCleared'));
@@ -9075,6 +9505,26 @@ var settings = {
     return true;
   }
 };
+
+on($('m3uBox'), 'keydown', function (e) {
+  if (e.keyCode !== 13 && !isRemoteBack(e.keyCode)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  var url = String($('m3uBox').value || '').trim();
+  $('m3uBox').blur();
+  $('m3uBox').style.display = 'none';
+  if (e.keyCode !== 13 || !url) return;
+  toast(tx('saving'));
+  postJson(
+    '/app/channels/lists',
+    { url: url },
+    function (j) {
+      toast((j && j.message) || tx('m3uFailed'));
+      tv.built = false;
+    },
+    60000
+  );
+});
 // Typing the streaming server address with the remote.
 /* Letters, digits and what an address needs, ten to a row; below them delete, clear, back
    to the server on this TV, and test and save. The number keys of the remote type too. */
@@ -9773,7 +10223,7 @@ function pointerUI(target, activate) {
       topNav.active = false;
       addonPanel.idx = i;
       addonPanel.paint();
-      if (activate && i === 0) addonPanel.syncNow();
+      if (activate) addonPanel.activate(i);
       return true;
     }
   }
@@ -10123,13 +10573,27 @@ on(
     idleTouch();
     noteKey();
     var a = document.activeElement;
-    if (a === $('sBox') || a === $('lgEmail') || a === $('lgPass') || a === $('pfEdName'))
+    if (
+      a === $('sBox') ||
+      a === $('lgEmail') ||
+      a === $('lgPass') ||
+      a === $('pfEdName') ||
+      a === $('aUrl') ||
+      a === $('m3uBox')
+    )
       return; /* typing: inputs manage themselves */
     if (serverPanel.open) {
       e.preventDefault();
       e.stopPropagation();
       if (isBackKey(k)) serverPanel.close();
       else serverPanel.key(k);
+      return;
+    }
+    if (rowsPanel.open) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isBackKey(k)) rowsPanel.close();
+      else rowsPanel.key(k);
       return;
     }
     if (languagePanel.open) {
@@ -10164,6 +10628,7 @@ on(
       e.preventDefault();
       e.stopPropagation();
       if (SCR === 'disc' && disc.closeFilter()) return;
+      if (SCR === 'addons' && addonPanel.back()) return;
       history.back();
       return;
     }
@@ -10208,7 +10673,7 @@ on(
     else if (SCR === 'detail') detail.key(k);
     else if (SCR === 'disc') disc.key(k);
     else if (SCR === 'search') search.key(k);
-    else if (SCR === 'lib') lib.key(k);
+    else if (SCR === 'lib' || SCR === 'cal' || SCR === 'tv') curBoard().key(k);
     else if (SCR === 'fold') fold.key(k);
     else if (SCR === 'addons') addonPanel.key(k);
     else if (SCR === 'set') settings.key(k);
@@ -10359,7 +10824,7 @@ function showHome(libraryPulled) {
       });
     } else if (ms) {
       goScr('sim', { type: ms[1], id: ms[2] });
-    }
+    } else if (h === '#tv') goScr('tv');
     try {
       history.replaceState(history.state, '', appUrl('/beta'));
     } catch (e) {}

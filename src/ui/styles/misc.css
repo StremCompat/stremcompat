@@ -59,6 +59,9 @@ body.bigtext #sHint,body.bigtext .emptyh{font-size:28px}
 #suTitle{font-size:36px;font-weight:700;color:#fff;margin-bottom:26px}
 .suopt{margin:12px 0;padding:20px 26px;border-radius:14px;background:#2a2a2d;text-align:left}
 .suopt.f{background:#fff;color:#0a0a0b}
+#suOptions{max-height:62vh;overflow:hidden;position:relative}
+.suopt.rowoff .suname{opacity:.45}
+.suopt.moving{box-shadow:0 0 0 4px #22D3EE}
 .suname{font-size:30px;font-weight:700}
 .suhelp{margin-top:6px;font-size:22px;opacity:.8}
 .suopt.locked{opacity:.55}
