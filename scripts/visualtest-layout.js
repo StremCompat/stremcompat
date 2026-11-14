@@ -268,6 +268,17 @@ async function main() {
     var rowsShot = await protocol.call('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
     fs.writeFileSync(output.replace(/\.png$/i, '-rows.png'), Buffer.from(rowsShot.data, 'base64'));
     await protocol.call('Runtime.evaluate', { expression: "(function(){var e=document.createEvent('Event');e.initEvent('keydown',true,true);e.keyCode=461;document.dispatchEvent(e);})()" });
+    /* the store: cards three to a row inside the screen (the store list may be empty offline) */
+    await protocol.call('Runtime.evaluate', { expression: "document.getElementById('chipAddons').click()" });
+    await delay(400);
+    await protocol.call('Runtime.evaluate', { expression: "document.getElementById('aStore').click()" });
+    await delay(2500);
+    var storeView = await protocol.call('Runtime.evaluate', { expression: "(function(){var w=document.getElementById('aStoreWrap').getBoundingClientRect(),c=document.querySelectorAll('#aGrid .scard'),r=c[2]?c[2].getBoundingClientRect():null;return JSON.stringify({shown:getComputedStyle(document.getElementById('aStoreWrap')).display,right:r?r.right:0,top0:c[0]?c[0].getBoundingClientRect().top:0,top2:r?r.top:0,wrapRight:w.right});})()", returnByValue: true });
+    var storeState = JSON.parse(storeView.result.value);
+    assert.strictEqual(storeState.shown, 'block', 'the addon store did not open');
+    if (storeState.right) assert.ok(storeState.right <= width && storeState.top0 === storeState.top2, 'store cards are not three to a row inside the screen');
+    var storeShot = await protocol.call('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
+    fs.writeFileSync(output.replace(/\.png$/i, '-store.png'), Buffer.from(storeShot.data, 'base64'));
     var episodeList = [];
     for (var ei = 1; ei <= 8; ei++) episodeList.push({ id: 'visual-series:1:' + ei, season: 1, episode: ei, name: 'Episode ' + ei, overview: 'A lightweight episode summary used to verify the television layout.' });
     var seriesMeta = { id: 'visual-series', type: 'series', name: 'Visual Series', year: '2026', description: 'Series overview', genres: ['Drama'], videos: episodeList };
@@ -309,6 +320,15 @@ async function main() {
     assert.ok(nextPromptState.timeGap >= 40, 'Player time is still too close to the seek bar.');
     var playerShot = await protocol.call('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
     fs.writeFileSync(output.replace(/\.png$/i, '-player-next.png'), Buffer.from(playerShot.data, 'base64'));
+    /* Channels: the categories and the list side by side, inside the screen */
+    await protocol.call('Page.navigate', { url: 'http://127.0.0.1:' + appPort + '/beta#tv' });
+    await delay(2500);
+    var tvView = await protocol.call('Runtime.evaluate', { expression: "(function(){var c=document.getElementById('tvCats').getBoundingClientRect(),l=document.getElementById('tvList').getBoundingClientRect();return JSON.stringify({on:document.getElementById('scrTv').className,cats:document.querySelectorAll('#tvCats .tvcat').length,catsRight:c.right,listLeft:l.left,listRight:l.right});})()", returnByValue: true });
+    var tvState = JSON.parse(tvView.result.value);
+    assert.ok(tvState.on.indexOf('on') > 0 && tvState.cats >= 2, 'Channels did not open with its categories: ' + tvView.result.value);
+    assert.ok(tvState.catsRight <= tvState.listLeft && tvState.listRight <= width, 'Channels categories and list overlap or are cut');
+    var tvShot = await protocol.call('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: false });
+    fs.writeFileSync(output.replace(/\.png$/i, '-channels.png'), Buffer.from(tvShot.data, 'base64'));
     console.log('OK: ' + width + 'x' + height + ' login ' + JSON.stringify(state) + ', catalog navigation ' + JSON.stringify(nextBoardState) + ' -> ' + output);
   } finally {
     if (protocol) protocol.close();

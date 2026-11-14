@@ -2363,14 +2363,6 @@ function folderRowDefs(folder) {
   }
   return out;
 }
-/* a folder of the profile's Collections by its id */
-function findFolder(id) {
-  var cols = nuvioCollections();
-  for (var c = 0; c < cols.length; c++)
-    for (var f = 0; f < ((cols[c] && cols[c].folders) || []).length; f++)
-      if (String(cols[c].folders[f].id) === String(id)) return cols[c].folders[f];
-  return null;
-}
 /* how a folder page shows: tabs over a grid (Nuvio's default) or rows; "All" first when there is
    more than one source and the folder asks for it */
 function folderView(folder) {
@@ -2685,6 +2677,15 @@ function getCatalogUrl(url, key, type, cb) {
     lsSet(ck, { v: 2, t: Date.now(), items: slim });
     if (!same) cb(slim, false); /* identical to cache -> skip the double row rebuild at boot */
   });
+}
+// Collections folders by id, for the native interface (the server opens a folder by its id).
+/* a folder of the profile's Collections by its id */
+function findFolder(id) {
+  var cols = nuvioCollections();
+  for (var c = 0; c < cols.length; c++)
+    for (var f = 0; f < ((cols[c] && cols[c].folders) || []).length; f++)
+      if (String(cols[c].folders[f].id) === String(id)) return cols[c].folders[f];
+  return null;
 }
 // Source discovery, quality/seeder/codec classification and per-profile source budget.
 /* ================= streams (generic: any addon that declares them) ================= */

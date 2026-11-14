@@ -361,28 +361,28 @@ async function main() {
     );
     var newsPage = (await request('/app/channels/group?id=' + encodeURIComponent('a:0:News'))).json;
     assert.strictEqual(newsPage.channels[0].name, 'News One', "an addon category's channels did not come");
-    var added = (await request('/app/channels/lists', { url: addonBase + '/list.m3u', name: 'Big' })).json;
-    assert.ok(added.ok, 'a list could not be added: ' + JSON.stringify(added));
+    var listAdded = (await request('/app/channels/lists', { url: addonBase + '/list.m3u', name: 'Big' })).json;
+    assert.ok(listAdded.ok, 'a list could not be listAdded: ' + JSON.stringify(listAdded));
     var lineup = (await request('/app/channels')).json;
     var firstGroup = lineup.groups.filter(function (g) {
       return g.kind === 'm3u';
     })[0];
     assert.ok(lineup.lists[0].count === CHANNELS && firstGroup.count === CHANNELS / 40, 'the list summary is wrong');
-    var page = (await request('/app/channels/group?id=' + encodeURIComponent(firstGroup.id))).json;
-    assert.ok(page.channels.length === 60 && page.more, 'channels did not come a page at a time');
+    var chPage = (await request('/app/channels/group?id=' + encodeURIComponent(firstGroup.id))).json;
+    assert.ok(chPage.channels.length === 60 && chPage.more, 'channels did not come a chPage at a time');
     var second = (await request('/app/channels/group?id=' + encodeURIComponent(firstGroup.id) + '&skip=60')).json;
-    assert.strictEqual(second.channels[0].name, 'Canal 2400', 'the next page did not follow');
-    for (var gw = 0; gw < 50 && !page.channels[0].now; gw++) {
+    assert.strictEqual(second.channels[0].name, 'Canal 2400', 'the next chPage did not follow');
+    for (var gw = 0; gw < 50 && !chPage.channels[0].now; gw++) {
       await wait(100);
-      page = (await request('/app/channels/group?id=' + encodeURIComponent(firstGroup.id))).json;
+      chPage = (await request('/app/channels/group?id=' + encodeURIComponent(firstGroup.id))).json;
     }
-    assert.strictEqual(page.channels[0].now, 'Jornal & Cia', 'what is on now was not read from the guide');
-    var found = (await request('/app/channels/group?id=search&q=' + encodeURIComponent('canal 1999'))).json.channels;
+    assert.strictEqual(chPage.channels[0].now, 'Jornal & Cia', 'what is on now was not read from the guide');
+    var foundCh = (await request('/app/channels/group?id=search&q=' + encodeURIComponent('canal 1999'))).json.channels;
     assert.ok(
-      found.some(function (c) {
+      foundCh.some(function (c) {
         return c.name === 'Canal 1999';
       }) &&
-        found.some(function (c) {
+        foundCh.some(function (c) {
           return c.name === 'Sport Max';
         }) === false,
       'the search did not find the channel'
@@ -394,8 +394,8 @@ async function main() {
       }),
       "the search did not ask the addon's own search"
     );
-    var started = (await request('/app/channels/play?key=' + encodeURIComponent(page.channels[0].key))).json;
-    assert.ok(started.ref && /\/proxy\?ref=/.test(started.url), 'a channel did not become a stream reference');
+    var chStarted = (await request('/app/channels/play?key=' + encodeURIComponent(chPage.channels[0].key))).json;
+    assert.ok(chStarted.ref && /\/proxy\?ref=/.test(chStarted.url), 'a channel did not become a stream reference');
     assert.strictEqual(
       (await request('/app/channels')).json.recent[0].name,
       'Canal 0',
@@ -407,7 +407,7 @@ async function main() {
     ).json;
     assert.strictEqual(liveTick.kept, false, 'a live channel was kept in the library');
 
-    /* an address from the phone: a page of its own, behind a code, for one address */
+    /* an address from the phone: a chPage of its own, behind a code, for one address */
     var phone = (await request('/app/phone/start', {})).json;
     if (phone.ok) {
       var phonePath = phone.url.replace(/^http:\/\/[^/]+/, ''),
@@ -432,8 +432,8 @@ async function main() {
           req.end(body);
         });
       }
-      assert.strictEqual((await phoneRequest('/wrongcode')).status, 404, 'the phone page opened without its code');
-      assert.ok(/<form/.test((await phoneRequest(phonePath)).text), 'the phone page has no form');
+      assert.strictEqual((await phoneRequest('/wrongcode')).status, 404, 'the phone chPage opened without its code');
+      assert.ok(/<form/.test((await phoneRequest(phonePath)).text), 'the phone chPage has no form');
       await phoneRequest(phonePath, 'value=' + encodeURIComponent('javascript:alert(1)'));
       assert.ok((await request('/app/phone/poll')).json.waiting, 'an address that is not http(s) was taken');
       await phoneRequest(phonePath, 'value=' + encodeURIComponent('https://example.com/list.m3u'));
@@ -442,8 +442,8 @@ async function main() {
         'https://example.com/list.m3u',
         'the address from the phone did not reach the TV'
       );
-      assert.ok((await request('/app/phone/poll')).json.closed, 'the phone page stayed open after its address');
-      assert.strictEqual((await phoneRequest(phonePath)).status, 0, 'the phone page still answers after its address');
+      assert.ok((await request('/app/phone/poll')).json.closed, 'the phone chPage stayed open after its address');
+      assert.strictEqual((await phoneRequest(phonePath)).status, 0, 'the phone chPage still answers after its address');
     }
 
     var removed = (await request('/app/channels/lists', { remove: addonBase + '/list.m3u' })).json;

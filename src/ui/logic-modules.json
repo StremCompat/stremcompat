@@ -12,6 +12,7 @@
   "data/account.js",
   "data/addons.js",
   "data/catalogs.js",
+  "data/folders.js",
   "data/streams.js",
   "data/playback.js",
   "data/meta.js",

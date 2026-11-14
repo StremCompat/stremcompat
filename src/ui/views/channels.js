@@ -2,7 +2,6 @@
 // category's channels on the right, with what is on now. The server sends the categories first
 // and the channels a page at a time (server/app-channels.js); only the rows in view are built, so
 // a list of tens of thousands of channels costs the same as a small one.
-var CHANNEL_PAGE = 60;
 var channelsView = {
   zone: 'cats',
   cats: [],
@@ -20,6 +19,7 @@ var channelsView = {
     var self = this;
     this.zone = 'cats';
     this.list = [];
+    $('tvTitle').textContent = tx('navChannels');
     $('tvMsg').textContent = '';
     $('tvList').innerHTML = '';
     xhrJson(
