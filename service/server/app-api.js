@@ -50,6 +50,7 @@ function decorate(items, wide) {
     var it = items[i];
     it.art = wide ? L.bgSmall(it) : L.posterOf(it);
     it.backdrop = L.bgOf(it);
+    it.inLibrary = !!L.libHas(it.id);
     if (wide) it.subtitle = L.cwSubtitle(it);
     else it.watched = !!L.itemWatched(it);
   }
