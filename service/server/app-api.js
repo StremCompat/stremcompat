@@ -137,11 +137,14 @@ function startSearch(type, vid) {
 }
 
 /* the list as the sources screen shows it: chips, the language filter, the sources in order */
-function sourceList(s, quality, lang) {
+function sourceList(s, quality, lang, pref) {
   var L = logic(),
     langs = L.languageChoices(s.items),
-    list = L.orderedSources(s.items, quality, lang);
+    list = L.orderedSources(s.items, quality, lang),
+    /* for the next episode: the source like the one just played (matchingNextSource) */
+    match = pref ? L.matchingNextSource(s.items, pref) : null;
   return {
+    match: match ? match._seq : 0,
     version: s.version,
     done: s.done,
     failed: s.failed.length ? L.tx('addonsNoAnswer', s.failed.join(', ')) : '',
@@ -181,7 +184,10 @@ function streams(req, res, q) {
   if (!searches[key] || (!have && searches[key].done && q.again)) searches[key] = startSearch(q.type, q.vid);
   var s = searches[key];
   function answer() {
-    sendJson(res, sourceList(s, q.quality || 'All', q.lang || 'All'));
+    sendJson(
+      res,
+      sourceList(s, q.quality || 'All', q.lang || 'All', q.next && q.id ? playback.nextPref(q.id) : null)
+    );
   }
   if (s.version > have || s.done) return answer();
   function woken() {

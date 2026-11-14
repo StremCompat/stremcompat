@@ -46,6 +46,7 @@ window.__logic = {
     return lsJson(PRE + id);
   },
   libToggle: libToggle,
+  matchingNextSource: matchingNextSource,
   newEpisodeItems: newEpisodeItems,
   nuvioCollections: nuvioCollections,
   orderedSources: orderedSources,
@@ -64,6 +65,7 @@ window.__logic = {
   sourceHeading: sourceHeading,
   sourceTags: sourceTags,
   sourceText: sourceText,
+  streamLanguages: streamLanguages,
   streamRefBody: streamRefBody,
   syncAddons: syncAddons,
   syncCollections: syncCollections,

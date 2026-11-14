@@ -23,6 +23,13 @@ function writeItem(L, item) {
 }
 
 /* ---------- starting a source ---------- */
+/* per title, what the next episode's source should look like (web: nextSourcePref) */
+var nextPrefs = {};
+
+function nextPref(id) {
+  return nextPrefs[id] || null;
+}
+
 function answerStream(res, q, ref) {
   var stream = getStreamRef(ref);
   if (!stream) return fail(res, 404, 'gone');
@@ -37,9 +44,20 @@ function answerStream(res, q, ref) {
         ? s.timeOffset
         : 0;
   playerContext(stream, { type: q.type, id: q.id, vid: q.vid, ref: ref }, function (context) {
+    var info = playerConstants(stream, context);
+    nextPrefs[q.id] = {
+      addon: info.ADDON,
+      quality: info.QUALITY,
+      compat: info.COMPAT,
+      text: info.SNAME,
+      binge: info.BINGE,
+      langs: L.streamLanguages({ name: info.SNAME })
+    };
     sendJson(res, {
       ref: ref,
-      info: playerConstants(stream, context),
+      info: info,
+      /* Settings: play the next episode by itself */
+      binge: L.setting('bingeWatch', 'true') !== 'false' && L.setting('enableNextVideo', 'true') !== 'false',
       resume: resume,
       seekStep: parseInt(L.setting('seekStep', '10'), 10) || 10,
       /* the subtitles chosen in Settings, or the interface's language until then (web: subtitles.js) */
@@ -225,6 +243,7 @@ function progress(req, res) {
 }
 
 module.exports = {
+  nextPref: nextPref,
   play: play,
   progress: progress
 };
