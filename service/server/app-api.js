@@ -568,14 +568,18 @@ function rows(req, res) {
 function migrate(req, res) {
   readJsonBody(req, MIGRATE_MAX_BYTES, function (body) {
     if (!body || typeof body !== 'object') return fail(res, 400, 'a JSON object is needed');
-    var count = 0;
+    var count = 0,
+      added = 0;
     for (var k in body)
       if (Object.prototype.hasOwnProperty.call(body, k) && typeof body[k] === 'string' && !/^beta_/.test(k)) {
         /* what the native interface already has wins: it is newer */
-        if (runtime.storage.getItem(k) === null) runtime.storage.setItem(k, body[k]);
+        if (runtime.storage.getItem(k) === null) {
+          runtime.storage.setItem(k, body[k]);
+          added++;
+        }
         count++;
       }
-    runtime.restart();
+    if (added) runtime.restart();
     sendJson(res, { ok: true, keys: count });
   });
 }

@@ -13,6 +13,8 @@ var LOG_FILE = process.env.SC_SERVER_LOG || path.join(DIR, 'local server.log');
 var PROFILE_MODULE = require('../profile');
 
 var PROFILE = PROFILE_MODULE.current;
+/* the browser is not known yet: the TV's memory decides, as for the native interface */
+PROFILE_MODULE.useSmallTvLimits(PROFILE, '');
 
 var APP_VERSION = PROFILE.version;
 

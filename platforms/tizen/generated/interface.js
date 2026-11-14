@@ -11812,20 +11812,49 @@ window.__SC_PHASE__('M4');
 // Startup: choose login or Home, restore deep links and start the silent syncs.
 /* ================= boot ================= */
 var HOME_WAIT_MS = 7000;
-/* Version 5 draws the interface natively and keeps its data in the local server: what this
-   interface kept (account, library, settings; not the caches) is handed over at each start,
-   so the update opens signed in. The server keeps what it already has. */
+/* The native app keeps its data in its own local server and takes this interface's (account,
+   library, settings; not the caches) on its first start (server/app-runtime.js takeOver). They
+   are handed to this app's server only when they changed, and at most once a day. */
+var HANDOVER_EVERY_MS = 24 * 3600 * 1000;
 function handOverToNative() {
   var kept = {},
     keys = storageKeys();
   for (var i = 0; i < keys.length; i++)
-    if (keys[i].indexOf('beta_') !== 0) kept[keys[i]] = lsRaw(keys[i], '');
-  postJson('/app/migrate', kept, function () {}, 8000);
+    if (keys[i].indexOf('beta_') !== 0 && keys[i] !== 'handedOver') kept[keys[i]] = lsRaw(keys[i], '');
+  var text = JSON.stringify(kept),
+    sum = stableHash(text),
+    last = lsJson('handedOver') || {};
+  if (last.sum === sum || Date.now() - (last.at || 0) < HANDOVER_EVERY_MS) return;
+  postJson(
+    '/app/migrate',
+    kept,
+    function (j) {
+      if (j && j.ok) lsSet('handedOver', { sum: sum, at: Date.now() });
+    },
+    8000
+  );
+}
+/* The saved copies of catalogs and Discover pages are good for a week; older ones are dropped,
+   once a day, so the TV's storage never fills up (a full storage loses settings too) */
+var CACHE_KEEP_MS = 7 * 24 * 3600 * 1000;
+function pruneCaches() {
+  if (Date.now() - parseInt(lsRaw('cachesPruned', '0'), 10) < 24 * 3600 * 1000) return;
+  lsRawSet('cachesPruned', String(Date.now()));
+  var keys = storageKeys();
+  for (var i = 0; i < keys.length; i++) {
+    if (keys[i].indexOf('beta_cat_') !== 0 && keys[i].indexOf('beta_discover_v3_') !== 0) continue;
+    var v = lsJson(keys[i]);
+    if (!v || !v.t || Date.now() - v.t > CACHE_KEEP_MS)
+      try {
+        localStorage.removeItem(keys[i]);
+      } catch (e) {}
+  }
 }
 function boot() {
   try {
     window.__SC_PHASE__('B0');
     handOverToNative();
+    pruneCaches();
     if (TV_PROFILE.lowMemory) bodyAdd('lowmem');
     applyLook();
     applyTextSize();

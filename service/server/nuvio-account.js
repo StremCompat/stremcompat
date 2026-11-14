@@ -641,6 +641,7 @@ function fillNames(list, cb) {
           var meta = m
             ? { name: m.name || '', poster: m.poster || '', background: m.background || '' }
             : null;
+          capped(namesFound, 400);
           namesFound[it._id] = { at: Date.now(), meta: meta };
           apply(it, meta);
           running--;
@@ -764,6 +765,12 @@ function put(key, session, changes, cb) {
   })();
 }
 
+/* a cache that keeps at most max entries: the oldest go first */
+function capped(cache, max) {
+  var keys = Object.keys(cache);
+  for (var i = 0; i < keys.length - max + 1; i++) delete cache[keys[i]];
+}
+
 /* ---------- the profile's addons, with their manifests ---------- */
 var manifests = {};
 /* an addon's address as its manifest's (stremio:// links as https) */
@@ -804,7 +811,10 @@ function addonCollection(session, cb) {
         }
         if (manifests[url]) return keep(manifests[url]);
         fetchAddonJson(url, function (manifest) {
-          if (manifest && manifest.id) manifests[url] = manifest;
+          if (manifest && manifest.id) {
+            capped(manifests, 60);
+            manifests[url] = manifest;
+          }
           keep(manifest);
         });
       });
