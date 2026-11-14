@@ -104,8 +104,8 @@ function play(req, res, q, searches) {
   body.meta = L.knownArtwork(q.type, q.id);
   var ref = storeStreamRef(body);
   if (!ref) return fail(res, 400, 'not playable');
-  /* the same source is offered again by Continue (web: playback.js) */
-  if (L.setting('noHistory', 'false') !== 'true')
+  /* the same source is offered again by Continue (web: playback.js); a live channel is not */
+  if (L.setting('noHistory', 'false') !== 'true' && !isLive(q.type))
     runtime.storage.setItem(
       kept,
       '?ref=' +
@@ -118,6 +118,11 @@ function play(req, res, q, searches) {
         encodeURIComponent(vid)
     );
   answerStream(res, q, ref);
+}
+
+/* live channels are watched, never kept: no progress, library or Continue Watching */
+function isLive(type) {
+  return type === 'tv' || type === 'channel';
 }
 
 /* ---------- progress ---------- */
@@ -246,7 +251,8 @@ function progress(req, res) {
     if (!p || !p.id || !p.type || !(p.duration > 0))
       return fail(res, 400, 'id, type and duration are needed');
     var L = runtime.logic();
-    if (L.setting('noHistory', 'false') === 'true') return sendJson(res, { ok: true, kept: false });
+    if (L.setting('noHistory', 'false') === 'true' || isLive(p.type))
+      return sendJson(res, { ok: true, kept: false });
     var key = p.id + '|' + (p.vid || p.id),
       session = sessions[key] || (sessions[key] = { lastPos: -1 });
     if (p.event === 'seek') session.lastPos = -1;

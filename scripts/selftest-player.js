@@ -10,8 +10,10 @@ var path = require('path');
 var vm = require('vm');
 
 var root = path.resolve(__dirname, '..');
+/* the player's files expect the page's constants; a test that does not set LIVE plays a title */
 function src(name) {
-  return fs.readFileSync(path.join(root, 'src', name), 'utf8');
+  var text = fs.readFileSync(path.join(root, 'src', name), 'utf8');
+  return name.indexOf('player/') === 0 ? 'var LIVE = typeof LIVE === "undefined" ? 0 : LIVE;\n' + text : text;
 }
 
 function memoryStorage(initial) {

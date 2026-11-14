@@ -74,9 +74,18 @@ var manifest = {
   name: 'Test addon',
   version: '1.0.0',
   resources: ['catalog', 'meta', 'stream'],
-  types: ['series'],
+  types: ['series', 'tv'],
   idPrefixes: ['tst'],
-  catalogs: [{ type: 'series', id: 'popular', name: 'Popular' }]
+  catalogs: [
+    { type: 'series', id: 'popular', name: 'Popular' },
+    /* a live channels catalog as NexoTV makes it: categories as genres, search and pages */
+    {
+      type: 'tv',
+      id: 'live',
+      name: 'Live',
+      extra: [{ name: 'genre', options: ['News', 'Sports'] }, { name: 'search' }, { name: 'skip' }]
+    }
+  ]
 };
 var meta = {
   id: 'tst1',
@@ -94,6 +103,8 @@ var answers = {
     metas: [{ id: 'tst1', type: 'series', name: 'Test Show', poster: meta.poster }]
   },
   '/meta/series/tst1.json': { meta: meta },
+  '/catalog/tv/live/genre=News.json': { metas: [{ id: 'tvn1', type: 'tv', name: 'News One', poster: 'http://l/n.png' }] },
+  '/catalog/tv/live/search=sport.json': { metas: [{ id: 'tvs1', type: 'tv', name: 'Sport Max' }] },
   '/stream/series/tst1%3A1%3A1.json': {
     streams: [
       { name: 'Test\n1080p', title: 'Show.S01E01.1080p.WEB.x264', url: addonBase + '/a.mp4' },
@@ -105,8 +116,41 @@ var answers = {
 /* the start of a JPEG is all /app/img looks at */
 var POSTER = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0]);
 
+/* a big IPTV list: 20 000 channels in 40 groups, and its guide (gzip) for the first channels */
+var CHANNELS = 20000;
+function bigList() {
+  var lines = ['#EXTM3U url-tvg="' + addonBase + '/guide.xml.gz"'];
+  for (var i = 0; i < CHANNELS; i++)
+    lines.push(
+      '#EXTINF:-1 tvg-id="c' + i + '" tvg-logo="http://l/' + i + '.png" group-title="Group ' + (i % 40) + '",Canal ' + i,
+      'http://s/' + i + '.m3u8'
+    );
+  return lines.join('\n');
+}
+function guide() {
+  var at = new Date(Date.now() - 30 * 60000),
+    end = new Date(Date.now() + 30 * 60000);
+  function stamp(d) {
+    /* written as UTC+3, as many guides do */
+    var local = new Date(d.getTime() + 3 * 3600000);
+    return local.toISOString().replace(/[-:T]/g, '').slice(0, 14) + ' +0300';
+  }
+  return require('zlib').gzipSync(
+    '<?xml version="1.0"?><tv><programme channel="c0" start="' + stamp(at) + '" stop="' + stamp(end) +
+      '"><title>Jornal &amp; Cia</title></programme></tv>'
+  );
+}
+
 function addonServer() {
   return http.createServer(function (req, res) {
+    if (req.url === '/list.m3u') {
+      res.writeHead(200, { 'Content-Type': 'audio/x-mpegurl' });
+      return res.end(bigList());
+    }
+    if (req.url === '/guide.xml.gz') {
+      res.writeHead(200, { 'Content-Type': 'application/gzip' });
+      return res.end(guide());
+    }
     if (req.url === '/poster.jpg') {
       res.writeHead(200, { 'Content-Type': 'image/jpeg' });
       return res.end(POSTER);
@@ -141,6 +185,7 @@ async function main() {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: Object.assign({}, process.env, {
         HOME: home,
+        SC_PHONE_HOST: '127.0.0.1',
         SC_CINEMETA_URL: addonBase,
         TV_ENGINE: path.join(__dirname, 'lib', 'fake-engine.js'),
         SC_SERVER_LOG: path.join(home, 'server.log')
@@ -289,19 +334,120 @@ async function main() {
       'adding to the library did not answer like the web interface: ' + JSON.stringify(added)
     );
 
-    /* live channels: an M3U list is read with its groups and logos; none yet says what to do */
-    var m3u = require(path.join(serviceDir, 'server', 'app-channels.js')).parseM3u(
-      '#EXTM3U\n#EXTINF:-1 tvg-logo="http://l/a.png" group-title="News",Channel A\nhttp://s/a.m3u8\n'
+    /* live channels: an M3U list read in one pass, its names, groups and the players' headers */
+    var live = require(path.join(serviceDir, 'server', 'app-channels.js'));
+    var m3u = live.parseM3u(
+      '#EXTM3U\n#EXTINF:-1 tvg-logo="http://l/a.png" group-title="News, World",Channel A, HD\n' +
+        '#EXTVLCOPT:http-user-agent=Box/1\nhttp://s/a.m3u8\n#EXTINF:-1,B\nhttp://s/b.ts|Referer=http%3A%2F%2Fr%2F\n'
     );
     assert.deepStrictEqual(
-      [m3u.channels[0].name, m3u.channels[0].group, m3u.channels[0].url],
-      ['Channel A', 'News', 'http://s/a.m3u8'],
+      [m3u.groups[0].title, m3u.groups[0].channels[0].n, m3u.groups[0].channels[0].u, m3u.groups[0].channels[0].h],
+      ['News, World', 'Channel A, HD', 'http://s/a.m3u8', { 'User-Agent': 'Box/1' }],
       'an M3U list was not read'
     );
-    assert.ok(
-      (await request('/app/channels')).json.empty,
-      'with no channels the screen does not say what to do'
+    assert.deepStrictEqual(m3u.groups[1].channels[0].h, { Referer: 'http://r/' }, 'headers in the address were lost');
+    var startedAt = Date.now(),
+      big = live.parseM3u(bigList());
+    assert.ok(big.count === CHANNELS && big.groups.length === 40, 'a big list was cut or grouped wrong');
+    assert.ok(Date.now() - startedAt < 1500, 'a 20 000 channel list took too long to read: ' + (Date.now() - startedAt) + ' ms');
+    assert.strictEqual(
+      live.guideTime('20261114120000 +0300'),
+      Date.UTC(2026, 10, 14, 9, 0, 0),
+      'a guide time ignored its offset'
     );
+    assert.ok(
+      (await request('/app/channels')).json.groups.length === 2,
+      "the addon's channel categories are not the channel groups"
+    );
+    var newsPage = (await request('/app/channels/group?id=' + encodeURIComponent('a:0:News'))).json;
+    assert.strictEqual(newsPage.channels[0].name, 'News One', "an addon category's channels did not come");
+    var added = (await request('/app/channels/lists', { url: addonBase + '/list.m3u', name: 'Big' })).json;
+    assert.ok(added.ok, 'a list could not be added: ' + JSON.stringify(added));
+    var lineup = (await request('/app/channels')).json;
+    var firstGroup = lineup.groups.filter(function (g) {
+      return g.kind === 'm3u';
+    })[0];
+    assert.ok(lineup.lists[0].count === CHANNELS && firstGroup.count === CHANNELS / 40, 'the list summary is wrong');
+    var page = (await request('/app/channels/group?id=' + encodeURIComponent(firstGroup.id))).json;
+    assert.ok(page.channels.length === 60 && page.more, 'channels did not come a page at a time');
+    var second = (await request('/app/channels/group?id=' + encodeURIComponent(firstGroup.id) + '&skip=60')).json;
+    assert.strictEqual(second.channels[0].name, 'Canal 2400', 'the next page did not follow');
+    for (var gw = 0; gw < 50 && !page.channels[0].now; gw++) {
+      await wait(100);
+      page = (await request('/app/channels/group?id=' + encodeURIComponent(firstGroup.id))).json;
+    }
+    assert.strictEqual(page.channels[0].now, 'Jornal & Cia', 'what is on now was not read from the guide');
+    var found = (await request('/app/channels/group?id=search&q=' + encodeURIComponent('canal 1999'))).json.channels;
+    assert.ok(
+      found.some(function (c) {
+        return c.name === 'Canal 1999';
+      }) &&
+        found.some(function (c) {
+          return c.name === 'Sport Max';
+        }) === false,
+      'the search did not find the channel'
+    );
+    var sports = (await request('/app/channels/group?id=search&q=sport')).json.channels;
+    assert.ok(
+      sports.some(function (c) {
+        return c.name === 'Sport Max';
+      }),
+      "the search did not ask the addon's own search"
+    );
+    var started = (await request('/app/channels/play?key=' + encodeURIComponent(page.channels[0].key))).json;
+    assert.ok(started.ref && /\/proxy\?ref=/.test(started.url), 'a channel did not become a stream reference');
+    assert.strictEqual(
+      (await request('/app/channels')).json.recent[0].name,
+      'Canal 0',
+      'the channel played is not among the recent ones'
+    );
+    /* a live channel is watched, never kept */
+    var liveTick = (
+      await request('/app/progress', { type: 'tv', id: 'tvn1', vid: 'tvn1', duration: 3600000, time: 600000, event: 'tick' })
+    ).json;
+    assert.strictEqual(liveTick.kept, false, 'a live channel was kept in the library');
+
+    /* an address from the phone: a page of its own, behind a code, for one address */
+    var phone = (await request('/app/phone/start', {})).json;
+    if (phone.ok) {
+      var phonePath = phone.url.replace(/^http:\/\/[^/]+/, ''),
+        phonePort = +/:(\d+)\//.exec(phone.url)[1];
+      function phoneRequest(pathName, body) {
+        return new Promise(function (resolve) {
+          var req = http.request(
+            { hostname: '127.0.0.1', port: phonePort, path: pathName, method: body ? 'POST' : 'GET' },
+            function (res) {
+              var chunks = [];
+              res.on('data', function (d) {
+                chunks.push(d);
+              });
+              res.on('end', function () {
+                resolve({ status: res.statusCode, text: Buffer.concat(chunks).toString('utf8') });
+              });
+            }
+          );
+          req.on('error', function () {
+            resolve({ status: 0, text: '' });
+          });
+          req.end(body);
+        });
+      }
+      assert.strictEqual((await phoneRequest('/wrongcode')).status, 404, 'the phone page opened without its code');
+      assert.ok(/<form/.test((await phoneRequest(phonePath)).text), 'the phone page has no form');
+      await phoneRequest(phonePath, 'value=' + encodeURIComponent('javascript:alert(1)'));
+      assert.ok((await request('/app/phone/poll')).json.waiting, 'an address that is not http(s) was taken');
+      await phoneRequest(phonePath, 'value=' + encodeURIComponent('https://example.com/list.m3u'));
+      assert.strictEqual(
+        (await request('/app/phone/poll')).json.value,
+        'https://example.com/list.m3u',
+        'the address from the phone did not reach the TV'
+      );
+      assert.ok((await request('/app/phone/poll')).json.closed, 'the phone page stayed open after its address');
+      assert.strictEqual((await phoneRequest(phonePath)).status, 0, 'the phone page still answers after its address');
+    }
+
+    var removed = (await request('/app/channels/lists', { remove: addonBase + '/list.m3u' })).json;
+    assert.ok(removed.ok && !(await request('/app/channels')).json.lists.length, 'a list could not be removed');
     assert.ok((await request('/app/calendar')).json.days, 'the calendar did not answer');
 
     var diagLines = (await request('/app/diag')).json.lines;

@@ -379,14 +379,12 @@ var disc = {
 var lib = makeBoard(function (b, keep) {
   loadLibraryRows(b);
 });
-/* The calendar (the followed series' next episodes by day) and the channels (the addons' and
-   the M3U lists'), as the server lays them out for both interfaces (app-api.js, app-channels.js) */
+/* The calendar: the followed series' next episodes by day, as the server lays them out for both
+   interfaces (app-api.js) */
 var cal = makeBoard(function (b) {
   loadServerRows(b, '/app/calendar', 'days');
 });
-var tv = makeBoard(function (b) {
-  loadServerRows(b, '/app/channels', 'groups', { name: tx('m3uAdd'), addList: true });
-});
+
 /* A Nuvio Collections folder opened from Home: one row per catalog it holds */
 var fold = makeBoard(function (b, keep) {
   var folder = (scrParams && scrParams.folder) || {};

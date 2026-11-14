@@ -112,6 +112,7 @@ function showHome(libraryPulled) {
           if (SCR === 'home' || SCR === 'lib') refreshCurBoard();
         });
       }, 700);
+    setTimeout(dropLiveFromLibrary, 1500);
     setTimeout(function () {
       syncAddons(function (changed) {
         syncCollections(function (collectionsChanged) {

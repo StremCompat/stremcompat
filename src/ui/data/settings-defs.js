@@ -250,6 +250,7 @@ function settingsCategories() {
     { k: '__rows', lb: tx('organizeCatalogs'), action: true },
     { head: tx('navChannels'), id: 'channels' },
     { k: '__m3u', lb: tx('m3uAdd'), action: true },
+    { k: '__m3uLists', lb: tx('m3uManage'), action: true },
     { head: tx('accountGroup'), id: 'account' },
     { k: '__profile', lb: tx('nuvioProfile'), action: true },
     { k: '__sync', lb: tx('syncAddons'), action: true },

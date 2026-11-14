@@ -451,6 +451,28 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    m3uManage: 'Manage lists',
+    noLists: 'No M3U list added yet',
+    liveLabel: 'LIVE',
+    m3uRemovedOne: 'List removed',
+    m3uRefreshed: 'List updated: {0} channels',
+    suggestCountry: 'Free channels from Brazil (iptv-org)',
+    suggestLanguage: 'Free channels in Portuguese (iptv-org)',
+    suggestWorld: 'Free channels from the whole world (iptv-org, large)',
+    suggestedLists: 'Suggested lists',
+    phoneTitle: 'Send to the TV',
+    phoneSend: 'Send to the TV',
+    phoneSent: 'Sent. You can close this page.',
+    phoneInvalid: 'Paste an address starting with http:// or https://',
+    phoneScan: 'Or scan with your phone, on the same Wi-Fi, and paste the address there',
+    phoneUnavailable: 'The TV could not open the page for the phone. Type the address here.',
+    channelSearch: 'Search channel',
+    channelRecent: 'Recent',
+    channelNext: 'Next: {0}',
+    noChannels: 'No channels here',
+    m3uListInfo: '{0} channels · updated {1}',
+    m3uRefreshAll: 'Update the lists now',
+    removeListConfirm: 'Press OK again to remove this list',
     organizeCatalogs: 'Organize catalogs',
     rowsHint: 'OK on a name to move it with up and down. Right to show or hide it.',
     rowShown: 'Shown',
@@ -938,6 +960,28 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    m3uManage: 'Gerenciar listas',
+    noLists: 'Nenhuma lista M3U adicionada ainda',
+    liveLabel: 'AO VIVO',
+    m3uRemovedOne: 'Lista removida',
+    m3uRefreshed: 'Lista atualizada: {0} canais',
+    suggestCountry: 'Canais abertos do Brasil (iptv-org)',
+    suggestLanguage: 'Canais abertos em português (iptv-org)',
+    suggestWorld: 'Canais abertos do mundo todo (iptv-org, grande)',
+    suggestedLists: 'Listas sugeridas',
+    phoneTitle: 'Enviar para a TV',
+    phoneSend: 'Enviar para a TV',
+    phoneSent: 'Enviado. Pode fechar esta página.',
+    phoneInvalid: 'Cole um endereço que comece com http:// ou https://',
+    phoneScan: 'Ou escaneie com o celular, no mesmo Wi-Fi, e cole o endereço por lá',
+    phoneUnavailable: 'A TV não conseguiu abrir a página para o celular. Digite o endereço aqui.',
+    channelSearch: 'Buscar canal',
+    channelRecent: 'Recentes',
+    channelNext: 'A seguir: {0}',
+    noChannels: 'Nenhum canal aqui',
+    m3uListInfo: '{0} canais · atualizada {1}',
+    m3uRefreshAll: 'Atualizar as listas agora',
+    removeListConfirm: 'Aperte OK de novo para remover esta lista',
     organizeCatalogs: 'Organizar catálogos',
     rowsHint: 'OK no nome para mover com cima e baixo. Direita para mostrar ou ocultar.',
     rowShown: 'Visível',
@@ -1941,7 +1985,7 @@ function cwItems(limit) {
   for (var i = 0; i < lib.length; i++) {
     var it = lib[i],
       s = it.state || {};
-    if (it.removed && !it.temp) continue;
+    if ((it.removed && !it.temp) || isLiveType(it.type)) continue;
     if (!upNextPointer(it)) {
       if (!s.timeOffset || s.timeOffset < 60000) continue;
       /* a finished episode stays only when its next episode is known (cwCard) */
@@ -1962,7 +2006,7 @@ function libGridItems() {
     lib = allLib();
   for (var i = 0; i < lib.length; i++) {
     var it = lib[i];
-    if (it.removed) continue;
+    if (it.removed || isLiveType(it.type)) continue;
     if (!it.name) continue;
     out.push(it);
   }
@@ -2981,7 +3025,8 @@ function playUrl(source, type, id, vid, backHash) {
     '&vid=' +
     encodeURIComponent(vid) +
     '&back=' +
-    encodeURIComponent(backHash);
+    encodeURIComponent(backHash) +
+    (isLiveType(type) ? '&live=1' : '');
   /* Keep signed cookies/authorization out of browser history and localStorage. The
      Node service stores a small, sanitized stream reference and returns only its id. */
   var body = streamRefBody(s);
@@ -3027,6 +3072,33 @@ function resumeSearch(id, vid) {
     q = localStorage.getItem('tvstream_' + id + '_' + vid);
   } catch (e) {}
   return q;
+}
+/* ---------- live channels: watched, never kept (no library, no Continue Watching) ---------- */
+function isLiveType(type) {
+  return type === 'tv' || type === 'channel';
+}
+/* the server made the channel a stream reference (app-channels.js play); the page plays it live */
+function playLive(ref, backHash) {
+  location.assign(
+    appUrl('/play?ref=' + encodeURIComponent(ref) + '&live=1&back=' + encodeURIComponent(backHash))
+  );
+}
+/* any channel: an M3U one plays at once; an addon's opens its sources, the only one at once */
+function playChannel(ch, backHash) {
+  xhrJson(
+    '/app/channels/play?key=' +
+      encodeURIComponent(ch.key || 'a|' + ch.type + '|' + ch.id) +
+      '&name=' +
+      encodeURIComponent(ch.name || '') +
+      '&logo=' +
+      encodeURIComponent(ch.logo || ch.poster || ''),
+    function (j) {
+      if (j && j.ref) return playLive(j.ref, backHash);
+      if (j && j.id) return streamsUI.show(j.type, j.id, j.id, j.name || ch.name, '', '', backHash);
+      toast(tx('sourceFailed'));
+    },
+    20000
+  );
 }
 function playStored(q, backHash) {
   q = q.replace(/&back=[^&]*/, '');
@@ -3685,6 +3757,25 @@ function newLibItem(item, now) {
     _ctime: now
   };
 }
+/* Channels that 4.3.0 and earlier kept after playing them live: out of the library and Continue
+   Watching, on this TV and on the account, once */
+function dropLiveFromLibrary() {
+  if (lsRaw('liveDropped', '')) return;
+  lsRawSet('liveDropped', '1');
+  var gone = [],
+    now = new Date().toISOString(),
+    lib = allLib();
+  for (var i = 0; i < lib.length; i++) {
+    var it = lib[i];
+    if (!isLiveType(it.type) || (it.removed && !it.temp)) continue;
+    it.removed = true;
+    it.temp = false;
+    it._mtime = now;
+    lsSet(PRE + it._id, it);
+    gone.push(it);
+  }
+  if (gone.length) pushLibItems(gone);
+}
 function libToggle(item) {
   var now = new Date().toISOString();
   var it = lsJson(PRE + item.id);
@@ -4192,6 +4283,7 @@ function settingsCategories() {
     { k: '__rows', lb: tx('organizeCatalogs'), action: true },
     { head: tx('navChannels'), id: 'channels' },
     { k: '__m3u', lb: tx('m3uAdd'), action: true },
+    { k: '__m3uLists', lb: tx('m3uManage'), action: true },
     { head: tx('accountGroup'), id: 'account' },
     { k: '__profile', lb: tx('nuvioProfile'), action: true },
     { k: '__sync', lb: tx('syncAddons'), action: true },
@@ -4313,6 +4405,7 @@ window.__logic = {
   homeDefs: homeDefs,
   homeLibraryRows: homeLibraryRows,
   homeRowChoices: homeRowChoices,
+  dropLiveFromLibrary: dropLiveFromLibrary,
   saveHomeLayout: saveHomeLayout,
   isNuvioAccount: isNuvioAccount,
   isSwitch: isSwitch,

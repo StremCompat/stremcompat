@@ -42,6 +42,7 @@ var appSettings = require('./app-settings');
 var appChannels = require('./app-channels');
 var appUpdate = require('./app-update');
 var addonStore = require('./addon-store');
+var phoneLink = require('./phone-link');
 var { handleTakeover } = require('./takeover');
 var { decodeField, seriesVideos, setWatched } = require('./watched');
 
@@ -421,6 +422,8 @@ addRoutes(POST_ONLY, appChannels.postRoutes);
 addRoutes(ROUTES, appUpdate.routes);
 addRoutes(ROUTES, addonStore.routes);
 addRoutes(POST_ONLY, addonStore.postRoutes);
+addRoutes(ROUTES, phoneLink.routes);
+addRoutes(POST_ONLY, phoneLink.postRoutes);
 
 function handleRequest(req, res) {
   var parsed = urlmod.parse(req.url, true);

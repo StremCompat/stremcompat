@@ -30,6 +30,7 @@ function state(req, res, q) {
   runtime.takeOver(function () {
     var L = logic(),
       u = L.user();
+    L.dropLiveFromLibrary();
     sendJson(res, {
       version: APP_VERSION,
       language: L.uiLanguage(),
@@ -415,6 +416,8 @@ function dayLabel(L, at, today) {
 }
 
 function calendar(req, res) {
+  /* the calendar is for Stremio accounts; a Nuvio account has none and nothing of it runs */
+  if (logic().isNuvioAccount()) return sendJson(res, { days: [], empty: '' });
   var L = logic(),
     now = new Date(),
     today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();

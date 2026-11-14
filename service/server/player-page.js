@@ -92,6 +92,8 @@ function playerContext(stream, query, done) {
     vid: query.vid || '',
     back: query.back || '',
     streamRef: query.ref || '',
+    /* a live channel: no progress, no library, no seeking (src/player LIVE) */
+    live: query.live === '1',
     /* what the interface already showed: the player does not wait for Cinemeta to have it */
     meta: known
       ? { name: known.name, logo: known.logo, background: known.background, poster: known.poster, cert: '' }
@@ -106,7 +108,7 @@ function playerContext(stream, query, done) {
       done(context);
     });
   }
-  if (!context.type || !context.id) return ready();
+  if (!context.type || !context.id || context.live) return ready();
   /* Without an answer in time the next episode still comes from the list kept from an earlier
      play of this series, or is the next number: the player cannot learn it afterwards. */
   function settled() {
@@ -184,7 +186,8 @@ function playerConstants(stream, context) {
     COMPAT: stream.compat || '',
     BINGE: stream.bingeGroup || '',
     SERVICE_ID: SERVICE_ID,
-    APP_PORT: PORT
+    APP_PORT: PORT,
+    LIVE: ctx.live ? 1 : 0
   };
 }
 

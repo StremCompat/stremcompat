@@ -122,12 +122,17 @@ var addonPanel = {
       30000
     );
   },
+  /* the address typed, or pasted from the phone (text-panel.js) */
   askAddress: function () {
-    var box = $('aUrl');
-    box.value = '';
-    box.placeholder = tx('addonUrlHint');
-    box.style.display = 'block';
-    box.focus();
+    var self = this;
+    textPanel.show({
+      title: tx('addAddon'),
+      hint: tx('addonUrlHint'),
+      url: true,
+      done: function (url) {
+        self.change(url);
+      }
+    });
   },
   activate: function (i) {
     if (!this.inStore && i === 0) return this.openStore();
@@ -166,12 +171,3 @@ var addonPanel = {
     return true;
   }
 };
-on($('aUrl'), 'keydown', function (e) {
-  if (e.keyCode !== 13 && !isRemoteBack(e.keyCode)) return;
-  e.preventDefault();
-  e.stopPropagation();
-  var url = String($('aUrl').value || '').trim();
-  $('aUrl').blur();
-  $('aUrl').style.display = 'none';
-  if (e.keyCode === 13 && url) addonPanel.change(url);
-});

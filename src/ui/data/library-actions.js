@@ -40,6 +40,25 @@ function newLibItem(item, now) {
     _ctime: now
   };
 }
+/* Channels that 4.3.0 and earlier kept after playing them live: out of the library and Continue
+   Watching, on this TV and on the account, once */
+function dropLiveFromLibrary() {
+  if (lsRaw('liveDropped', '')) return;
+  lsRawSet('liveDropped', '1');
+  var gone = [],
+    now = new Date().toISOString(),
+    lib = allLib();
+  for (var i = 0; i < lib.length; i++) {
+    var it = lib[i];
+    if (!isLiveType(it.type) || (it.removed && !it.temp)) continue;
+    it.removed = true;
+    it.temp = false;
+    it._mtime = now;
+    lsSet(PRE + it._id, it);
+    gone.push(it);
+  }
+  if (gone.length) pushLibItems(gone);
+}
 function libToggle(item) {
   var now = new Date().toISOString();
   var it = lsJson(PRE + item.id);

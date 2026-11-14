@@ -95,7 +95,7 @@ function cwItems(limit) {
   for (var i = 0; i < lib.length; i++) {
     var it = lib[i],
       s = it.state || {};
-    if (it.removed && !it.temp) continue;
+    if ((it.removed && !it.temp) || isLiveType(it.type)) continue;
     if (!upNextPointer(it)) {
       if (!s.timeOffset || s.timeOffset < 60000) continue;
       /* a finished episode stays only when its next episode is known (cwCard) */
@@ -116,7 +116,7 @@ function libGridItems() {
     lib = allLib();
   for (var i = 0; i < lib.length; i++) {
     var it = lib[i];
-    if (it.removed) continue;
+    if (it.removed || isLiveType(it.type)) continue;
     if (!it.name) continue;
     out.push(it);
   }

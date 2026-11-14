@@ -164,7 +164,8 @@ var settings = {
     else if (k === '__support') this.showSupport();
     else if (k === '__profile') openProfile();
     else if (k === '__rows') rowsPanel.show();
-    else if (k === '__m3u') m3uPanel.show();
+    else if (k === '__m3u') askM3uList();
+    else if (k === '__m3uLists') listsPanel.show();
     else if (k === '__logout') this.logout();
     else if (k === '__clearSearches') {
       clearRecentSearches();
@@ -401,39 +402,3 @@ var settings = {
     return true;
   }
 };
-/* An M3U list's address, typed in the middle of the screen; the server reads it and keeps it
-   for the Channels section */
-var m3uPanel = {
-  show: function () {
-    var box = $('m3uBox');
-    $('m3uTitle').textContent = tx('m3uAdd');
-    $('m3uHint').textContent = tx('m3uAddress');
-    box.value = '';
-    box.placeholder = 'https://';
-    $('m3uPanel').style.display = 'block';
-    box.focus();
-  },
-  close: function () {
-    $('m3uBox').blur();
-    $('m3uPanel').style.display = 'none';
-  }
-};
-on($('m3uBox'), 'keydown', function (e) {
-  if (e.keyCode !== 13 && !isRemoteBack(e.keyCode)) return;
-  e.preventDefault();
-  e.stopPropagation();
-  var url = String($('m3uBox').value || '').trim();
-  m3uPanel.close();
-  if (e.keyCode !== 13 || !url) return;
-  toast(tx('saving'));
-  postJson(
-    '/app/channels/lists',
-    { url: url },
-    function (j) {
-      toast((j && j.message) || tx('m3uFailed'));
-      tv.built = false;
-      if (SCR === 'tv') tv.enter();
-    },
-    60000
-  );
-});

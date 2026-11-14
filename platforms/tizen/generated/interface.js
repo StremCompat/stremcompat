@@ -484,6 +484,28 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    m3uManage: 'Manage lists',
+    noLists: 'No M3U list added yet',
+    liveLabel: 'LIVE',
+    m3uRemovedOne: 'List removed',
+    m3uRefreshed: 'List updated: {0} channels',
+    suggestCountry: 'Free channels from Brazil (iptv-org)',
+    suggestLanguage: 'Free channels in Portuguese (iptv-org)',
+    suggestWorld: 'Free channels from the whole world (iptv-org, large)',
+    suggestedLists: 'Suggested lists',
+    phoneTitle: 'Send to the TV',
+    phoneSend: 'Send to the TV',
+    phoneSent: 'Sent. You can close this page.',
+    phoneInvalid: 'Paste an address starting with http:// or https://',
+    phoneScan: 'Or scan with your phone, on the same Wi-Fi, and paste the address there',
+    phoneUnavailable: 'The TV could not open the page for the phone. Type the address here.',
+    channelSearch: 'Search channel',
+    channelRecent: 'Recent',
+    channelNext: 'Next: {0}',
+    noChannels: 'No channels here',
+    m3uListInfo: '{0} channels · updated {1}',
+    m3uRefreshAll: 'Update the lists now',
+    removeListConfirm: 'Press OK again to remove this list',
     organizeCatalogs: 'Organize catalogs',
     rowsHint: 'OK on a name to move it with up and down. Right to show or hide it.',
     rowShown: 'Shown',
@@ -971,6 +993,28 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    m3uManage: 'Gerenciar listas',
+    noLists: 'Nenhuma lista M3U adicionada ainda',
+    liveLabel: 'AO VIVO',
+    m3uRemovedOne: 'Lista removida',
+    m3uRefreshed: 'Lista atualizada: {0} canais',
+    suggestCountry: 'Canais abertos do Brasil (iptv-org)',
+    suggestLanguage: 'Canais abertos em português (iptv-org)',
+    suggestWorld: 'Canais abertos do mundo todo (iptv-org, grande)',
+    suggestedLists: 'Listas sugeridas',
+    phoneTitle: 'Enviar para a TV',
+    phoneSend: 'Enviar para a TV',
+    phoneSent: 'Enviado. Pode fechar esta página.',
+    phoneInvalid: 'Cole um endereço que comece com http:// ou https://',
+    phoneScan: 'Ou escaneie com o celular, no mesmo Wi-Fi, e cole o endereço por lá',
+    phoneUnavailable: 'A TV não conseguiu abrir a página para o celular. Digite o endereço aqui.',
+    channelSearch: 'Buscar canal',
+    channelRecent: 'Recentes',
+    channelNext: 'A seguir: {0}',
+    noChannels: 'Nenhum canal aqui',
+    m3uListInfo: '{0} canais · atualizada {1}',
+    m3uRefreshAll: 'Atualizar as listas agora',
+    removeListConfirm: 'Aperte OK de novo para remover esta lista',
     organizeCatalogs: 'Organizar catálogos',
     rowsHint: 'OK no nome para mover com cima e baixo. Direita para mostrar ou ocultar.',
     rowShown: 'Visível',
@@ -2277,7 +2321,7 @@ function cwItems(limit) {
   for (var i = 0; i < lib.length; i++) {
     var it = lib[i],
       s = it.state || {};
-    if (it.removed && !it.temp) continue;
+    if ((it.removed && !it.temp) || isLiveType(it.type)) continue;
     if (!upNextPointer(it)) {
       if (!s.timeOffset || s.timeOffset < 60000) continue;
       /* a finished episode stays only when its next episode is known (cwCard) */
@@ -2298,7 +2342,7 @@ function libGridItems() {
     lib = allLib();
   for (var i = 0; i < lib.length; i++) {
     var it = lib[i];
-    if (it.removed) continue;
+    if (it.removed || isLiveType(it.type)) continue;
     if (!it.name) continue;
     out.push(it);
   }
@@ -3317,7 +3361,8 @@ function playUrl(source, type, id, vid, backHash) {
     '&vid=' +
     encodeURIComponent(vid) +
     '&back=' +
-    encodeURIComponent(backHash);
+    encodeURIComponent(backHash) +
+    (isLiveType(type) ? '&live=1' : '');
   /* Keep signed cookies/authorization out of browser history and localStorage. The
      Node service stores a small, sanitized stream reference and returns only its id. */
   var body = streamRefBody(s);
@@ -3363,6 +3408,33 @@ function resumeSearch(id, vid) {
     q = localStorage.getItem('tvstream_' + id + '_' + vid);
   } catch (e) {}
   return q;
+}
+/* ---------- live channels: watched, never kept (no library, no Continue Watching) ---------- */
+function isLiveType(type) {
+  return type === 'tv' || type === 'channel';
+}
+/* the server made the channel a stream reference (app-channels.js play); the page plays it live */
+function playLive(ref, backHash) {
+  location.assign(
+    appUrl('/play?ref=' + encodeURIComponent(ref) + '&live=1&back=' + encodeURIComponent(backHash))
+  );
+}
+/* any channel: an M3U one plays at once; an addon's opens its sources, the only one at once */
+function playChannel(ch, backHash) {
+  xhrJson(
+    '/app/channels/play?key=' +
+      encodeURIComponent(ch.key || 'a|' + ch.type + '|' + ch.id) +
+      '&name=' +
+      encodeURIComponent(ch.name || '') +
+      '&logo=' +
+      encodeURIComponent(ch.logo || ch.poster || ''),
+    function (j) {
+      if (j && j.ref) return playLive(j.ref, backHash);
+      if (j && j.id) return streamsUI.show(j.type, j.id, j.id, j.name || ch.name, '', '', backHash);
+      toast(tx('sourceFailed'));
+    },
+    20000
+  );
 }
 function playStored(q, backHash) {
   q = q.replace(/&back=[^&]*/, '');
@@ -3742,7 +3814,7 @@ var SCR = 'home';
 var backStack = [];
 var BACK_LIMIT = 20;
 var scrParams = null;
-var BOARD_SCR = { home: 1, lib: 1, fold: 1, cal: 1, tv: 1 };
+var BOARD_SCR = { home: 1, lib: 1, fold: 1, cal: 1 };
 function showScr(name) {
   var el = BOARD_SCR[name]
     ? 'scrBoard'
@@ -3751,22 +3823,33 @@ function showScr(name) {
         disc: 'scrDisc',
         search: 'scrSearch',
         addons: 'scrAddons',
+        tv: 'scrTv',
         set: 'scrSet',
         login: 'scrLogin',
         sim: 'scrSim'
       }[name];
-  var all = ['scrBoard', 'scrDetail', 'scrDisc', 'scrSearch', 'scrAddons', 'scrSet', 'scrLogin', 'scrSim'];
+  var all = [
+    'scrBoard',
+    'scrDetail',
+    'scrDisc',
+    'scrSearch',
+    'scrAddons',
+    'scrTv',
+    'scrSet',
+    'scrLogin',
+    'scrSim'
+  ];
   for (var i = 0; i < all.length; i++) $(all[i]).className = 'scr' + (all[i] === el ? ' on' : '');
   SCR = name;
   /* the side menu follows the section on screen, also when Back returns to it */
   var section = chipTarget.indexOf(name);
   if (section >= 0) topNav.idx = section;
   if (name !== 'home') bodyRemove('featured');
-  if (name === 'cal' || name === 'tv') {
+  if (name === 'cal') {
     bodyAdd('plainboard');
-    $('boardTitle').textContent = tx(name === 'cal' ? 'navCalendar' : 'navChannels');
-    setBg('');
+    $('boardTitle').textContent = tx('navCalendar');
   } else bodyRemove('plainboard');
+  if (name === 'cal' || name === 'tv') setBg('');
   if (name === 'login') bodyAdd('login');
   else bodyRemove('login');
   paintChips();
@@ -3831,9 +3914,12 @@ function goScr(name, params, noStack) {
   } else if (name === 'lib') {
     showScr('lib');
     lib.enter();
-  } else if (name === 'cal' || name === 'tv') {
+  } else if (name === 'cal') {
     showScr(name);
-    curBoard().enter();
+    cal.enter();
+  } else if (name === 'tv') {
+    showScr(name);
+    channelsView.enter();
   } else if (name === 'fold') {
     showScr('fold');
     fold.built = false;
@@ -3914,7 +4000,12 @@ var chips = [
 ];
 var chipTarget = ['profile', 'search', 'home', 'disc', 'lib', 'cal', 'tv', 'addons', 'set', 'update', 'exit'];
 window.__SC_PHASE__('M2');
+/* the calendar follows the series of a Stremio library; a Nuvio account does not show it */
+function calendarShown() {
+  return !isNuvioAccount();
+}
 function paintChips() {
+  $('chipCal').style.display = calendarShown() ? '' : 'none';
   if (topNav.active) bodyAdd('navopen');
   else bodyRemove('navopen');
   for (var i = 0; i < chips.length; i++) {
@@ -3927,7 +4018,7 @@ function paintChips() {
 // Sidebar navigation.
 /* ================= top nav — centered; moving Left/Right auto-loads each page ================= */
 function curBoard() {
-  return { home: home, lib: lib, fold: fold, cal: cal, tv: tv }[SCR] || null;
+  return { home: home, lib: lib, fold: fold, cal: cal }[SCR] || null;
 }
 function resetBoardPosition(board) {
   board.rowIdx = 0;
@@ -3951,7 +4042,10 @@ var topNav = {
     if (b) b.paint();
     if (SCR === 'disc') disc.paint();
     else if (SCR === 'addons') addonPanel.paint();
-    else if (SCR === 'set') settings.paint();
+    else if (SCR === 'tv') {
+      channelsView.paintCats();
+      channelsView.paintList();
+    } else if (SCR === 'set') settings.paint();
     else if (SCR === 'detail') {
       setF(detail.btnEls, -1);
       setF(detail.seasonEls, -1);
@@ -3975,7 +4069,7 @@ var topNav = {
       return;
     this.idx = i;
     var t = chipTarget[i];
-    if (BOARD_SCR[t]) resetBoardPosition({ home: home, lib: lib, cal: cal, tv: tv }[t]);
+    if (BOARD_SCR[t] && t !== 'fold') resetBoardPosition({ home: home, lib: lib, cal: cal }[t]);
     backStack = [];
     scrParams = null;
     if (t !== 'search') search.reset();
@@ -3986,9 +4080,12 @@ var topNav = {
     } else if (t === 'disc') {
       showScr('disc');
       disc.enter();
-    } else if (t === 'lib' || t === 'cal' || t === 'tv') {
+    } else if (t === 'lib' || t === 'cal') {
       showScr(t);
       curBoard().enter();
+    } else if (t === 'tv') {
+      showScr('tv');
+      channelsView.enter();
     } else if (t === 'search') {
       showScr('search');
       search.enterNav();
@@ -4011,6 +4108,8 @@ var topNav = {
       disc.focusTop();
     } else if (t === 'addons') {
       addonPanel.focusTop();
+    } else if (t === 'tv') {
+      channelsView.focusTop();
     } else if (t === 'set') {
       settings.focusTop();
     } else {
@@ -4044,8 +4143,9 @@ var topNav = {
     if (k === 38 || k === 40) {
       var step = k === 38 ? -1 : 1,
         to = this.idx + step;
-      /* Update is there only when a newer version is */
+      /* Update is there only when a newer version is; the Calendar only for Stremio accounts */
       if (chipTarget[to] === 'update' && !pendingUpdate) to += step;
+      if (chipTarget[to] === 'cal' && !calendarShown()) to += step;
       if (to >= 0 && to < chips.length) this.switchTo(to);
     } else if (k === 13 && (SCR === 'detail' || SCR === 'sim')) this.switchTo(this.idx);
     else if (k === 13 && curBoard()) this.chooseSection(this.idx);
@@ -4132,7 +4232,6 @@ function makeBoard(loader) {
       if (lib !== this) unloadBoard(lib);
       if (fold !== this) unloadBoard(fold);
       if (cal !== this) unloadBoard(cal);
-      if (tv !== this) unloadBoard(tv);
       this._act = null;
       if (!fresh) this.reveal();
       this.paint(true);
@@ -4258,7 +4357,7 @@ function makeBoard(loader) {
     /* the title under the focus, or another one given (spotlight.js) */
     heroApply: function (item) {
       if (curBoard() !== this) return; /* a debounced hero must not paint after we left this board */
-      if (this === cal || this === tv) return; /* sections without a hero */
+      if (this === cal) return; /* a section without a hero */
       var it = item || this.focusedItem();
       if (!it) {
         return;
@@ -4739,14 +4838,12 @@ var disc = {
 var lib = makeBoard(function (b, keep) {
   loadLibraryRows(b);
 });
-/* The calendar (the followed series' next episodes by day) and the channels (the addons' and
-   the M3U lists'), as the server lays them out for both interfaces (app-api.js, app-channels.js) */
+/* The calendar: the followed series' next episodes by day, as the server lays them out for both
+   interfaces (app-api.js) */
 var cal = makeBoard(function (b) {
   loadServerRows(b, '/app/calendar', 'days');
 });
-var tv = makeBoard(function (b) {
-  loadServerRows(b, '/app/channels', 'groups', { name: tx('m3uAdd'), addList: true });
-});
+
 /* A Nuvio Collections folder opened from Home: one row per catalog it holds */
 var fold = makeBoard(function (b, keep) {
   var folder = (scrParams && scrParams.folder) || {};
@@ -5096,20 +5193,14 @@ function loadLibraryRows(board) {
   }
   board.rowIdx = 0;
 }
-/* rows the server lays out ({ title, items }); an M3U channel plays its address straight away.
-   lead: a card shown first, alone in its row (Channels: add an M3U list) */
-function loadServerRows(board, path, key, lead) {
+/* rows the server lays out ({ title, items }) */
+function loadServerRows(board, path, key) {
   board.rows = [];
   xhrJson(
     path,
     function (j) {
       var groups = (j && j[key]) || [];
       board.rows = [];
-      if (lead) {
-        var first = buildRow('', [lead], false, true);
-        first.el.className = 'row in';
-        board.rows.push(first);
-      }
       for (var g = 0; g < groups.length; g++) {
         var items = [];
         for (var i = 0; i < groups[g].items.length; i++) {
@@ -5119,15 +5210,14 @@ function loadServerRows(board, path, key, lead) {
             type: it.type || 'tv',
             name: it.name,
             poster: it.art || it.poster || it.logo,
-            background: it.backdrop || it.background || '',
-            live: it.kind === 'm3u' ? it.url : ''
+            background: it.backdrop || it.background || ''
           });
         }
         var row = buildRow(groups[g].title, items, false, true);
         row.el.className = 'row in';
         board.rows.push(row);
       }
-      if (board.rows.length === (lead ? 1 : 0)) {
+      if (!board.rows.length) {
         var e = document.createElement('div');
         e.className = 'row in';
         e.innerHTML = emptyState((j && j.empty) || '', '');
@@ -5162,8 +5252,8 @@ function buildHomeRows(keep) {
 }
 
 function openItem(it) {
-  if (it.live) return playUrl({ url: it.live, title: it.name }, 'tv', it.id, it.id, 'beta#tv');
-  if (it.addList) return m3uPanel.show();
+  /* a channel of an addon's row plays live (its sources), with no title page */
+  if (isLiveType(it.type)) return playChannel(it, 'beta#home');
   if (it.folder) {
     goScr('fold', { folder: it.folder });
     return;
@@ -5255,6 +5345,25 @@ function newLibItem(item, now) {
     _id: item.id,
     _ctime: now
   };
+}
+/* Channels that 4.3.0 and earlier kept after playing them live: out of the library and Continue
+   Watching, on this TV and on the account, once */
+function dropLiveFromLibrary() {
+  if (lsRaw('liveDropped', '')) return;
+  lsRawSet('liveDropped', '1');
+  var gone = [],
+    now = new Date().toISOString(),
+    lib = allLib();
+  for (var i = 0; i < lib.length; i++) {
+    var it = lib[i];
+    if (!isLiveType(it.type) || (it.removed && !it.temp)) continue;
+    it.removed = true;
+    it.temp = false;
+    it._mtime = now;
+    lsSet(PRE + it._id, it);
+    gone.push(it);
+  }
+  if (gone.length) pushLibItems(gone);
 }
 function libToggle(item) {
   var now = new Date().toISOString();
@@ -5763,6 +5872,7 @@ function settingsCategories() {
     { k: '__rows', lb: tx('organizeCatalogs'), action: true },
     { head: tx('navChannels'), id: 'channels' },
     { k: '__m3u', lb: tx('m3uAdd'), action: true },
+    { k: '__m3uLists', lb: tx('m3uManage'), action: true },
     { head: tx('accountGroup'), id: 'account' },
     { k: '__profile', lb: tx('nuvioProfile'), action: true },
     { k: '__sync', lb: tx('syncAddons'), action: true },
@@ -7455,6 +7565,83 @@ var rowsPanel = {
     invalidateBoards();
   }
 };
+/* Settings > Channels > Manage lists: each M3U list with its channels and when it was read; OK
+   twice removes one, the last row reads them all again */
+var listsPanel = {
+  open: false,
+  idx: 0,
+  els: [],
+  lists: [],
+  armed: -1,
+  show: function () {
+    var self = this;
+    xhrJson(
+      '/app/channels',
+      function (j) {
+        self.lists = (j && j.lists) || [];
+        if (!self.lists.length) return toast(tx('noLists'));
+        self.open = true;
+        self.idx = 0;
+        self.armed = -1;
+        self.draw();
+      },
+      30000
+    );
+  },
+  draw: function () {
+    var rows = [];
+    for (var i = 0; i < this.lists.length; i++) {
+      var l = this.lists[i],
+        day = l.updated ? new Date(l.updated) : null;
+      rows.push({
+        name: l.name,
+        help: tx('m3uListInfo', l.count, day ? day.getDate() + '/' + (day.getMonth() + 1) : '-'),
+        cls: i === this.armed ? 'moving' : ''
+      });
+    }
+    rows.push({ name: tx('m3uRefreshAll'), cls: 'suskip' });
+    this.els = drawChoices(tx('m3uManage'), rows, tx('removeListConfirm'));
+    setF(this.els, this.idx);
+  },
+  choose: function () {
+    var self = this;
+    if (this.idx === this.lists.length) {
+      toast(tx('syncing'));
+      for (var i = 0; i < this.lists.length; i++)
+        postJson('/app/channels/lists', { refresh: this.lists[i].url }, function () {}, 90000);
+      return this.close();
+    }
+    if (this.armed !== this.idx) {
+      this.armed = this.idx;
+      toast(tx('removeListConfirm'));
+      return this.draw();
+    }
+    postJson(
+      '/app/channels/lists',
+      { remove: this.lists[this.idx].url },
+      function (j) {
+        toast((j && j.message) || tx('m3uRemovedOne'));
+        self.lists.splice(self.idx, 1);
+        self.armed = -1;
+        if (!self.lists.length) return self.close();
+        self.idx = Math.min(self.idx, self.lists.length - 1);
+        self.draw();
+      },
+      20000
+    );
+  },
+  close: function () {
+    this.open = false;
+    $('setupPanel').style.display = 'none';
+  },
+  key: function (k) {
+    if (k === 38) this.idx = Math.max(0, this.idx - 1);
+    else if (k === 40) this.idx = Math.min(this.els.length - 1, this.idx + 1);
+    else if (k === 13) return this.choose();
+    if (this.armed !== this.idx) this.armed = -1;
+    this.draw();
+  }
+};
 var setupPanel = {
   open: false,
   step: 0,
@@ -8046,8 +8233,10 @@ var streamsUI = {
   failed: [],
   title: '',
   flushT: null,
-  show: function (type, id, vid, title, bestQuality, bestLanguage) {
+  /* back: where the player returns to, when it is not the title page (a live channel) */
+  show: function (type, id, vid, title, bestQuality, bestLanguage, back) {
     var request = ++this.requestSeq;
+    this.back = back || '';
     this.open = true;
     this.failed = [];
     this.title = title || '';
@@ -8125,6 +8314,9 @@ var streamsUI = {
           return;
         }
         self.flush();
+        /* a channel with one source plays it at once */
+        if (self.back && self.items.length === 1)
+          return playUrl(self.items[0], self.type, self.id, self.vid, self.back);
         if (bestQuality) {
           if (!self.startBest(bestQuality, bestLanguage)) self.reveal();
           return;
@@ -8153,6 +8345,7 @@ var streamsUI = {
     bodyAdd('streamsopen');
   },
   backHash: function () {
+    if (this.back) return this.back;
     return 'beta#detail/' + this.type + '/' + this.id + (this.vid !== this.id ? '/' + this.vid : '');
   },
   chooseBest: function () {
@@ -8934,6 +9127,214 @@ var search = {
     return true;
   }
 };
+// A text typed in the middle of the screen: an M3U list's address, an addon's address, or a channel
+// to search. Three ways side by side: the app's own keyboard (with keys for addresses), the TV's
+// system keyboard on the field itself, and, for addresses, a QR code that opens a page served by
+// the TV where the address is pasted from the phone (server/phone-link.js). An M3U panel also
+// offers suggested lists of free channels, added with one OK.
+var TEXT_KEYS = 'abcdefghijklmnopqrstuvwxyz1234567890'.split('');
+var URL_KEYS = ['https://', '.com', '.m3u', '/', ':', '.', '-', '_', '?', '=', '&'];
+var textPanel = {
+  open: false,
+  zone: 'keys',
+  keyIdx: 0,
+  sugIdx: 0,
+  keys: [],
+  keyEls: [],
+  sugEls: [],
+  suggestions: [],
+  pollT: null,
+  done: null,
+  /* opt: { title, hint, url (keys for addresses and the phone QR), suggest (an M3U list),
+     done(value) } */
+  show: function (opt) {
+    var self = this;
+    this.opt = opt;
+    this.done = opt.done;
+    this.open = true;
+    this.zone = 'keys';
+    this.keyIdx = 0;
+    this.sugIdx = 0;
+    this.suggestions = [];
+    this.keys = (opt.url ? URL_KEYS : []).concat(TEXT_KEYS, ['space', 'del', 'clear', 'ok']);
+    $('txTitle').textContent = opt.title;
+    $('txHint').textContent = opt.hint || '';
+    $('txBox').value = '';
+    $('txBox').placeholder = opt.url ? 'https://' : '';
+    var host = $('txKeys');
+    host.innerHTML = '';
+    this.keyEls = [];
+    for (var i = 0; i < this.keys.length; i++) {
+      var k = this.keys[i],
+        el = document.createElement('div');
+      el.className = 'skey' + (k.length > 1 ? ' wide' : '');
+      el.textContent =
+        k === 'space'
+          ? tx('keySpace')
+          : k === 'del'
+            ? tx('keyDelete')
+            : k === 'clear'
+              ? tx('keyClear')
+              : k === 'ok'
+                ? 'OK'
+                : k;
+      host.appendChild(el);
+      this.keyEls.push(el);
+    }
+    $('txPhone').style.display = opt.url ? '' : 'none';
+    $('txQr').innerHTML = '';
+    $('txPhoneText').textContent = opt.url ? tx('phoneScan') : '';
+    $('txSuggest').innerHTML = '';
+    $('txSuggestTitle').style.display = 'none';
+    $('txPanel').style.display = 'block';
+    if (opt.url) this.startPhone();
+    if (opt.suggest)
+      xhrJson(
+        '/app/channels/suggested',
+        function (j) {
+          if (self.open) self.showSuggestions((j && j.lists) || []);
+        },
+        20000
+      );
+    this.paint();
+  },
+  /* the phone page lives only while this panel is open; it is asked every two seconds */
+  startPhone: function () {
+    var self = this;
+    postJson(
+      '/app/phone/start',
+      {},
+      function (j) {
+        if (!self.open) return;
+        if (!j || !j.ok) return ($('txPhoneText').textContent = tx('phoneUnavailable'));
+        $('txQr').innerHTML = j.svg;
+        $('txPhoneUrl').textContent = j.url;
+        self.pollPhone();
+      },
+      8000
+    );
+  },
+  pollPhone: function () {
+    var self = this;
+    this.pollT = setTimeout(function () {
+      xhrJson(
+        '/app/phone/poll',
+        function (j) {
+          if (!self.open) return;
+          if (j && j.value) {
+            $('txBox').value = j.value;
+            return self.submit();
+          }
+          if (j && j.waiting) self.pollPhone();
+        },
+        5000
+      );
+    }, 2000);
+  },
+  showSuggestions: function (list) {
+    this.suggestions = list;
+    var host = $('txSuggest');
+    host.innerHTML = '';
+    this.sugEls = [];
+    for (var i = 0; i < list.length; i++) {
+      var el = document.createElement('div');
+      el.className = 'schip';
+      el.textContent = list[i].name;
+      host.appendChild(el);
+      this.sugEls.push(el);
+    }
+    $('txSuggestTitle').textContent = tx('suggestedLists');
+    $('txSuggestTitle').style.display = list.length ? '' : 'none';
+  },
+  press: function (k) {
+    var box = $('txBox');
+    if (k === 'ok') return this.submit();
+    if (k === 'del') box.value = box.value.slice(0, -1);
+    else if (k === 'clear') box.value = '';
+    else box.value += k === 'space' ? ' ' : k;
+  },
+  submit: function () {
+    var value = String($('txBox').value || '').trim(),
+      done = this.done;
+    if (!value) return;
+    this.close();
+    done(value);
+  },
+  close: function () {
+    this.open = false;
+    if (this.pollT) clearTimeout(this.pollT);
+    this.pollT = null;
+    if (this.opt && this.opt.url) postJson('/app/phone/stop', {}, function () {}, 4000);
+    $('txBox').blur();
+    $('txPanel').style.display = 'none';
+  },
+  paint: function () {
+    $('txBox').className = this.zone === 'box' ? 'f' : '';
+    setF(this.keyEls, this.zone === 'keys' ? this.keyIdx : -1);
+    setF(this.sugEls, this.zone === 'suggest' ? this.sugIdx : -1);
+  },
+  /* the keys sit 12 to a row */
+  key: function (k) {
+    var cols = 12,
+      n = this.keyEls.length;
+    if (this.zone === 'box') {
+      if (k === 13) return $('txBox').focus();
+      if (k === 40) this.zone = 'keys';
+    } else if (this.zone === 'suggest') {
+      if (k === 37) this.sugIdx = Math.max(0, this.sugIdx - 1);
+      else if (k === 39) this.sugIdx = Math.min(this.sugEls.length - 1, this.sugIdx + 1);
+      else if (k === 38) this.zone = 'keys';
+      else if (k === 13) {
+        $('txBox').value = this.suggestions[this.sugIdx].url;
+        return this.submit();
+      }
+    } else if (k >= 65 && k <= 90) this.press(String.fromCharCode(k + 32));
+    else if (k >= 48 && k <= 57) this.press(String(k - 48));
+    else if (k === 8) this.press('del');
+    else if (k === 13) this.press(this.keys[this.keyIdx]);
+    else if (k === 37) this.keyIdx = Math.max(0, this.keyIdx - 1);
+    else if (k === 39) this.keyIdx = Math.min(n - 1, this.keyIdx + 1);
+    else if (k === 38) {
+      if (this.keyIdx < cols) this.zone = 'box';
+      else this.keyIdx -= cols;
+    } else if (k === 40) {
+      if (this.keyIdx + cols < n) this.keyIdx += cols;
+      else if (this.sugEls.length) this.zone = 'suggest';
+    }
+    this.paint();
+  }
+};
+/* the system keyboard on the field: OK sends, Back returns to the app's keys */
+on($('txBox'), 'keydown', function (e) {
+  if (e.keyCode !== 13 && !isRemoteBack(e.keyCode)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  $('txBox').blur();
+  if (e.keyCode === 13) return textPanel.submit();
+  textPanel.zone = 'keys';
+  textPanel.paint();
+});
+/* an M3U list's address: the server reads it and keeps it for Channels */
+function askM3uList(after) {
+  textPanel.show({
+    title: tx('m3uAdd'),
+    hint: tx('m3uAddress'),
+    url: true,
+    suggest: true,
+    done: function (url) {
+      toast(tx('saving'));
+      postJson(
+        '/app/channels/lists',
+        { url: url },
+        function (j) {
+          toast((j && j.message) || tx('m3uFailed'));
+          if (after) after(j && j.ok);
+        },
+        90000
+      );
+    }
+  });
+}
 // Addons screen.
 /* ================= ADDONS =================
    The account's addons, with three buttons on top: the store (Stremio's list of community
@@ -9058,12 +9459,17 @@ var addonPanel = {
       30000
     );
   },
+  /* the address typed, or pasted from the phone (text-panel.js) */
   askAddress: function () {
-    var box = $('aUrl');
-    box.value = '';
-    box.placeholder = tx('addonUrlHint');
-    box.style.display = 'block';
-    box.focus();
+    var self = this;
+    textPanel.show({
+      title: tx('addAddon'),
+      hint: tx('addonUrlHint'),
+      url: true,
+      done: function (url) {
+        self.change(url);
+      }
+    });
   },
   activate: function (i) {
     if (!this.inStore && i === 0) return this.openStore();
@@ -9102,15 +9508,226 @@ var addonPanel = {
     return true;
   }
 };
-on($('aUrl'), 'keydown', function (e) {
-  if (e.keyCode !== 13 && !isRemoteBack(e.keyCode)) return;
-  e.preventDefault();
-  e.stopPropagation();
-  var url = String($('aUrl').value || '').trim();
-  $('aUrl').blur();
-  $('aUrl').style.display = 'none';
-  if (e.keyCode === 13 && url) addonPanel.change(url);
-});
+// Channels: live channels as IPTV apps show them, the categories on the left and the focused
+// category's channels on the right, with what is on now. The server sends the categories first
+// and the channels a page at a time (server/app-channels.js); only the rows in view are built, so
+// a list of tens of thousands of channels costs the same as a small one.
+var CHANNEL_PAGE = 60;
+var channelsView = {
+  zone: 'cats',
+  cats: [],
+  catIdx: 0,
+  catTop: 0,
+  list: [],
+  chIdx: 0,
+  chTop: 0,
+  more: false,
+  loading: false,
+  query: '',
+  gen: 0,
+  badLogos: {},
+  enter: function () {
+    var self = this;
+    this.zone = 'cats';
+    this.list = [];
+    $('tvMsg').textContent = '';
+    $('tvList').innerHTML = '';
+    xhrJson(
+      '/app/channels',
+      function (j) {
+        if (SCR !== 'tv') return;
+        j = j || {};
+        var cats = [{ id: 'search', title: tx('channelSearch') }];
+        if (j.recent && j.recent.length)
+          cats.push({ id: 'recent', title: tx('channelRecent'), count: j.recent.length });
+        cats = cats.concat(j.groups || []);
+        cats.push({ id: 'add', title: tx('m3uAdd') });
+        self.cats = cats;
+        var last = lsRaw('tvLastCat', ''),
+          any = cats.length > 2,
+          at = 1; /* the first category after Search, unless another was chosen before */
+        for (var i = 0; i < cats.length; i++) if (cats[i].id === last) at = i;
+        self.catIdx = any ? at : cats.length - 1;
+        if (!any) $('tvMsg').textContent = j.empty || '';
+        self.paintCats();
+        self.choose(false);
+      },
+      60000
+    );
+    this.paintCats();
+  },
+  focusTop: function () {
+    topNav.active = false;
+    this.zone = 'cats';
+    this.paintCats();
+    this.paintList();
+    topNav.paint();
+  },
+  /* the channels of the focused category, from the first page (or the next one) */
+  choose: function (next) {
+    var cat = this.cats[this.catIdx],
+      self = this;
+    if (!cat || cat.id === 'add' || (cat.id === 'search' && !cat.q)) return;
+    if (!next) {
+      this.list = [];
+      this.chIdx = 0;
+      this.chTop = 0;
+      this.more = false;
+      lsRawSet('tvLastCat', cat.id);
+    }
+    var gen = ++this.gen;
+    this.loading = true;
+    this.paintList();
+    xhrJson(
+      '/app/channels/group?id=' +
+        encodeURIComponent(cat.id) +
+        '&skip=' +
+        this.list.length +
+        (cat.q ? '&q=' + encodeURIComponent(cat.q) : ''),
+      function (j) {
+        if (gen !== self.gen) return;
+        self.loading = false;
+        self.list = self.list.concat((j && j.channels) || []);
+        self.more = !!(j && j.more);
+        self.paintList();
+      },
+      60000
+    );
+  },
+  search: function () {
+    var self = this;
+    textPanel.show({
+      title: tx('channelSearch'),
+      done: function (q) {
+        /* the results take the search's place in the list */
+        self.cats[0] = { id: 'search', title: tx('channelSearch') + ': ' + q, q: q };
+        self.catIdx = 0;
+        self.paintCats();
+        self.choose(false);
+        self.zone = 'list';
+      }
+    });
+  },
+  rowsIn: function (host, height) {
+    return Math.max(4, Math.floor(host.clientHeight / height) || 8);
+  },
+  paintCats: function () {
+    var host = $('tvCats'),
+      rows = this.rowsIn(host, host.firstChild ? host.firstChild.offsetHeight + 8 : 74),
+      html = '';
+    if (this.catIdx < this.catTop) this.catTop = this.catIdx;
+    if (this.catIdx >= this.catTop + rows) this.catTop = this.catIdx - rows + 1;
+    for (var i = this.catTop; i < Math.min(this.cats.length, this.catTop + rows); i++) {
+      var c = this.cats[i],
+        f = i === this.catIdx;
+      html +=
+        '<div class="tvcat' +
+        (f ? (this.zone === 'cats' && !topNav.active ? ' f' : ' on') : '') +
+        (c.id === 'add' || c.id === 'search' ? ' act' : '') +
+        '"><span>' +
+        esc(c.title) +
+        '</span>' +
+        (c.count > 0 ? '<b>' + c.count + '</b>' : '') +
+        '</div>';
+    }
+    host.innerHTML = html;
+  },
+  logo: function (u) {
+    if (!u || this.badLogos[u]) return '';
+    return '/app/img?w=120&u=' + encodeURIComponent(u);
+  },
+  paintList: function () {
+    var host = $('tvList'),
+      rows = this.rowsIn(host, host.firstChild ? host.firstChild.offsetHeight + 10 : 112),
+      html = '',
+      now = Date.now();
+    if (this.chIdx < this.chTop) this.chTop = this.chIdx;
+    if (this.chIdx >= this.chTop + rows) this.chTop = this.chIdx - rows + 1;
+    for (var i = this.chTop; i < Math.min(this.list.length, this.chTop + rows); i++) {
+      var ch = this.list[i],
+        logo = this.logo(ch.logo),
+        pct =
+          ch.start && ch.end
+            ? Math.max(0, Math.min(100, ((now - ch.start) / (ch.end - ch.start)) * 100))
+            : -1;
+      html +=
+        '<div class="tvch' +
+        (i === this.chIdx && this.zone === 'list' && !topNav.active ? ' f' : '') +
+        '"><div class="tvlogo">' +
+        (logo
+          ? '<img src="' + esc(logo) + '" data-u="' + esc(ch.logo) + '">'
+          : esc((ch.name || '?').charAt(0))) +
+        '</div><div class="tvtext"><div class="tvname">' +
+        esc(ch.name) +
+        '</div>' +
+        (ch.now ? '<div class="tvnow">' + esc(ch.now) + '</div>' : '') +
+        (pct >= 0 ? '<div class="tvbar"><i style="width:' + pct + '%"></i></div>' : '') +
+        (ch.next ? '<div class="tvnext">' + esc(tx('channelNext', ch.next)) + '</div>' : '') +
+        '</div></div>';
+    }
+    if (!this.list.length)
+      html = '<div class="tvempty">' + esc(this.loading ? tx('searching') : tx('noChannels')) + '</div>';
+    host.innerHTML = html;
+    /* a logo that does not load is not asked for again */
+    var self = this,
+      imgs = host.getElementsByTagName('img');
+    for (var m = 0; m < imgs.length; m++)
+      imgs[m].onerror = function () {
+        self.badLogos[this.getAttribute('data-u')] = 1;
+        this.parentNode.textContent = '';
+      };
+    /* the next page comes before the end is reached */
+    if (this.more && !this.loading && this.chIdx >= this.list.length - 10) this.choose(true);
+  },
+  activate: function () {
+    var cat = this.cats[this.catIdx],
+      self = this;
+    if (this.zone === 'cats') {
+      if (cat.id === 'search' && !this.list.length) return this.search();
+      if (cat.id === 'search' && this.zone === 'cats' && cat.q && !this.list.length) return this.search();
+      if (cat.id === 'add')
+        return askM3uList(function (ok) {
+          if (ok) self.enter();
+        });
+      if (this.list.length) this.zone = 'list';
+      this.paintCats();
+      return this.paintList();
+    }
+    var ch = this.list[this.chIdx];
+    if (ch) playChannel(ch, 'beta#tv');
+  },
+  back: function () {
+    if (this.zone !== 'list') return false;
+    this.zone = 'cats';
+    this.paintCats();
+    this.paintList();
+    return true;
+  },
+  key: function (k) {
+    if (k === 13) return this.activate();
+    if (this.zone === 'cats') {
+      var before = this.catIdx;
+      if (k === 40) this.catIdx = Math.min(this.cats.length - 1, this.catIdx + 1);
+      else if (k === 38) this.catIdx = Math.max(0, this.catIdx - 1);
+      else if (k === 39 && this.list.length) this.zone = 'list';
+      else if (k === 37) return topNav.focus();
+      if (before !== this.catIdx) {
+        var self = this;
+        /* the channels follow the focus after a short pause, so scrolling stays light */
+        clearTimeout(this.chooseT);
+        this.chooseT = setTimeout(function () {
+          self.choose(false);
+        }, 250);
+      }
+    } else {
+      if (k === 40) this.chIdx = Math.min(this.list.length - 1, this.chIdx + 1);
+      else if (k === 38) this.chIdx = Math.max(0, this.chIdx - 1);
+      else if (k === 37) this.zone = 'cats';
+    }
+    this.paintCats();
+    this.paintList();
+  }
+};
 // Settings and account screen.
 /* ================= SETTINGS + ACCOUNT ================= */
 /* Settings in two columns, as the big streaming apps lay them out: the groups on the left and
@@ -9277,7 +9894,8 @@ var settings = {
     else if (k === '__support') this.showSupport();
     else if (k === '__profile') openProfile();
     else if (k === '__rows') rowsPanel.show();
-    else if (k === '__m3u') m3uPanel.show();
+    else if (k === '__m3u') askM3uList();
+    else if (k === '__m3uLists') listsPanel.show();
     else if (k === '__logout') this.logout();
     else if (k === '__clearSearches') {
       clearRecentSearches();
@@ -9514,42 +10132,6 @@ var settings = {
     return true;
   }
 };
-/* An M3U list's address, typed in the middle of the screen; the server reads it and keeps it
-   for the Channels section */
-var m3uPanel = {
-  show: function () {
-    var box = $('m3uBox');
-    $('m3uTitle').textContent = tx('m3uAdd');
-    $('m3uHint').textContent = tx('m3uAddress');
-    box.value = '';
-    box.placeholder = 'https://';
-    $('m3uPanel').style.display = 'block';
-    box.focus();
-  },
-  close: function () {
-    $('m3uBox').blur();
-    $('m3uPanel').style.display = 'none';
-  }
-};
-on($('m3uBox'), 'keydown', function (e) {
-  if (e.keyCode !== 13 && !isRemoteBack(e.keyCode)) return;
-  e.preventDefault();
-  e.stopPropagation();
-  var url = String($('m3uBox').value || '').trim();
-  m3uPanel.close();
-  if (e.keyCode !== 13 || !url) return;
-  toast(tx('saving'));
-  postJson(
-    '/app/channels/lists',
-    { url: url },
-    function (j) {
-      toast((j && j.message) || tx('m3uFailed'));
-      tv.built = false;
-      if (SCR === 'tv') tv.enter();
-    },
-    60000
-  );
-});
 // Typing the streaming server address with the remote.
 /* Letters, digits and what an address needs, ten to a row; below them delete, clear, back
    to the server on this TV, and test and save. The number keys of the remote type too. */
@@ -10598,20 +11180,27 @@ on(
     idleTouch();
     noteKey();
     var a = document.activeElement;
-    if (
-      a === $('sBox') ||
-      a === $('lgEmail') ||
-      a === $('lgPass') ||
-      a === $('pfEdName') ||
-      a === $('aUrl') ||
-      a === $('m3uBox')
-    )
+    if (a === $('sBox') || a === $('lgEmail') || a === $('lgPass') || a === $('pfEdName') || a === $('txBox'))
       return; /* typing: inputs manage themselves */
     if (serverPanel.open) {
       e.preventDefault();
       e.stopPropagation();
       if (isBackKey(k)) serverPanel.close();
       else serverPanel.key(k);
+      return;
+    }
+    if (textPanel.open) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isBackKey(k)) textPanel.close();
+      else textPanel.key(k);
+      return;
+    }
+    if (listsPanel.open) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isBackKey(k)) listsPanel.close();
+      else listsPanel.key(k);
       return;
     }
     if (rowsPanel.open) {
@@ -10654,6 +11243,7 @@ on(
       e.stopPropagation();
       if (SCR === 'disc' && disc.closeFilter()) return;
       if (SCR === 'addons' && addonPanel.back()) return;
+      if (SCR === 'tv' && channelsView.back()) return;
       history.back();
       return;
     }
@@ -10676,8 +11266,8 @@ on(
     }
     if (k === 13) {
       var fi = currentFocusedItem();
-      /* See all and Collections folders open at once: they have no title menu */
-      if (fi && !fi.more && !fi.folder) {
+      /* See all, Collections folders and live channels open at once: they have no title menu */
+      if (fi && !fi.more && !fi.folder && !isLiveType(fi.type)) {
         if (!okHold.down) {
           okHold.down = true;
           okHold.rep = 0;
@@ -10698,7 +11288,8 @@ on(
     else if (SCR === 'detail') detail.key(k);
     else if (SCR === 'disc') disc.key(k);
     else if (SCR === 'search') search.key(k);
-    else if (SCR === 'lib' || SCR === 'cal' || SCR === 'tv') curBoard().key(k);
+    else if (SCR === 'lib' || SCR === 'cal') curBoard().key(k);
+    else if (SCR === 'tv') channelsView.key(k);
     else if (SCR === 'fold') fold.key(k);
     else if (SCR === 'addons') addonPanel.key(k);
     else if (SCR === 'set') settings.key(k);
@@ -10885,6 +11476,7 @@ function showHome(libraryPulled) {
           if (SCR === 'home' || SCR === 'lib') refreshCurBoard();
         });
       }, 700);
+    setTimeout(dropLiveFromLibrary, 1500);
     setTimeout(function () {
       syncAddons(function (changed) {
         syncCollections(function (collectionsChanged) {

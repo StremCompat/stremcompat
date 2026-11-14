@@ -192,6 +192,7 @@ function subtitleAddons() {
 }
 var extSubsLoading = false;
 function loadExtSubs() {
+  if (LIVE) return;
   extSubsLoading = true;
   var ref = (location.search.match(/[?&]ref=([^&]+)/) || [])[1] || '';
   try {

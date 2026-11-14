@@ -77,7 +77,6 @@ function makeBoard(loader) {
       if (lib !== this) unloadBoard(lib);
       if (fold !== this) unloadBoard(fold);
       if (cal !== this) unloadBoard(cal);
-      if (tv !== this) unloadBoard(tv);
       this._act = null;
       if (!fresh) this.reveal();
       this.paint(true);
@@ -203,7 +202,7 @@ function makeBoard(loader) {
     /* the title under the focus, or another one given (spotlight.js) */
     heroApply: function (item) {
       if (curBoard() !== this) return; /* a debounced hero must not paint after we left this board */
-      if (this === cal || this === tv) return; /* sections without a hero */
+      if (this === cal) return; /* a section without a hero */
       var it = item || this.focusedItem();
       if (!it) {
         return;

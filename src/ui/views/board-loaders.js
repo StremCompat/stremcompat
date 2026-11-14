@@ -190,20 +190,14 @@ function loadLibraryRows(board) {
   }
   board.rowIdx = 0;
 }
-/* rows the server lays out ({ title, items }); an M3U channel plays its address straight away.
-   lead: a card shown first, alone in its row (Channels: add an M3U list) */
-function loadServerRows(board, path, key, lead) {
+/* rows the server lays out ({ title, items }) */
+function loadServerRows(board, path, key) {
   board.rows = [];
   xhrJson(
     path,
     function (j) {
       var groups = (j && j[key]) || [];
       board.rows = [];
-      if (lead) {
-        var first = buildRow('', [lead], false, true);
-        first.el.className = 'row in';
-        board.rows.push(first);
-      }
       for (var g = 0; g < groups.length; g++) {
         var items = [];
         for (var i = 0; i < groups[g].items.length; i++) {
@@ -213,15 +207,14 @@ function loadServerRows(board, path, key, lead) {
             type: it.type || 'tv',
             name: it.name,
             poster: it.art || it.poster || it.logo,
-            background: it.backdrop || it.background || '',
-            live: it.kind === 'm3u' ? it.url : ''
+            background: it.backdrop || it.background || ''
           });
         }
         var row = buildRow(groups[g].title, items, false, true);
         row.el.className = 'row in';
         board.rows.push(row);
       }
-      if (board.rows.length === (lead ? 1 : 0)) {
+      if (!board.rows.length) {
         var e = document.createElement('div');
         e.className = 'row in';
         e.innerHTML = emptyState((j && j.empty) || '', '');
@@ -256,8 +249,8 @@ function buildHomeRows(keep) {
 }
 
 function openItem(it) {
-  if (it.live) return playUrl({ url: it.live, title: it.name }, 'tv', it.id, it.id, 'beta#tv');
-  if (it.addList) return m3uPanel.show();
+  /* a channel of an addon's row plays live (its sources), with no title page */
+  if (isLiveType(it.type)) return playChannel(it, 'beta#home');
   if (it.folder) {
     goScr('fold', { folder: it.folder });
     return;

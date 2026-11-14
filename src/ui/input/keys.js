@@ -66,20 +66,27 @@ on(
     idleTouch();
     noteKey();
     var a = document.activeElement;
-    if (
-      a === $('sBox') ||
-      a === $('lgEmail') ||
-      a === $('lgPass') ||
-      a === $('pfEdName') ||
-      a === $('aUrl') ||
-      a === $('m3uBox')
-    )
+    if (a === $('sBox') || a === $('lgEmail') || a === $('lgPass') || a === $('pfEdName') || a === $('txBox'))
       return; /* typing: inputs manage themselves */
     if (serverPanel.open) {
       e.preventDefault();
       e.stopPropagation();
       if (isBackKey(k)) serverPanel.close();
       else serverPanel.key(k);
+      return;
+    }
+    if (textPanel.open) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isBackKey(k)) textPanel.close();
+      else textPanel.key(k);
+      return;
+    }
+    if (listsPanel.open) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isBackKey(k)) listsPanel.close();
+      else listsPanel.key(k);
       return;
     }
     if (rowsPanel.open) {
@@ -122,6 +129,7 @@ on(
       e.stopPropagation();
       if (SCR === 'disc' && disc.closeFilter()) return;
       if (SCR === 'addons' && addonPanel.back()) return;
+      if (SCR === 'tv' && channelsView.back()) return;
       history.back();
       return;
     }
@@ -144,8 +152,8 @@ on(
     }
     if (k === 13) {
       var fi = currentFocusedItem();
-      /* See all and Collections folders open at once: they have no title menu */
-      if (fi && !fi.more && !fi.folder) {
+      /* See all, Collections folders and live channels open at once: they have no title menu */
+      if (fi && !fi.more && !fi.folder && !isLiveType(fi.type)) {
         if (!okHold.down) {
           okHold.down = true;
           okHold.rep = 0;
@@ -166,7 +174,8 @@ on(
     else if (SCR === 'detail') detail.key(k);
     else if (SCR === 'disc') disc.key(k);
     else if (SCR === 'search') search.key(k);
-    else if (SCR === 'lib' || SCR === 'cal' || SCR === 'tv') curBoard().key(k);
+    else if (SCR === 'lib' || SCR === 'cal') curBoard().key(k);
+    else if (SCR === 'tv') channelsView.key(k);
     else if (SCR === 'fold') fold.key(k);
     else if (SCR === 'addons') addonPanel.key(k);
     else if (SCR === 'set') settings.key(k);

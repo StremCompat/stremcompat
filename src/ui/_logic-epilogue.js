@@ -39,6 +39,7 @@ window.__logic = {
   homeDefs: homeDefs,
   homeLibraryRows: homeLibraryRows,
   homeRowChoices: homeRowChoices,
+  dropLiveFromLibrary: dropLiveFromLibrary,
   saveHomeLayout: saveHomeLayout,
   isNuvioAccount: isNuvioAccount,
   isSwitch: isSwitch,

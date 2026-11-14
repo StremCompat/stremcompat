@@ -70,11 +70,11 @@ function pushLib(force, done) {
 }
 // remember exactly which stream we played so Continue Watching can resume it directly
 try {
-  if (ID && !NO_HISTORY) localStorage.setItem('tvstream_' + ID + '_' + (VID || ID), location.search);
+  if (ID && !NO_HISTORY && !LIVE) localStorage.setItem('tvstream_' + ID + '_' + (VID || ID), location.search);
 } catch (e) {}
 // if the name/poster never came back from the server (Cinemeta was slow), fetch it now so
 // the Continue Watching entry isn't left blank
-if ((!TITLE || !POSTER) && TYPE && ID) {
+if ((!TITLE || !POSTER) && TYPE && ID && !LIVE) {
   xhr('/meta?type=' + encodeURIComponent(TYPE) + '&id=' + encodeURIComponent(ID), function (j) {
     if (j) {
       if (!TITLE) {
@@ -99,7 +99,7 @@ function readLib() {
 // Stremio auto-watch semantics: removed:false + temp:true (shows in Library + Continue
 // Watching and syncs everywhere). An explicit + Library later flips temp:false.
 function saveProgress() {
-  if (NO_HISTORY || !v.duration || !ID || sessionDone) return;
+  if (NO_HISTORY || LIVE || !v.duration || !ID || sessionDone) return;
   var now = new Date().toISOString();
   var it = readLib();
   if (!it || !it.state) {
@@ -275,7 +275,7 @@ function markWatchedLocal() {
    start and a series moves on to its next episode, which Continue Watching then offers on
    every device. `toNext` (the Next button) moves on even before the credits. */
 function finishSession(toNext) {
-  if (NO_HISTORY || !v.duration) return;
+  if (NO_HISTORY || LIVE || !v.duration) return;
   saveProgress();
   var it = readLib();
   if (!it || !it.state || it.state.video_id !== (VID || ID)) return;
@@ -303,7 +303,7 @@ function finishSession(toNext) {
 // binge: when the episode ends, count down to the next one (up-next.js)
 var endHandled = false;
 function onVideoEnd() {
-  if (endHandled) return;
+  if (endHandled || LIVE) return;
   endHandled = true;
   finishSession(false);
   pushLib(true);

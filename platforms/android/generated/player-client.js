@@ -464,6 +464,28 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    m3uManage: 'Manage lists',
+    noLists: 'No M3U list added yet',
+    liveLabel: 'LIVE',
+    m3uRemovedOne: 'List removed',
+    m3uRefreshed: 'List updated: {0} channels',
+    suggestCountry: 'Free channels from Brazil (iptv-org)',
+    suggestLanguage: 'Free channels in Portuguese (iptv-org)',
+    suggestWorld: 'Free channels from the whole world (iptv-org, large)',
+    suggestedLists: 'Suggested lists',
+    phoneTitle: 'Send to the TV',
+    phoneSend: 'Send to the TV',
+    phoneSent: 'Sent. You can close this page.',
+    phoneInvalid: 'Paste an address starting with http:// or https://',
+    phoneScan: 'Or scan with your phone, on the same Wi-Fi, and paste the address there',
+    phoneUnavailable: 'The TV could not open the page for the phone. Type the address here.',
+    channelSearch: 'Search channel',
+    channelRecent: 'Recent',
+    channelNext: 'Next: {0}',
+    noChannels: 'No channels here',
+    m3uListInfo: '{0} channels · updated {1}',
+    m3uRefreshAll: 'Update the lists now',
+    removeListConfirm: 'Press OK again to remove this list',
     organizeCatalogs: 'Organize catalogs',
     rowsHint: 'OK on a name to move it with up and down. Right to show or hide it.',
     rowShown: 'Shown',
@@ -951,6 +973,28 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    m3uManage: 'Gerenciar listas',
+    noLists: 'Nenhuma lista M3U adicionada ainda',
+    liveLabel: 'AO VIVO',
+    m3uRemovedOne: 'Lista removida',
+    m3uRefreshed: 'Lista atualizada: {0} canais',
+    suggestCountry: 'Canais abertos do Brasil (iptv-org)',
+    suggestLanguage: 'Canais abertos em português (iptv-org)',
+    suggestWorld: 'Canais abertos do mundo todo (iptv-org, grande)',
+    suggestedLists: 'Listas sugeridas',
+    phoneTitle: 'Enviar para a TV',
+    phoneSend: 'Enviar para a TV',
+    phoneSent: 'Enviado. Pode fechar esta página.',
+    phoneInvalid: 'Cole um endereço que comece com http:// ou https://',
+    phoneScan: 'Ou escaneie com o celular, no mesmo Wi-Fi, e cole o endereço por lá',
+    phoneUnavailable: 'A TV não conseguiu abrir a página para o celular. Digite o endereço aqui.',
+    channelSearch: 'Buscar canal',
+    channelRecent: 'Recentes',
+    channelNext: 'A seguir: {0}',
+    noChannels: 'Nenhum canal aqui',
+    m3uListInfo: '{0} canais · atualizada {1}',
+    m3uRefreshAll: 'Atualizar as listas agora',
+    removeListConfirm: 'Aperte OK de novo para remover esta lista',
     organizeCatalogs: 'Organizar catálogos',
     rowsHint: 'OK no nome para mover com cima e baixo. Direita para mostrar ou ocultar.',
     rowShown: 'Visível',
@@ -1994,11 +2038,11 @@ function pushLib(force, done) {
 }
 // remember exactly which stream we played so Continue Watching can resume it directly
 try {
-  if (ID && !NO_HISTORY) localStorage.setItem('tvstream_' + ID + '_' + (VID || ID), location.search);
+  if (ID && !NO_HISTORY && !LIVE) localStorage.setItem('tvstream_' + ID + '_' + (VID || ID), location.search);
 } catch (e) {}
 // if the name/poster never came back from the server (Cinemeta was slow), fetch it now so
 // the Continue Watching entry isn't left blank
-if ((!TITLE || !POSTER) && TYPE && ID) {
+if ((!TITLE || !POSTER) && TYPE && ID && !LIVE) {
   xhr('/meta?type=' + encodeURIComponent(TYPE) + '&id=' + encodeURIComponent(ID), function (j) {
     if (j) {
       if (!TITLE) {
@@ -2023,7 +2067,7 @@ function readLib() {
 // Stremio auto-watch semantics: removed:false + temp:true (shows in Library + Continue
 // Watching and syncs everywhere). An explicit + Library later flips temp:false.
 function saveProgress() {
-  if (NO_HISTORY || !v.duration || !ID || sessionDone) return;
+  if (NO_HISTORY || LIVE || !v.duration || !ID || sessionDone) return;
   var now = new Date().toISOString();
   var it = readLib();
   if (!it || !it.state) {
@@ -2199,7 +2243,7 @@ function markWatchedLocal() {
    start and a series moves on to its next episode, which Continue Watching then offers on
    every device. `toNext` (the Next button) moves on even before the credits. */
 function finishSession(toNext) {
-  if (NO_HISTORY || !v.duration) return;
+  if (NO_HISTORY || LIVE || !v.duration) return;
   saveProgress();
   var it = readLib();
   if (!it || !it.state || it.state.video_id !== (VID || ID)) return;
@@ -2227,7 +2271,7 @@ function finishSession(toNext) {
 // binge: when the episode ends, count down to the next one (up-next.js)
 var endHandled = false;
 function onVideoEnd() {
-  if (endHandled) return;
+  if (endHandled || LIVE) return;
   endHandled = true;
   finishSession(false);
   pushLib(true);
@@ -2444,6 +2488,7 @@ function subtitleAddons() {
 }
 var extSubsLoading = false;
 function loadExtSubs() {
+  if (LIVE) return;
   extSubsLoading = true;
   var ref = (location.search.match(/[?&]ref=([^&]+)/) || [])[1] || '';
   try {
@@ -2932,12 +2977,22 @@ function lockTimeWidth() {
 }
 /* elapsed / total, then the time left */
 function paintTime(at) {
+  /* a live channel has no length: the bar says so instead */
+  if (LIVE) {
+    timeEl.innerHTML = '<span class=live>' + tx('liveLabel') + '</span>';
+    return;
+  }
   lockTimeWidth();
   timeEl.innerHTML =
     fmt(at) + ' / ' + fmt(v.duration) + '<span class=trem>-' + fmt(Math.max(0, v.duration - at)) + '</span>';
 }
 /* The bar is hidden most of the time; timeupdate only repaints it while it is visible. */
 function paintProgress() {
+  if (LIVE) {
+    fill.style.width = '100%';
+    knob.style.left = '100%';
+    return paintTime(0);
+  }
   if (!v.duration || seekTarget >= 0) return;
   var pct = (v.currentTime / v.duration) * 100;
   fill.style.width = pct + '%';
@@ -3289,7 +3344,7 @@ function commitSeek() {
   }, 700);
 }
 function seek(d) {
-  if (!v.duration) return;
+  if (!v.duration || LIVE) return;
   if (seekTarget < 0) {
     seekBase = v.currentTime;
     seekAbs = false;
@@ -3306,7 +3361,7 @@ function seek(d) {
 }
 /* jump to an absolute time (number keys), committed like the other seeks */
 function seekTo(t) {
-  if (!v.duration) return;
+  if (!v.duration || LIVE) return;
   if (seekTarget < 0) seekBase = v.currentTime;
   seekAbs = true;
   seek(t - (seekTarget >= 0 ? seekTarget : v.currentTime));

@@ -23,7 +23,7 @@ var profileModule = require(path.join(root, 'service', 'profile.js'));
 var PLAYER_CONSTANTS = [
   'URL', 'ADDON', 'ADDONBASE', 'QUALITY', 'TITLE', 'TYPE', 'ID', 'VID', 'LOGO', 'BG', 'POSTER', 'SEASON', 'EPISODE',
   'EPTITLE', 'NEXTVID', 'NEXTHREF', 'BACK', 'NEXTTITLE', 'NEXTTHUMB', 'SNAME', 'CERT', 'COMPAT', 'BINGE',
-  'SERVICE_ID', 'APP_PORT'
+  'SERVICE_ID', 'APP_PORT', 'LIVE'
 ];
 
 function read(file) { return fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n'); }

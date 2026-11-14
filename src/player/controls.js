@@ -104,12 +104,22 @@ function lockTimeWidth() {
 }
 /* elapsed / total, then the time left */
 function paintTime(at) {
+  /* a live channel has no length: the bar says so instead */
+  if (LIVE) {
+    timeEl.innerHTML = '<span class=live>' + tx('liveLabel') + '</span>';
+    return;
+  }
   lockTimeWidth();
   timeEl.innerHTML =
     fmt(at) + ' / ' + fmt(v.duration) + '<span class=trem>-' + fmt(Math.max(0, v.duration - at)) + '</span>';
 }
 /* The bar is hidden most of the time; timeupdate only repaints it while it is visible. */
 function paintProgress() {
+  if (LIVE) {
+    fill.style.width = '100%';
+    knob.style.left = '100%';
+    return paintTime(0);
+  }
   if (!v.duration || seekTarget >= 0) return;
   var pct = (v.currentTime / v.duration) * 100;
   fill.style.width = pct + '%';

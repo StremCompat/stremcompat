@@ -1,7 +1,7 @@
 // Sidebar navigation.
 /* ================= top nav — centered; moving Left/Right auto-loads each page ================= */
 function curBoard() {
-  return { home: home, lib: lib, fold: fold, cal: cal, tv: tv }[SCR] || null;
+  return { home: home, lib: lib, fold: fold, cal: cal }[SCR] || null;
 }
 function resetBoardPosition(board) {
   board.rowIdx = 0;
@@ -25,7 +25,10 @@ var topNav = {
     if (b) b.paint();
     if (SCR === 'disc') disc.paint();
     else if (SCR === 'addons') addonPanel.paint();
-    else if (SCR === 'set') settings.paint();
+    else if (SCR === 'tv') {
+      channelsView.paintCats();
+      channelsView.paintList();
+    } else if (SCR === 'set') settings.paint();
     else if (SCR === 'detail') {
       setF(detail.btnEls, -1);
       setF(detail.seasonEls, -1);
@@ -49,7 +52,7 @@ var topNav = {
       return;
     this.idx = i;
     var t = chipTarget[i];
-    if (BOARD_SCR[t]) resetBoardPosition({ home: home, lib: lib, cal: cal, tv: tv }[t]);
+    if (BOARD_SCR[t] && t !== 'fold') resetBoardPosition({ home: home, lib: lib, cal: cal }[t]);
     backStack = [];
     scrParams = null;
     if (t !== 'search') search.reset();
@@ -60,9 +63,12 @@ var topNav = {
     } else if (t === 'disc') {
       showScr('disc');
       disc.enter();
-    } else if (t === 'lib' || t === 'cal' || t === 'tv') {
+    } else if (t === 'lib' || t === 'cal') {
       showScr(t);
       curBoard().enter();
+    } else if (t === 'tv') {
+      showScr('tv');
+      channelsView.enter();
     } else if (t === 'search') {
       showScr('search');
       search.enterNav();
@@ -85,6 +91,8 @@ var topNav = {
       disc.focusTop();
     } else if (t === 'addons') {
       addonPanel.focusTop();
+    } else if (t === 'tv') {
+      channelsView.focusTop();
     } else if (t === 'set') {
       settings.focusTop();
     } else {
@@ -118,8 +126,9 @@ var topNav = {
     if (k === 38 || k === 40) {
       var step = k === 38 ? -1 : 1,
         to = this.idx + step;
-      /* Update is there only when a newer version is */
+      /* Update is there only when a newer version is; the Calendar only for Stremio accounts */
       if (chipTarget[to] === 'update' && !pendingUpdate) to += step;
+      if (chipTarget[to] === 'cal' && !calendarShown()) to += step;
       if (to >= 0 && to < chips.length) this.switchTo(to);
     } else if (k === 13 && (SCR === 'detail' || SCR === 'sim')) this.switchTo(this.idx);
     else if (k === 13 && curBoard()) this.chooseSection(this.idx);

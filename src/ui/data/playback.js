@@ -16,7 +16,8 @@ function playUrl(source, type, id, vid, backHash) {
     '&vid=' +
     encodeURIComponent(vid) +
     '&back=' +
-    encodeURIComponent(backHash);
+    encodeURIComponent(backHash) +
+    (isLiveType(type) ? '&live=1' : '');
   /* Keep signed cookies/authorization out of browser history and localStorage. The
      Node service stores a small, sanitized stream reference and returns only its id. */
   var body = streamRefBody(s);
@@ -62,6 +63,33 @@ function resumeSearch(id, vid) {
     q = localStorage.getItem('tvstream_' + id + '_' + vid);
   } catch (e) {}
   return q;
+}
+/* ---------- live channels: watched, never kept (no library, no Continue Watching) ---------- */
+function isLiveType(type) {
+  return type === 'tv' || type === 'channel';
+}
+/* the server made the channel a stream reference (app-channels.js play); the page plays it live */
+function playLive(ref, backHash) {
+  location.assign(
+    appUrl('/play?ref=' + encodeURIComponent(ref) + '&live=1&back=' + encodeURIComponent(backHash))
+  );
+}
+/* any channel: an M3U one plays at once; an addon's opens its sources, the only one at once */
+function playChannel(ch, backHash) {
+  xhrJson(
+    '/app/channels/play?key=' +
+      encodeURIComponent(ch.key || 'a|' + ch.type + '|' + ch.id) +
+      '&name=' +
+      encodeURIComponent(ch.name || '') +
+      '&logo=' +
+      encodeURIComponent(ch.logo || ch.poster || ''),
+    function (j) {
+      if (j && j.ref) return playLive(j.ref, backHash);
+      if (j && j.id) return streamsUI.show(j.type, j.id, j.id, j.name || ch.name, '', '', backHash);
+      toast(tx('sourceFailed'));
+    },
+    20000
+  );
 }
 function playStored(q, backHash) {
   q = q.replace(/&back=[^&]*/, '');

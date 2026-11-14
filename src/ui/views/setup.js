@@ -126,6 +126,83 @@ var rowsPanel = {
     invalidateBoards();
   }
 };
+/* Settings > Channels > Manage lists: each M3U list with its channels and when it was read; OK
+   twice removes one, the last row reads them all again */
+var listsPanel = {
+  open: false,
+  idx: 0,
+  els: [],
+  lists: [],
+  armed: -1,
+  show: function () {
+    var self = this;
+    xhrJson(
+      '/app/channels',
+      function (j) {
+        self.lists = (j && j.lists) || [];
+        if (!self.lists.length) return toast(tx('noLists'));
+        self.open = true;
+        self.idx = 0;
+        self.armed = -1;
+        self.draw();
+      },
+      30000
+    );
+  },
+  draw: function () {
+    var rows = [];
+    for (var i = 0; i < this.lists.length; i++) {
+      var l = this.lists[i],
+        day = l.updated ? new Date(l.updated) : null;
+      rows.push({
+        name: l.name,
+        help: tx('m3uListInfo', l.count, day ? day.getDate() + '/' + (day.getMonth() + 1) : '-'),
+        cls: i === this.armed ? 'moving' : ''
+      });
+    }
+    rows.push({ name: tx('m3uRefreshAll'), cls: 'suskip' });
+    this.els = drawChoices(tx('m3uManage'), rows, tx('removeListConfirm'));
+    setF(this.els, this.idx);
+  },
+  choose: function () {
+    var self = this;
+    if (this.idx === this.lists.length) {
+      toast(tx('syncing'));
+      for (var i = 0; i < this.lists.length; i++)
+        postJson('/app/channels/lists', { refresh: this.lists[i].url }, function () {}, 90000);
+      return this.close();
+    }
+    if (this.armed !== this.idx) {
+      this.armed = this.idx;
+      toast(tx('removeListConfirm'));
+      return this.draw();
+    }
+    postJson(
+      '/app/channels/lists',
+      { remove: this.lists[this.idx].url },
+      function (j) {
+        toast((j && j.message) || tx('m3uRemovedOne'));
+        self.lists.splice(self.idx, 1);
+        self.armed = -1;
+        if (!self.lists.length) return self.close();
+        self.idx = Math.min(self.idx, self.lists.length - 1);
+        self.draw();
+      },
+      20000
+    );
+  },
+  close: function () {
+    this.open = false;
+    $('setupPanel').style.display = 'none';
+  },
+  key: function (k) {
+    if (k === 38) this.idx = Math.max(0, this.idx - 1);
+    else if (k === 40) this.idx = Math.min(this.els.length - 1, this.idx + 1);
+    else if (k === 13) return this.choose();
+    if (this.armed !== this.idx) this.armed = -1;
+    this.draw();
+  }
+};
 var setupPanel = {
   open: false,
   step: 0,

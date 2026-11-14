@@ -101,6 +101,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:Inter
 #failB{display:inline-block;height:auto;padding:22px 52px;font-size:28px}
 #failH{margin-top:26px;font-size:20px;color:rgba(255,255,255,.7)}
 #time .trem{margin-left:18px;opacity:.75}
+#time .live{display:inline-block;padding:4px 14px;border-radius:8px;background:#e53935;color:#fff;font-weight:700;letter-spacing:1px}
 #tlogo{position:fixed;top:44px;left:56px;z-index:4;opacity:0;transition:opacity .2s;pointer-events:none}
 #tlogo img{display:block;max-width:380px;max-height:120px}
 #bar.show~#tlogo{opacity:1}

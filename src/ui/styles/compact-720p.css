@@ -79,9 +79,31 @@
   #setWrap{left:112px}
   #boardTitle{top:30px;left:112px;font-size:34px}
   body.plainboard #rowsClip{top:96px}
-  #m3uCard{width:760px;padding:28px 32px}
-  #m3uTitle{font-size:26px}
-  #m3uBox{font-size:21px;padding:14px 18px}
+  #txCard{width:1180px;margin-top:4vh;padding:26px 30px}
+  #txTitle{font-size:26px}
+  #txLeft{width:800px}
+  #txBox{font-size:20px;padding:12px 16px}
+  #txKeys .skey{width:58px;height:44px;line-height:44px;margin:0 6px 6px 0;font-size:19px}
+  #txKeys .skey.wide{min-width:58px;padding:0 10px;font-size:16px}
+  #txHint,#txSuggestTitle{font-size:15px}
+  #txPhone{width:280px;margin-left:26px}
+  #txQr svg{width:220px;height:220px}
+  #txPhoneText{font-size:15px}
+  #tvWrap{top:30px;left:112px;right:30px}
+  #tvTitle{font-size:34px}
+  #tvCats{top:64px;width:300px}
+  .tvcat{height:46px;line-height:46px;margin-bottom:6px;font-size:17px;padding:0 15px}
+  .tvcat b{font-size:13px;right:13px}
+  #tvList{top:64px;left:320px}
+  .tvch{height:72px;margin-bottom:7px;padding:0 14px}
+  .tvlogo{width:84px;height:54px;line-height:54px;margin:9px 15px 0 0;font-size:22px}
+  .tvlogo img{max-width:78px;max-height:48px}
+  .tvtext{width:calc(100% - 104px);margin-top:7px}
+  .tvname{font-size:18px}
+  .tvnow{font-size:14px}
+  .tvnext{font-size:12px}
+  .tvbar{width:180px;height:3px;margin-top:4px}
+  #tvMsg{top:74px;left:320px;font-size:17px}
   #setTitle{top:34px;font-size:33px}
   #setCats{top:100px;width:220px}
   .setcat{padding:9px 16px;margin-bottom:4px;border-radius:9px;font-size:18px}
@@ -143,7 +165,6 @@
   #aHelp{font-size:18px}
   #aBtns{top:5px}
   #aBtns span{margin-left:9px;padding:10px 19px;font-size:18px}
-  #aUrl{margin-top:14px;padding:10px 15px;font-size:18px}
   #aClip{top:90px}
   .addon{padding:12px 17px;margin-bottom:6px}
   .addon .an{font-size:21px}.addon .ai{font-size:16px}

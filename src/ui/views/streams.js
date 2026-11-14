@@ -24,8 +24,10 @@ var streamsUI = {
   failed: [],
   title: '',
   flushT: null,
-  show: function (type, id, vid, title, bestQuality, bestLanguage) {
+  /* back: where the player returns to, when it is not the title page (a live channel) */
+  show: function (type, id, vid, title, bestQuality, bestLanguage, back) {
     var request = ++this.requestSeq;
+    this.back = back || '';
     this.open = true;
     this.failed = [];
     this.title = title || '';
@@ -103,6 +105,9 @@ var streamsUI = {
           return;
         }
         self.flush();
+        /* a channel with one source plays it at once */
+        if (self.back && self.items.length === 1)
+          return playUrl(self.items[0], self.type, self.id, self.vid, self.back);
         if (bestQuality) {
           if (!self.startBest(bestQuality, bestLanguage)) self.reveal();
           return;
@@ -131,6 +136,7 @@ var streamsUI = {
     bodyAdd('streamsopen');
   },
   backHash: function () {
+    if (this.back) return this.back;
     return 'beta#detail/' + this.type + '/' + this.id + (this.vid !== this.id ? '/' + this.vid : '');
   },
   chooseBest: function () {

@@ -6,7 +6,7 @@ var SCR = 'home';
 var backStack = [];
 var BACK_LIMIT = 20;
 var scrParams = null;
-var BOARD_SCR = { home: 1, lib: 1, fold: 1, cal: 1, tv: 1 };
+var BOARD_SCR = { home: 1, lib: 1, fold: 1, cal: 1 };
 function showScr(name) {
   var el = BOARD_SCR[name]
     ? 'scrBoard'
@@ -15,22 +15,33 @@ function showScr(name) {
         disc: 'scrDisc',
         search: 'scrSearch',
         addons: 'scrAddons',
+        tv: 'scrTv',
         set: 'scrSet',
         login: 'scrLogin',
         sim: 'scrSim'
       }[name];
-  var all = ['scrBoard', 'scrDetail', 'scrDisc', 'scrSearch', 'scrAddons', 'scrSet', 'scrLogin', 'scrSim'];
+  var all = [
+    'scrBoard',
+    'scrDetail',
+    'scrDisc',
+    'scrSearch',
+    'scrAddons',
+    'scrTv',
+    'scrSet',
+    'scrLogin',
+    'scrSim'
+  ];
   for (var i = 0; i < all.length; i++) $(all[i]).className = 'scr' + (all[i] === el ? ' on' : '');
   SCR = name;
   /* the side menu follows the section on screen, also when Back returns to it */
   var section = chipTarget.indexOf(name);
   if (section >= 0) topNav.idx = section;
   if (name !== 'home') bodyRemove('featured');
-  if (name === 'cal' || name === 'tv') {
+  if (name === 'cal') {
     bodyAdd('plainboard');
-    $('boardTitle').textContent = tx(name === 'cal' ? 'navCalendar' : 'navChannels');
-    setBg('');
+    $('boardTitle').textContent = tx('navCalendar');
   } else bodyRemove('plainboard');
+  if (name === 'cal' || name === 'tv') setBg('');
   if (name === 'login') bodyAdd('login');
   else bodyRemove('login');
   paintChips();
@@ -95,9 +106,12 @@ function goScr(name, params, noStack) {
   } else if (name === 'lib') {
     showScr('lib');
     lib.enter();
-  } else if (name === 'cal' || name === 'tv') {
+  } else if (name === 'cal') {
     showScr(name);
-    curBoard().enter();
+    cal.enter();
+  } else if (name === 'tv') {
+    showScr(name);
+    channelsView.enter();
   } else if (name === 'fold') {
     showScr('fold');
     fold.built = false;
@@ -178,7 +192,12 @@ var chips = [
 ];
 var chipTarget = ['profile', 'search', 'home', 'disc', 'lib', 'cal', 'tv', 'addons', 'set', 'update', 'exit'];
 window.__SC_PHASE__('M2');
+/* the calendar follows the series of a Stremio library; a Nuvio account does not show it */
+function calendarShown() {
+  return !isNuvioAccount();
+}
 function paintChips() {
+  $('chipCal').style.display = calendarShown() ? '' : 'none';
   if (topNav.active) bodyAdd('navopen');
   else bodyRemove('navopen');
   for (var i = 0; i < chips.length; i++) {

@@ -53,7 +53,7 @@ function commitSeek() {
   }, 700);
 }
 function seek(d) {
-  if (!v.duration) return;
+  if (!v.duration || LIVE) return;
   if (seekTarget < 0) {
     seekBase = v.currentTime;
     seekAbs = false;
@@ -70,7 +70,7 @@ function seek(d) {
 }
 /* jump to an absolute time (number keys), committed like the other seeks */
 function seekTo(t) {
-  if (!v.duration) return;
+  if (!v.duration || LIVE) return;
   if (seekTarget < 0) seekBase = v.currentTime;
   seekAbs = true;
   seek(t - (seekTarget >= 0 ? seekTarget : v.currentTime));
