@@ -71,9 +71,6 @@ var appInfo = readJson(appInfoPath);
 if (profile.nativeApp) {
   appInfo.type = 'native';
   appInfo.main = 'stremcompat';
-  /* the app registers itself with the system (SDL_HINT_WEBOS_REGISTER_APP); without this the
-     system does not wait for that and closes it right after it opens */
-  appInfo.nativeLifeCycleInterfaceVersion = 2;
   ['disableBackHistoryAPI', 'inspectable', 'supportGIP', 'requiredACG'].forEach(function (key) {
     delete appInfo[key];
   });
