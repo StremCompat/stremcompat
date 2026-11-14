@@ -20,5 +20,6 @@
   "data/new-episodes.js",
   "data/library-actions.js",
   "data/title.js",
+  "data/settings-defs.js",
   "_logic-epilogue.js"
 ]

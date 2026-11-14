@@ -9,6 +9,10 @@ var NEW_EPISODES_KEY = 'newEpisodes',
 function hiddenNewEpisodes() {
   return lsJson(NEW_EPISODES_HIDDEN) || [];
 }
+/* Settings: the new episodes dismissed from Home come back */
+function showHiddenNewEpisodes() {
+  lsSet(NEW_EPISODES_HIDDEN, []);
+}
 function newEpisodeItems() {
   var c = lsJson(NEW_EPISODES_KEY),
     hidden = hiddenNewEpisodes();

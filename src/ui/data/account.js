@@ -188,6 +188,35 @@ function pullLib(cb) {
   });
 }
 /* push one library item up to the account (datastorePut = how Stremio persists it) */
+/* Signing out: the account is told, and what this TV kept of it is forgotten */
+function signOut() {
+  var ak = authKey();
+  postJson(API + '/api/logout', { authKey: ak }, function () {}, 4000);
+  var kill = [];
+  for (var i = 0; i < localStorage.length; i++) {
+    var k = localStorage.key(i);
+    if (
+      k === 'authKey' ||
+      k === 'user' ||
+      k === 'profileFace' ||
+      k === 'newEpisodes' ||
+      k === 'addons' ||
+      k === 'addonsLastModified' ||
+      k === 'blib_migrated' ||
+      k.indexOf('lib_') === 0 ||
+      k.indexOf('blib_') === 0 ||
+      k.indexOf('subs_') === 0 ||
+      k.indexOf('tvstream_') === 0 ||
+      k.indexOf('beta_') === 0
+    )
+      kill.push(k);
+  }
+  for (var j = 0; j < kill.length; j++) {
+    try {
+      localStorage.removeItem(kill[j]);
+    } catch (e) {}
+  }
+}
 /* After a sign-in: the key, then the account's user and addons; done(true) for a Nuvio
    account, which asks whose profile it is first. Addons that take long are not waited for
    more than 4 s once the account answered. */

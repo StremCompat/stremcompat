@@ -31,6 +31,7 @@
   "features/trailers.js",
   "data/library-actions.js",
   "data/title.js",
+  "data/settings-defs.js",
   "views/card-menu.js",
   "views/similar.js",
   "data/episodes.js",

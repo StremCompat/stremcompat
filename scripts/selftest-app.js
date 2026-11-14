@@ -277,13 +277,29 @@ async function main() {
       'the progress was not kept like the web player keeps it'
     );
 
+    /* Settings: the web groups, and a value kept */
+    var set = (await request('/app/settings')).json;
+    assert.ok(set.groups.length > 3, 'the Settings groups are missing');
+    var changed = (await request('/app/settings', { k: 'seekStep', v: '30' })).json;
+    var step = [].concat
+      .apply(
+        [],
+        changed.groups.map(function (g) {
+          return g.items;
+        })
+      )
+      .filter(function (i) {
+        return i.k === 'seekStep';
+      })[0];
+    assert.strictEqual(step.chosen, '30', 'a Settings value was not kept');
+
     var poster = await request('/app/img?u=' + encodeURIComponent(meta.poster));
     assert.ok(poster.status === 200 && poster.text.length > 0, 'a JPEG did not pass through /app/img');
     var nothing = await request('/app/img?u=' + encodeURIComponent('file:///etc/passwd'));
     assert.strictEqual(nothing.status, 404, '/app/img read something other than a web address');
 
     console.log(
-      'OK: storage handed over, account, texts, Home rows, catalog, title with episodes, title page, sources as they arrive, playing and progress, pictures.'
+      'OK: storage handed over, account, texts, Home rows, catalog, title with episodes, title page, sources as they arrive, playing and progress, settings, pictures.'
     );
   } catch (e) {
     console.error(log.slice(-3000));
