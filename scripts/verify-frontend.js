@@ -42,7 +42,10 @@ function validateLegacyFunctionPlacement(name, ast) {
     walk(ast, null, null);
 }
 
-['interface.html', path.join('..', 'app', 'index.html')].forEach(function (relative) {
+/* the web launcher is not there when the native interface takes its place */
+['interface.html', path.join('..', 'app', 'index.html')].filter(function (relative) {
+    return fs.existsSync(path.resolve(root, relative));
+}).forEach(function (relative) {
     var file = path.resolve(root, relative);
     var html = fs.readFileSync(file, 'utf8');
     var match;

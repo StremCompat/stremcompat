@@ -57,8 +57,24 @@ fs.cpSync(path.join(root, 'service'), stageService, {
   }
 });
 
+/* The native interface (built in its own repository with ./build.sh webos) takes the place of
+   the web launcher: the same app, service and ID, drawn by the TV's GPU. */
+if (profile.nativeApp) {
+  ['index.html', 'logo.png', 'fonts'].forEach(function (name) {
+    fs.rmSync(path.join(stageApp, name), { recursive: true, force: true });
+  });
+  fs.cpSync(path.resolve(root, profile.nativeApp), stageApp, { recursive: true });
+}
+
 var appInfoPath = path.join(stageApp, 'appinfo.json');
 var appInfo = readJson(appInfoPath);
+if (profile.nativeApp) {
+  appInfo.type = 'native';
+  appInfo.main = 'stremcompat';
+  ['disableBackHistoryAPI', 'inspectable', 'supportGIP', 'requiredACG'].forEach(function (key) {
+    delete appInfo[key];
+  });
+}
 appInfo.id = profile.appId;
 appInfo.version = profile.version;
 appInfo.resolution = String(profile.graphicsResolution);
@@ -89,11 +105,12 @@ writeJson(serviceManifestPath, serviceManifest);
 profile.build = Date.now().toString(36);
 fs.writeFileSync(path.join(stageService, 'profile.json'), JSON.stringify(profile, null, 2) + '\n');
 
-replaceTokens(path.join(stageApp, 'index.html'), {
-  __APP_PORT__: profile.port,
-  __APP_VERSION__: profile.version,
-  __SERVICE_ID__: profile.serviceId
-});
+if (!profile.nativeApp)
+  replaceTokens(path.join(stageApp, 'index.html'), {
+    __APP_PORT__: profile.port,
+    __APP_VERSION__: profile.version,
+    __SERVICE_ID__: profile.serviceId
+  });
 
 // The server runs on the television's own Node: see scripts/lib/legacy-node.js.
 function prepareForOldNode(file) {

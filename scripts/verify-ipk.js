@@ -61,6 +61,10 @@ if (JSON.parse(serviceInfo.data.toString('utf8')).version !== profile.version) t
   if (!entry) throw new Error(name + ' ausente no IPK.');
   if ((entry.mode & 73) !== 73) throw new Error(name + ' nao esta executavel: ' + entry.mode.toString(8));
 });
+if (profile.nativeApp) {
+  var program = find(entries, new RegExp('/applications/' + profile.appId.replace(/\./g, '\\.') + '/stremcompat$'));
+  if (!program || (program.mode & 73) !== 73) throw new Error('O programa da interface nativa ausente ou nao executavel.');
+}
 if (find(entries, /\/services\/[^\/]+\/server\.js$/)) throw new Error('O servidor de streaming do Stremio nao pode estar no IPK.');
 if (find(entries, /stremio-logo\.png$/)) throw new Error('O logo antigo nao pode estar no IPK.');
 var REQUIRED = [

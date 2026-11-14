@@ -22,13 +22,16 @@ function must(rel) {
   if (!fs.existsSync(file) || !fs.statSync(file).isFile() || !fs.statSync(file).size) throw new Error('Missing or empty: ' + rel);
 }
 
-[
-  'app/appinfo.json', 'app/index.html', 'app/services.json', 'app/logo.png', 'app/fonts/inter-latin-400.woff',
+/* the native interface has its program and assets where the web launcher had its page */
+var APP_FILES = profile.nativeApp
+  ? ['app/appinfo.json', 'app/services.json', 'app/stremcompat', 'app/assets/icons.png', 'app/assets/fonts/Inter-Regular.ttf']
+  : ['app/appinfo.json', 'app/index.html', 'app/services.json', 'app/logo.png', 'app/fonts/inter-latin-400.woff'];
+APP_FILES.concat([
   'service/package.json', 'service/services.json', 'service/launch.js', 'service/profile.js', 'service/profile.json',
   'service/local-server.js', 'service/server/embedded.js', 'service/server/routes.js', 'service/interface.html', 'service/interface.js',
   'service/player/player.css', 'service/player/player-body.html', 'service/player/player-client.js',
   'service/bin/ffmpeg', 'service/bin/ffprobe', 'service/bin/sc-engine', 'service/compat.js', 'service/roots.json'
-].forEach(must);
+]).forEach(must);
 
 if (fs.existsSync(path.join(stage, 'service', 'server.js'))) throw new Error('The Stremio streaming server must not be staged: the TV downloads it.');
 
@@ -51,11 +54,15 @@ var loaded = require(path.join(stage, 'service', 'profile.js')).current;
   if (loaded[key] !== profile[key]) throw new Error('Staged service does not load profile.' + key);
 });
 
-var launcher = read('app/index.html');
-if (/__(APP_PORT|APP_VERSION|SERVICE_ID)__/.test(launcher)) throw new Error('Launcher tokens were not replaced.');
-if (launcher.indexOf('127.0.0.1:' + profile.port + '/') < 0) throw new Error('Launcher port mismatch.');
-if (launcher.indexOf('/beta?v=' + profile.version) < 0) throw new Error('Launcher interface version mismatch.');
-if (launcher.indexOf('luna://' + profile.serviceId + '/start') < 0) throw new Error('Launcher service ID mismatch.');
+if (profile.nativeApp) {
+  if (app.type !== 'native' || app.main !== 'stremcompat') throw new Error('The native app manifest does not start the program.');
+} else {
+  var launcher = read('app/index.html');
+  if (/__(APP_PORT|APP_VERSION|SERVICE_ID)__/.test(launcher)) throw new Error('Launcher tokens were not replaced.');
+  if (launcher.indexOf('127.0.0.1:' + profile.port + '/') < 0) throw new Error('Launcher port mismatch.');
+  if (launcher.indexOf('/beta?v=' + profile.version) < 0) throw new Error('Launcher interface version mismatch.');
+  if (launcher.indexOf('luna://' + profile.serviceId + '/start') < 0) throw new Error('Launcher service ID mismatch.');
+}
 
 var server = read('service/server/embedded.js');
 var shell = read('service/interface.html');

@@ -65,14 +65,15 @@ function fixTarModes(gzipData) {
         var prefix = readAscii(tar, offset + 345, 155);
         var fullName = prefix ? prefix + '/' + name : name;
         var size = parseOctal(tar, offset + 124, 12);
-        if (/\/bin\/(sc-engine|ffmpeg|ffprobe)$/.test(fullName)) {
+        if (/\/bin\/(sc-engine|ffmpeg|ffprobe)$/.test(fullName) || /\/applications\/[^\/]+\/stremcompat$/.test(fullName)) {
             tar.write('0000755\0', offset + 100, 8, 'ascii');
             writeTarChecksum(tar, offset);
             changed += 1;
         }
         offset += 512 + (Math.ceil(size / 512) * 512);
     }
-    if (changed !== 3) throw new Error('Esperava corrigir sc-engine, ffmpeg e ffprobe; encontrados: ' + changed);
+    /* sc-engine, ffmpeg and ffprobe, and the native interface's program when there is one */
+    if (changed !== 3 && changed !== 4) throw new Error('Esperava corrigir sc-engine, ffmpeg e ffprobe; encontrados: ' + changed);
     return zlib.gzipSync(tar, { level: 9 });
 }
 
