@@ -71,6 +71,17 @@
 #txSuggestTitle{margin-top:24px;font-size:22px;font-weight:700;color:rgba(255,255,255,.7)}
 #txSuggest{margin-top:12px}
 #txSuggest .schip{margin:0 12px 12px 0}
+/* ---------- a Collections folder (folder.js) ---------- */
+#fdCover{position:absolute;top:0;left:128px;right:0;height:300px;width:calc(100% - 128px);object-fit:cover;opacity:.55;-webkit-mask-image:linear-gradient(#000 40%,transparent)}
+#fdWrap{position:absolute;top:58px;left:176px;right:48px;bottom:0}
+#scrFolder.covered #fdWrap{top:150px}
+#fdTitle{font-size:50px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#fdTabs{margin-top:20px;white-space:nowrap;overflow:hidden}
+#fdTabs .schip{margin-right:12px}
+#fdTabs .schip.on{box-shadow:inset 0 0 0 2px rgba(255,255,255,.6)}
+#fdGridClip{position:absolute;top:150px;left:-7px;right:0;bottom:0;overflow:hidden;padding:18px 7px 7px}
+#fdGrid{transition:transform .18s cubic-bezier(.2,.8,.2,1)}
+#fdGrid .card{margin-bottom:24px}
 /* ---------- channels (channels.js) ---------- */
 #tvWrap{position:absolute;top:58px;left:176px;right:48px;bottom:30px}
 #tvTitle{font-size:50px;font-weight:800}
@@ -140,6 +151,29 @@
 #aTitle{font-size:50px;font-weight:800;margin-bottom:8px}
 #aHelp{font-size:24px;color:rgba(255,255,255,.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #aBtns{position:absolute;right:0;top:10px}
+/* the store: kinds, then cards three to a row (addons.js addonStore) */
+#aStoreWrap{display:none;position:absolute;top:132px;left:0;right:0;bottom:0}
+#aChips .schip{margin:0 12px 0 0}
+#aChips .schip.on{box-shadow:inset 0 0 0 2px rgba(255,255,255,.6)}
+#aGridClip{position:absolute;top:76px;left:0;right:0;bottom:0;overflow:hidden}
+#aGrid{transition:transform .18s cubic-bezier(.2,.8,.2,1)}
+.scard{display:inline-block;vertical-align:top;width:calc(33.333% - 24px);height:560px;margin:0 24px 24px 0;border-radius:16px;background:rgba(255,255,255,.05);overflow:hidden}
+.scard.f{box-shadow:0 0 0 4px #fff;background:rgba(255,255,255,.1)}
+.simg{height:190px;background:#1b1b1e;text-align:center;line-height:190px;overflow:hidden}
+.simg img{max-width:70%;max-height:150px;vertical-align:middle}
+.simg.cover img{width:100%;height:100%;max-width:none;max-height:none;object-fit:cover}
+.sbody{padding:18px 22px;position:relative;height:332px}
+.sname{font-size:26px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.smeta{margin-top:4px;font-size:17px;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sdesc{margin-top:10px;font-size:18px;line-height:1.38;color:rgba(255,255,255,.78);display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;overflow:hidden;max-height:174px}
+.sbtn{position:absolute;left:22px;bottom:18px;padding:10px 24px;border-radius:24px;font-size:19px;font-weight:700;background:rgba(255,255,255,.12)}
+.scard.f .sbtn{background:#fff;color:#0c0b11}
+#qrPanel{display:none;position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(6,6,7,.92);z-index:97;text-align:center}
+#qrCard{display:inline-block;margin-top:14vh;padding:40px 54px;background:#151517;border:1px solid rgba(255,255,255,.1);border-radius:22px;max-width:760px}
+#qrTitle{font-size:32px;font-weight:800}
+#qrCode svg{width:320px;height:320px;margin-top:24px;background:#fff;border-radius:14px;padding:14px;box-sizing:border-box}
+#qrHint{margin-top:18px;font-size:21px;line-height:1.4;color:rgba(255,255,255,.8)}
+#qrUrl{margin-top:10px;font-size:16px;color:rgba(255,255,255,.45);word-break:break-all}
 #aBtns span{display:inline-block;margin-left:14px;padding:15px 30px;border-radius:13px;font-size:25px;font-weight:700;background:rgba(255,255,255,.14)}
 #aBtns span.f{background:#fff;color:#0c0b11}
 #aClip{position:absolute;top:128px;left:0;right:0;bottom:0;overflow:hidden}

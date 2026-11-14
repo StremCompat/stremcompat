@@ -89,6 +89,20 @@
   #txPhone{width:280px;margin-left:26px}
   #txQr svg{width:220px;height:220px}
   #txPhoneText{font-size:15px}
+  #fdCover{left:80px;width:calc(100% - 80px);height:200px}
+  #fdWrap{top:30px;left:112px;right:30px}
+  #scrFolder.covered #fdWrap{top:96px}
+  #fdTitle{font-size:34px}
+  #fdTabs{margin-top:12px}
+  #fdGridClip{top:100px}
+  #fdGrid .card{margin-bottom:16px}
+  .card.folder{height:264px}
+  .card.folder .fart{bottom:32px}
+  .card.folder .flabel{height:28px;line-height:28px;font-size:14px}
+  .card.folder.f-poster{width:155px}
+  .card.folder.f-square{width:232px}
+  .card.folder.f-wide{width:412px}
+  .card.folder .fglyph{font-size:40px}
   #tvWrap{top:30px;left:112px;right:30px}
   #tvTitle{font-size:34px}
   #tvCats{top:64px;width:300px}
@@ -164,6 +178,19 @@
   #aTitle{font-size:36px;margin-bottom:6px}
   #aHelp{font-size:18px}
   #aBtns{top:5px}
+  #aStoreWrap{top:88px}
+  #aGridClip{top:52px}
+  .scard{height:380px;margin:0 16px 16px 0;width:calc(33.333% - 16px)}
+  .simg{height:126px;line-height:126px}
+  .simg img{max-height:100px}
+  .sbody{padding:12px 15px;height:226px}
+  .sname{font-size:18px}
+  .smeta{font-size:12px}
+  .sdesc{font-size:13px;margin-top:7px;max-height:126px}
+  .sbtn{left:15px;bottom:12px;padding:7px 16px;font-size:13px}
+  #qrCode svg{width:220px;height:220px}
+  #qrTitle{font-size:22px}
+  #qrHint{font-size:15px}
   #aBtns span{margin-left:9px;padding:10px 19px;font-size:18px}
   #aClip{top:90px}
   .addon{padding:12px 17px;margin-bottom:6px}

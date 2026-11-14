@@ -432,6 +432,15 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    folderAll: 'All',
+    folderSourceUnavailable: 'This source comes from TMDB or Trakt, which only Nuvio’s own app can open.',
+    store_all: 'All',
+    store_streams: 'Movies and series',
+    store_channels: 'Channels',
+    store_subtitles: 'Subtitles',
+    store_catalogs: 'Catalogs',
+    storeConfigure: 'Configure on your phone',
+    storeConfigureHint: 'This addon has to be set up first. Scan the code, set it up on your phone, then add it here with "Add by address" (the phone can send the address too).',
     m3uManage: 'Manage lists',
     noLists: 'No M3U list added yet',
     liveLabel: 'LIVE',
@@ -941,6 +950,15 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    folderAll: 'Todos',
+    folderSourceUnavailable: 'Esta fonte vem do TMDB ou do Trakt, que só o app do Nuvio consegue abrir.',
+    store_all: 'Todos',
+    store_streams: 'Filmes e séries',
+    store_channels: 'Canais',
+    store_subtitles: 'Legendas',
+    store_catalogs: 'Catálogos',
+    storeConfigure: 'Configurar no celular',
+    storeConfigureHint: 'Este addon precisa ser configurado antes. Escaneie o código, configure no celular e depois adicione aqui em "Adicionar por endereço" (o celular também pode enviar o endereço).',
     m3uManage: 'Gerenciar listas',
     noLists: 'Nenhuma lista M3U adicionada ainda',
     liveLabel: 'AO VIVO',
@@ -2457,6 +2475,8 @@ function syncCollections(cb) {
       if (cb) cb(false);
       return;
     }
+    /* the Home order kept by Nuvio: catalogs and collections mixed, each one on or off */
+    lsSet('nuvioHome', { items: r.home || [], showType: r.showType !== false });
     var cur = '';
     try {
       cur = localStorage.getItem('nuvioCollections') || '';
@@ -2573,21 +2593,25 @@ function orderedCollections() {
   for (i = 0; i < cols.length; i++) if (cols[i] && !cols[i].pinToTop) out.push(cols[i]);
   return out;
 }
-/* The rows a Collections folder opens to: one per source that points at an installed addon
-   catalog. TMDB and Trakt sources need Nuvio's own feeds and are left out. */
-function folderRowDefs(folder) {
+/* The sources of a Collections folder: one per source that points at an installed addon catalog,
+   with what a page of it needs ({ base, type, id, query, genre }); TMDB and Trakt sources need
+   Nuvio's own feeds, so they come marked unavailable. */
+function folderSources(folder) {
   var a = remoteAddons(),
     byId = {},
     out = [],
-    i;
-  for (i = 0; i < a.length; i++) {
+    showType = (lsJson('nuvioHome') || {}).showType;
+  for (var i = 0; i < a.length; i++) {
     var man = a[i] && a[i].manifest;
     if (man && man.id && !byId[man.id]) byId[man.id] = a[i];
   }
   var sources = folder.sources && folder.sources.length ? folder.sources : folder.catalogSources || [];
   for (var s = 0; s < sources.length && out.length < (TV_PROFILE.catalogRowsCap || 16); s++) {
     var src = sources[s] || {};
-    if (src.provider && src.provider !== 'addon') continue;
+    if (src.provider && src.provider !== 'addon') {
+      out.push({ title: src.title || src.provider, unavailable: true });
+      continue;
+    }
     var addon = byId[src.addonId],
       cats = (addon && addon.manifest.catalogs) || [],
       cat = null;
@@ -2599,27 +2623,56 @@ function folderRowDefs(folder) {
     if (/^(none|null|undefined)$/i.test(genre)) genre = '';
     out.push({
       title:
-        (cat.name ? cat.name : folder.title || '') +
+        (cat.name || folder.title || '') +
         (genre ? ' · ' + genre : '') +
-        ' · ' +
-        typeLabel(cat.type),
+        (showType ? ' · ' + typeLabel(cat.type) : ''),
+      base: addonBase(addon),
       type: cat.type,
-      url:
-        addonBase(addon) +
-        '/catalog/' +
-        cat.type +
-        '/' +
-        encodeURIComponent(cat.id) +
-        (genre ? '/genre=' + encodeURIComponent(genre) : '') +
-        '.json' +
-        addonQuery(addon),
+      id: String(cat.id),
+      query: addonQuery(addon),
+      genre: genre,
       key: catalogCacheKey(addon, cat) + (genre ? '_' + stableHash(genre) : '')
     });
   }
   return out;
 }
+/* a folder as a Home of rows (viewMode ROWS): one row per available source */
+function folderRowDefs(folder) {
+  var out = [],
+    sources = folderSources(folder);
+  for (var i = 0; i < sources.length; i++) {
+    var s = sources[i];
+    if (s.unavailable) continue;
+    out.push({ title: s.title, type: s.type, url: discoverPageUrl(s, s.genre, 0), key: s.key });
+  }
+  return out;
+}
+/* a folder of the profile's Collections by its id */
+function findFolder(id) {
+  var cols = nuvioCollections();
+  for (var c = 0; c < cols.length; c++)
+    for (var f = 0; f < ((cols[c] && cols[c].folders) || []).length; f++)
+      if (String(cols[c].folders[f].id) === String(id)) return cols[c].folders[f];
+  return null;
+}
+/* how a folder page shows: tabs over a grid (Nuvio's default) or rows; "All" first when there is
+   more than one source and the folder asks for it */
+function folderView(folder) {
+  var sources = folderSources(folder),
+    usable = sources.filter(function (s) {
+      return !s.unavailable;
+    });
+  return {
+    title: folder.title || '',
+    cover: folder.coverImageUrl || '',
+    rows: folder.viewMode === 'ROWS',
+    all: folder.showAllTab !== false && usable.length > 1,
+    sources: sources
+  };
+}
 /* Home rows for the Collections: one row of folder tiles per collection (no requests until a
-   folder is opened), only folders that have something to show. */
+   folder is opened), only folders that have something to show. A tile is drawn as Nuvio asks:
+   poster, square or wide, its cover, else its emoji, else the first letters of its name. */
 function collectionTileDefs() {
   var cols = orderedCollections(),
     out = [];
@@ -2628,18 +2681,53 @@ function collectionTileDefs() {
       folders = cols[c].folders || [];
     for (var f = 0; f < folders.length; f++) {
       var folder = folders[f];
-      if (!folder || !folderRowDefs(folder).length) continue;
+      if (!folder || !folderSources(folder).length) continue;
+      var shape = String(folder.tileShape || 'poster').toLowerCase();
       tiles.push({
         folder: folder,
         id: 'folder:' + (folder.id || cols[c].title + '/' + folder.title),
         type: 'folder',
         name: folder.hideTitle ? '' : folder.title || '',
-        background: folder.coverImageUrl || ''
+        poster: folder.coverImageUrl || '',
+        shape: shape === 'landscape' || shape === 'wide' ? 'wide' : shape === 'square' ? 'square' : 'poster',
+        glyph:
+          folder.coverEmoji ||
+          String(folder.title || '?')
+            .slice(0, 2)
+            .toUpperCase()
       });
     }
-    if (tiles.length) out.push({ title: cols[c].title || '', tiles: tiles });
+    if (tiles.length)
+      out.push({
+        title: cols[c].title || '',
+        tiles: tiles,
+        key: 'collection_' + cols[c].id,
+        pinned: !!cols[c].pinToTop
+      });
   }
   return out;
+}
+/* Collections and catalog rows in the order Nuvio keeps (each one on or off, with its own title);
+   pinned collections first, and what Nuvio does not name after the rest */
+function nuvioHomeOrder(cols, cats) {
+  var items = (lsJson('nuvioHome') || {}).items || [],
+    rank = {},
+    all = cols.concat(cats),
+    out = [];
+  for (var i = 0; i < items.length; i++) rank[items[i].key] = items[i];
+  for (var a = 0; a < all.length; a++) {
+    var row = all[a],
+      said = rank[row.nkey || row.key];
+    if (said && !said.enabled) continue;
+    if (said && said.title) row.title = said.title;
+    out.push({ row: row, at: row.pinned ? -1 : said ? said.order : 100000 + a });
+  }
+  out.sort(function (x, y) {
+    return x.at - y.at;
+  });
+  return out.map(function (x) {
+    return x.row;
+  });
 }
 /* every addon catalog that can be a Home row, in the addons' order */
 function boardCatalogs() {
@@ -2661,7 +2749,9 @@ function boardCatalogs() {
         title: (cat.name ? cat.name + ' · ' : '') + typeLabel(cat.type),
         type: cat.type,
         url: base + '/catalog/' + cat.type + '/' + encodeURIComponent(cat.id) + '.json' + addonQuery(a[i]),
-        key: catalogCacheKey(a[i], cat)
+        key: catalogCacheKey(a[i], cat),
+        /* the name Nuvio's Home order uses for it */
+        nkey: man.id + ':' + cat.type + ':' + cat.id
       });
     }
   }
@@ -2712,10 +2802,10 @@ function saveHomeLayout(rows) {
 }
 /* HOME rows = YOUR addon catalogs (in order); Cinemeta defaults if none configured */
 function homeDefs() {
-  var tiles = collectionTileDefs();
-  /* with Nuvio Collections, Home is those collections only, as in Nuvio's own apps */
-  if (tiles.length) return tiles;
-  var cats = homeCatalogs();
+  var cols = collectionTileDefs(),
+    cats = homeCatalogs();
+  /* with Nuvio Collections, Home mixes them with the catalogs as Nuvio's apps do */
+  if (cols.length) return nuvioHomeOrder(cols, cats);
   if (!cats.length)
     cats = [
       {
@@ -3772,6 +3862,7 @@ function showScr(name) {
         search: 'scrSearch',
         addons: 'scrAddons',
         tv: 'scrTv',
+        folder: 'scrFolder',
         set: 'scrSet',
         login: 'scrLogin',
         sim: 'scrSim'
@@ -3783,6 +3874,7 @@ function showScr(name) {
     'scrSearch',
     'scrAddons',
     'scrTv',
+    'scrFolder',
     'scrSet',
     'scrLogin',
     'scrSim'
@@ -3868,6 +3960,9 @@ function goScr(name, params, noStack) {
   } else if (name === 'tv') {
     showScr(name);
     channelsView.enter();
+  } else if (name === 'folder') {
+    showScr(name);
+    folderPage.enter(params.folder);
   } else if (name === 'fold') {
     showScr('fold');
     fold.built = false;
@@ -3958,7 +4053,7 @@ function paintChips() {
   else bodyRemove('navopen');
   for (var i = 0; i < chips.length; i++) {
     var t = chipTarget[i];
-    var cur = t === SCR || (t === 'home' && (SCR === 'detail' || SCR === 'sim'));
+    var cur = t === SCR || (t === 'home' && (SCR === 'detail' || SCR === 'sim' || SCR === 'folder'));
     var f = topNav.active && i === topNav.idx;
     chips[i].className = 'chip' + (cur ? ' cur' : '') + (f ? ' f' : '');
   }
@@ -3993,7 +4088,7 @@ var topNav = {
     else if (SCR === 'tv') {
       channelsView.paintCats();
       channelsView.paintList();
-    } else if (SCR === 'set') settings.paint();
+    } else if (SCR === 'folder') folderPage.paint(); else if (SCR === 'set') settings.paint();
     else if (SCR === 'detail') {
       setF(detail.btnEls, -1);
       setF(detail.seasonEls, -1);
@@ -4833,7 +4928,35 @@ function unloadBoard(b) {
   if (!b) return;
   for (var r = 0; r < b.rows.length; r++) setRowLoaded(b.rows[r], false);
 }
+/* a Collections folder tile: its cover, else its emoji or first letters, and its name under it */
+function makeFolderCard(it, eager) {
+  var d = document.createElement('div'),
+    art = document.createElement('div');
+  d.className = 'card folder f-' + (it.shape || 'poster');
+  art.className = 'fart';
+  if (it.poster) {
+    var img = new Image();
+    img.onerror = function () {
+      art.innerHTML = '<div class="fglyph">' + esc(it.glyph || '') + '</div>';
+    };
+    if (eager) img.src = it.poster;
+    else {
+      img._full = it.poster;
+      img.src = BLANK_IMG;
+    }
+    art.appendChild(img);
+  } else art.innerHTML = '<div class="fglyph">' + esc(it.glyph || '') + '</div>';
+  d.appendChild(art);
+  if (it.name) {
+    var label = document.createElement('div');
+    label.className = 'flabel';
+    label.textContent = it.name;
+    d.appendChild(label);
+  }
+  return d;
+}
 function makeCard(it, wide, label, eager) {
+  if (it.folder) return makeFolderCard(it, eager);
   var d = document.createElement('div');
   d.className = 'card' + (wide ? ' wide' : '') + (label && !wide ? ' labeled' : '');
   /* no artwork: drop the broken image and show the title on a gradient instead */
@@ -5015,7 +5138,7 @@ function loadCatalogRows(board, defs, includeCW, keepFocus) {
     (function (def, di) {
       /* a Collections row: folder tiles, already known, nothing to fetch */
       if (def.tiles) {
-        var tileRow = buildRow(def.title, def.tiles, true, false, di < 3);
+        var tileRow = buildRow(def.title, def.tiles, false, false, di < 3);
         board.rows.push(tileRow);
         reveal(tileRow, 120 + di * 80);
         waiting--;
@@ -5202,10 +5325,8 @@ function buildHomeRows(keep) {
 function openItem(it) {
   /* a channel of an addon's row plays live (its sources), with no title page */
   if (isLiveType(it.type)) return playChannel(it, 'beta#home');
-  if (it.folder) {
-    goScr('fold', { folder: it.folder });
-    return;
-  }
+  /* a folder opens as Nuvio's apps open it: tabs over a grid, or rows when it asks for them */
+  if (it.folder) return goScr(folderView(it.folder).rows ? 'fold' : 'folder', { folder: it.folder });
   if (it.more) {
     disc.openCatalog(it.catalog);
     return;
@@ -9285,44 +9406,43 @@ function askM3uList(after) {
 }
 // Addons screen.
 /* ================= ADDONS =================
-   The account's addons, with three buttons on top: the store (Stremio's list of community
-   addons, OK installs one), adding one by its address, and syncing. OK twice on an installed
-   addon removes it. Changes are made on the account (server/addon-store.js), so they show up
-   on the person's other devices too. */
+   The account's addons, with three buttons on top: the store, adding one by its address, and
+   syncing. OK twice on an installed addon removes it. The store shows the community addons not
+   installed yet, most popular first, as cards three to a row with a small picture and the whole
+   description; one that needs setting up shows a QR code for the phone instead. Changes are made
+   on the account (server/addon-store.js), so they show up on the person's other devices too. */
+var STORE_TYPES = ['all', 'streams', 'channels', 'subtitles', 'catalogs'];
 var addonPanel = {
   idx: 0,
   els: [],
   list: [],
-  store: null,
-  inStore: false,
   armed: -1,
+  inStore: false,
   enter: function () {
     this.inStore = false;
     this.draw();
     animIn($('aWrap'));
     if (!addons().length) this.syncNow(true);
   },
-  /* the three buttons, then the list: the installed addons or the store's */
+  /* the three buttons, then the installed addons */
   draw: function () {
-    var buttons = [$('aStore'), $('aAdd'), $('aSync')];
     $('aStore').textContent = tx('addonStore');
     $('aAdd').textContent = tx('addAddon');
     $('aSync').textContent = tx('syncAddons');
     $('aTitle').textContent = this.inStore ? tx('addonStore') : 'Addons';
     $('aHelp').textContent = tx('addonsHint');
     $('aBtns').style.display = this.inStore ? 'none' : '';
-    this.els = this.inStore ? [] : buttons;
+    $('aClip').style.display = this.inStore ? 'none' : '';
+    $('aStoreWrap').style.display = this.inStore ? 'block' : 'none';
+    if (this.inStore) return addonStore.draw();
+    this.els = [$('aStore'), $('aAdd'), $('aSync')];
     this.idx = Math.min(this.idx, 2);
     this.armed = -1;
-    this.list = this.inStore ? this.store || [] : addons();
-    var host = $('aInner'),
-      mine = {};
+    this.list = addons();
+    var host = $('aInner');
     host.innerHTML = '';
-    var have = addons();
-    for (var h = 0; h < have.length; h++) mine[String(have[h].transportUrl || '')] = 1;
     for (var i = 0; i < this.list.length; i++) {
-      var ad = this.list[i],
-        m = this.inStore ? ad : ad.manifest || {},
+      var m = this.list[i].manifest || {},
         d = document.createElement('div'),
         n = document.createElement('div'),
         info = document.createElement('div');
@@ -9330,10 +9450,9 @@ var addonPanel = {
       n.className = 'an';
       n.textContent = m.name || m.id || 'Addon';
       info.className = 'ai';
-      info.textContent = this.inStore
-        ? (mine[ad.url] ? tx('addonIsInstalled') + '  ·  ' : '') +
-          (ad.description || (ad.types || []).join(' · '))
-        : [m.id || '', m.version || '', (m.types || []).join(' · ')].join('   ').replace(/\s+/g, ' ');
+      info.textContent = [m.id || '', m.version || '', (m.types || []).join(' · ')]
+        .join('   ')
+        .replace(/\s+/g, ' ');
       d.appendChild(n);
       d.appendChild(info);
       host.appendChild(d);
@@ -9342,27 +9461,23 @@ var addonPanel = {
     if (!this.list.length) {
       var empty = document.createElement('div');
       empty.className = 'stmsg';
-      empty.textContent = this.inStore ? tx('storeUnavailable') : tx('noAddons');
+      empty.textContent = tx('noAddons');
       host.appendChild(empty);
     }
-    if (this.inStore) this.idx = 0;
     this.paint();
-  },
-  /* the buttons sit side by side; the list starts after them */
-  first: function () {
-    return this.inStore ? 0 : 3;
   },
   focusTop: function () {
     topNav.active = false;
     this.idx = 0;
-    this.paint();
+    if (this.inStore) addonStore.paint();
+    else this.paint();
     topNav.paint();
   },
   paint: function () {
+    if (this.inStore) return addonStore.paint();
     setF(this.els, topNav.active ? -1 : this.idx);
-    var y = 0,
-      row = this.idx - this.first();
-    if (row > 3) {
+    var y = 0;
+    if (this.idx > 6) {
       var el = this.els[this.idx];
       if (el) y = Math.max(0, el.offsetTop - 220);
     }
@@ -9374,26 +9489,12 @@ var addonPanel = {
     if (!quiet) toast(tx('syncing'));
     syncAddons(function (changed) {
       if (!quiet) toast(changed ? tx('addonsUpdated') : tx('addonsCurrent'));
-      self.draw();
+      if (!self.inStore) self.draw();
       invalidateBoards();
     });
   },
-  openStore: function () {
-    var self = this;
-    this.inStore = true;
-    this.draw();
-    if (this.store) return;
-    xhrJson(
-      '/addons/store',
-      function (j) {
-        self.store = (j && j.addons && j.addons.length && j.addons) || null;
-        if (self.inStore) self.draw();
-      },
-      20000
-    );
-  },
   /* on the account; the addons are synced again after it */
-  change: function (url, remove) {
+  change: function (url, remove, done) {
     var self = this;
     toast(tx('saving'));
     postJson(
@@ -9402,6 +9503,7 @@ var addonPanel = {
       function (j) {
         if (!j || !j.ok) return toast(tx('addonNotChanged'));
         toast(tx(remove ? 'addonRemoved' : 'addonInstalled'));
+        if (done) done();
         self.syncNow(true);
       },
       30000
@@ -9420,12 +9522,16 @@ var addonPanel = {
     });
   },
   activate: function (i) {
-    if (!this.inStore && i === 0) return this.openStore();
-    if (!this.inStore && i === 1) return this.askAddress();
-    if (!this.inStore && i === 2) return this.syncNow();
-    var ad = this.list[i - this.first()];
+    if (this.inStore) return addonStore.activate();
+    if (i === 0) {
+      this.inStore = true;
+      this.draw();
+      return addonStore.open();
+    }
+    if (i === 1) return this.askAddress();
+    if (i === 2) return this.syncNow();
+    var ad = this.list[i - 3];
     if (!ad) return;
-    if (this.inStore) return this.change(ad.url);
     /* removing asks for a second OK */
     if (this.armed !== i) {
       this.armed = i;
@@ -9434,18 +9540,21 @@ var addonPanel = {
     this.change(ad.transportUrl, true);
   },
   back: function () {
+    if (qrPanel.open) return qrPanel.close(), true;
     if (!this.inStore) return false;
     this.inStore = false;
     this.draw();
     return true;
   },
   key: function (k) {
-    var top = !this.inStore && this.idx < 3;
+    if (qrPanel.open) return qrPanel.close(), true;
+    if (this.inStore) return addonStore.key(k);
+    var top = this.idx < 3;
     if (k === 40)
       this.idx = top ? Math.min(this.els.length - 1, 3) : Math.min(this.els.length - 1, this.idx + 1);
     else if (k === 38) {
-      if (this.idx > this.first()) this.idx--;
-      else if (!this.inStore && this.idx >= 3) this.idx = 0;
+      if (this.idx > 3) this.idx--;
+      else if (this.idx >= 3) this.idx = 0;
     } else if (k === 39 && top) this.idx = Math.min(2, this.idx + 1);
     else if (k === 37) {
       if (top && this.idx > 0) this.idx--;
@@ -9454,6 +9563,165 @@ var addonPanel = {
     this.armed = this.armed === this.idx ? this.armed : -1;
     this.paint();
     return true;
+  }
+};
+
+/* ---------- the store: chips for the kinds, then cards three to a row ---------- */
+var addonStore = {
+  type: 'all',
+  zone: 'grid',
+  chipIdx: 0,
+  idx: 0,
+  items: [],
+  more: false,
+  loading: false,
+  gen: 0,
+  open: function () {
+    this.type = 'all';
+    this.chipIdx = 0;
+    this.load(false);
+  },
+  /* the installed addons are left out: the server is told which */
+  load: function (next) {
+    var self = this,
+      gen = ++this.gen;
+    if (!next) {
+      this.items = [];
+      this.idx = 0;
+      this.zone = 'grid';
+    }
+    this.loading = true;
+    var ids = [],
+      have = addons();
+    for (var i = 0; i < have.length; i++)
+      if (have[i].manifest && have[i].manifest.id) ids.push(have[i].manifest.id);
+    this.draw();
+    xhrJson(
+      '/addons/store?type=' +
+        this.type +
+        '&skip=' +
+        this.items.length +
+        '&installed=' +
+        encodeURIComponent(ids.join(',')),
+      function (j) {
+        if (gen !== self.gen) return;
+        self.loading = false;
+        self.items = self.items.concat((j && j.addons) || []);
+        self.more = !!(j && j.more);
+        self.draw();
+      },
+      30000
+    );
+  },
+  picture: function (a) {
+    if (a.background) return { src: '/app/img?w=480&u=' + encodeURIComponent(a.background), cover: true };
+    if (a.logo) return { src: '/app/img?w=240&u=' + encodeURIComponent(a.logo), cover: false };
+    return { src: '/logo.png', cover: false };
+  },
+  draw: function () {
+    var chips = '';
+    for (var c = 0; c < STORE_TYPES.length; c++)
+      chips += '<span class="schip">' + esc(tx('store_' + STORE_TYPES[c])) + '</span>';
+    $('aChips').innerHTML = chips;
+    var html = '';
+    for (var i = 0; i < this.items.length; i++) {
+      var a = this.items[i],
+        pic = this.picture(a);
+      html +=
+        '<div class="scard"><div class="simg' +
+        (pic.cover ? ' cover' : '') +
+        '"><img src="' +
+        esc(pic.src) +
+        "\" onerror=\"this.onerror=null;this.src='/logo.png';this.parentNode.className='simg'\"></div>" +
+        '<div class="sbody"><div class="sname">' +
+        esc(a.name) +
+        '</div><div class="smeta">' +
+        esc([a.version ? 'v' + a.version : '', (a.types || []).join(' · ')].join('   ')) +
+        '</div><div class="sdesc">' +
+        esc(a.description || '') +
+        '</div><div class="sbtn">' +
+        esc(tx(a.configure ? 'storeConfigure' : 'installAddon')) +
+        '</div></div></div>';
+    }
+    if (!this.items.length)
+      html = '<div class="stmsg">' + esc(this.loading ? tx('searching') : tx('storeUnavailable')) + '</div>';
+    $('aGrid').innerHTML = html;
+    this.paint();
+  },
+  paint: function () {
+    var off = topNav.active;
+    setF($('aChips').children, !off && this.zone === 'chips' ? this.chipIdx : -1);
+    var chips = $('aChips').children;
+    for (var c = 0; c < chips.length; c++) if (STORE_TYPES[c] === this.type) chips[c].className += ' on';
+    var cards = $('aGrid').getElementsByClassName('scard');
+    setF(cards, !off && this.zone === 'grid' ? this.idx : -1);
+    /* the focused row in view */
+    var row = Math.floor(this.idx / 3),
+      card = cards[0],
+      y = card && row > 0 ? row * (card.offsetHeight + 24) : 0;
+    $('aGrid').style.transform = 'translateY(-' + y + 'px)';
+    $('aGrid').style.webkitTransform = 'translateY(-' + y + 'px)';
+    if (this.more && !this.loading && this.idx >= this.items.length - 6) this.load(true);
+  },
+  activate: function () {
+    if (this.zone === 'chips') {
+      this.type = STORE_TYPES[this.chipIdx];
+      return this.load(false);
+    }
+    var a = this.items[this.idx],
+      self = this;
+    if (!a) return;
+    if (a.configure) return qrPanel.show(a.name, tx('storeConfigureHint'), a.configure);
+    addonPanel.change(a.url, false, function () {
+      self.items.splice(self.idx, 1);
+      self.idx = Math.min(self.idx, self.items.length - 1);
+      self.draw();
+    });
+  },
+  key: function (k) {
+    if (k === 13) return this.activate(), true;
+    if (this.zone === 'chips') {
+      if (k === 37) {
+        if (this.chipIdx > 0) this.chipIdx--;
+        else topNav.focus();
+      } else if (k === 39) this.chipIdx = Math.min(STORE_TYPES.length - 1, this.chipIdx + 1);
+      else if (k === 40 && this.items.length) this.zone = 'grid';
+    } else if (k === 39) this.idx = Math.min(this.items.length - 1, this.idx + 1);
+    else if (k === 37) {
+      if (this.idx % 3) this.idx--;
+      else topNav.focus();
+    } else if (k === 40) this.idx = Math.min(this.items.length - 1, this.idx + 3);
+    else if (k === 38) {
+      if (this.idx >= 3) this.idx -= 3;
+      else this.zone = 'chips';
+    }
+    this.paint();
+    return true;
+  }
+};
+
+/* a QR code for the phone (an addon's set-up page), closed by any key */
+var qrPanel = {
+  open: false,
+  show: function (title, hint, url) {
+    var self = this;
+    xhrJson(
+      '/addons/qr?u=' + encodeURIComponent(url),
+      function (j) {
+        if (!j || !j.svg) return toast(tx('addonNotChanged'));
+        $('qrTitle').textContent = title;
+        $('qrHint').textContent = hint;
+        $('qrCode').innerHTML = j.svg;
+        $('qrUrl').textContent = url;
+        $('qrPanel').style.display = 'block';
+        self.open = true;
+      },
+      8000
+    );
+  },
+  close: function () {
+    this.open = false;
+    $('qrPanel').style.display = 'none';
   }
 };
 // Channels: live channels as IPTV apps show them, the categories on the left and the focused
@@ -9674,6 +9942,184 @@ var channelsView = {
     }
     this.paintCats();
     this.paintList();
+  }
+};
+// A Nuvio Collections folder as Nuvio's apps open it: its cover on top, a tab per source (and
+// "All" first, mixing them, when the folder asks for it) over a poster grid that keeps loading.
+// A folder set to rows opens as rows instead (boards.js fold).
+var folderPage = {
+  view: null,
+  tabs: [],
+  tabIdx: 0,
+  zone: 'grid',
+  idx: 0,
+  els: [],
+  cols: 6,
+  gen: 0,
+  enter: function (folder) {
+    var v = folderView(folder);
+    this.view = v;
+    this.tabs = [];
+    if (v.all) this.tabs.push({ title: tx('folderAll'), all: true });
+    for (var i = 0; i < v.sources.length; i++)
+      this.tabs.push({ source: v.sources[i], title: v.sources[i].title });
+    for (var t = 0; t < this.tabs.length; t++) {
+      this.tabs[t].items = [];
+      this.tabs[t].skip = 0;
+      this.tabs[t].ended = false;
+    }
+    this.tabIdx = 0;
+    this.zone = 'grid';
+    this.idx = 0;
+    $('fdTitle').textContent = v.title;
+    var cover = $('fdCover');
+    cover.style.display = v.cover ? '' : 'none';
+    if (v.cover) cover.src = '/app/img?w=1280&u=' + encodeURIComponent(v.cover);
+    $('scrFolder').className = 'scr on' + (v.cover ? ' covered' : '');
+    this.drawTabs();
+    this.load();
+  },
+  drawTabs: function () {
+    var html = '';
+    for (var i = 0; i < this.tabs.length; i++)
+      html += '<span class="schip">' + esc(this.tabs[i].title) + '</span>';
+    $('fdTabs').innerHTML = html;
+  },
+  /* the next page of the tab in view; "All" takes the first page of each source, in turn */
+  load: function () {
+    var tab = this.tabs[this.tabIdx],
+      self = this,
+      gen = ++this.gen;
+    if (!tab || tab.loading || tab.ended) return this.render();
+    if (tab.source && tab.source.unavailable) {
+      tab.ended = true;
+      return this.render();
+    }
+    tab.loading = true;
+    this.render();
+    if (!tab.all)
+      return xhrJson(discoverPageUrl(tab.source, tab.source.genre, tab.skip), function (j) {
+        tab.loading = false;
+        var metas = (j && j.metas) || [];
+        tab.items = tab.items.concat(metas);
+        tab.skip += metas.length;
+        tab.ended = !metas.length;
+        if (gen === self.gen) self.render();
+      });
+    var sources = [];
+    for (var s = 0; s < this.tabs.length; s++)
+      if (this.tabs[s].source && !this.tabs[s].source.unavailable) sources.push(this.tabs[s].source);
+    var pages = new Array(sources.length),
+      left = sources.length;
+    sources.forEach(function (src, si) {
+      xhrJson(discoverPageUrl(src, src.genre, 0), function (j) {
+        pages[si] = (j && j.metas) || [];
+        if (--left) return;
+        var seen = {},
+          mixed = [];
+        for (var row = 0; row < 100; row++)
+          for (var p = 0; p < pages.length; p++) {
+            var m = pages[p][row];
+            if (m && !seen[m.type + ':' + m.id]) {
+              seen[m.type + ':' + m.id] = 1;
+              mixed.push(m);
+            }
+          }
+        tab.items = mixed;
+        tab.loading = false;
+        tab.ended = true;
+        if (gen === self.gen) self.render();
+      });
+    });
+  },
+  render: function () {
+    var tab = this.tabs[this.tabIdx] || { items: [] },
+      host = $('fdGrid');
+    host.innerHTML = '';
+    this.els = [];
+    for (var i = 0; i < tab.items.length; i++) {
+      var c = makeCard(tab.items[i], false, true, false);
+      host.appendChild(c);
+      this.els.push(c);
+    }
+    if (!tab.items.length)
+      host.innerHTML =
+        '<div class="stmsg">' +
+        esc(
+          tab.loading
+            ? tx('searching')
+            : tab.source && tab.source.unavailable
+              ? tx('folderSourceUnavailable')
+              : tx('nothingFound')
+        ) +
+        '</div>';
+    this.idx = Math.min(this.idx, Math.max(0, tab.items.length - 1));
+    this.paint();
+  },
+  focusTop: function () {
+    topNav.active = false;
+    this.paint();
+    topNav.paint();
+  },
+  paint: function () {
+    var off = topNav.active;
+    setF($('fdTabs').children, !off && this.zone === 'tabs' ? this.tabIdx : -1);
+    var tabs = $('fdTabs').children;
+    for (var t = 0; t < tabs.length; t++) if (t === this.tabIdx) tabs[t].className += ' on';
+    setF(this.els, !off && this.zone === 'grid' ? this.idx : -1);
+    var small = (document.documentElement.clientHeight || 1080) <= 800,
+      step = small ? 192 : 288,
+      rowH = small ? 288 : 420;
+    this.cols = Math.max(3, Math.floor((($('fdGridClip').clientWidth || contentWidth()) - 14) / step));
+    var row = Math.floor(this.idx / this.cols);
+    /* only the rows near the focus load their posters */
+    for (var i = 0; i < this.els.length; i++) {
+      var imgs = this.els[i].getElementsByTagName('img'),
+        near = Math.abs(Math.floor(i / this.cols) - row) <= 1;
+      for (var z = 0; z < imgs.length; z++) if (near && imgs[z]._full) imgs[z].src = imgs[z]._full;
+    }
+    var y = row > 0 ? row * rowH : 0;
+    $('fdGrid').style.transform = 'translateY(-' + y + 'px)';
+    $('fdGrid').style.webkitTransform = 'translateY(-' + y + 'px)';
+    var tab = this.tabs[this.tabIdx];
+    if (tab && !tab.ended && !tab.loading && this.idx >= tab.items.length - this.cols * 2) this.load();
+  },
+  focusedItem: function () {
+    var tab = this.tabs[this.tabIdx];
+    return tab && this.zone === 'grid' ? tab.items[this.idx] || null : null;
+  },
+  key: function (k) {
+    var tab = this.tabs[this.tabIdx] || { items: [] };
+    if (k === 13) {
+      if (this.zone === 'tabs') {
+        this.zone = 'grid';
+        return this.paint();
+      }
+      var it = tab.items[this.idx];
+      if (it) openItem(it);
+      return;
+    }
+    if (this.zone === 'tabs') {
+      var before = this.tabIdx;
+      if (k === 37) {
+        if (this.tabIdx > 0) this.tabIdx--;
+        else return topNav.focus();
+      } else if (k === 39) this.tabIdx = Math.min(this.tabs.length - 1, this.tabIdx + 1);
+      else if (k === 40 && tab.items.length) this.zone = 'grid';
+      if (before !== this.tabIdx) {
+        this.idx = 0;
+        return this.load();
+      }
+    } else if (k === 39) this.idx = Math.min(tab.items.length - 1, this.idx + 1);
+    else if (k === 37) {
+      if (this.idx % this.cols) this.idx--;
+      else return topNav.focus();
+    } else if (k === 40) this.idx = Math.min(tab.items.length - 1, this.idx + this.cols);
+    else if (k === 38) {
+      if (this.idx >= this.cols) this.idx -= this.cols;
+      else this.zone = 'tabs';
+    }
+    this.paint();
   }
 };
 // Settings and account screen.
@@ -11238,6 +11684,7 @@ on(
     else if (SCR === 'search') search.key(k);
     else if (SCR === 'lib' || SCR === 'cal') curBoard().key(k);
     else if (SCR === 'tv') channelsView.key(k);
+    else if (SCR === 'folder') folderPage.key(k);
     else if (SCR === 'fold') fold.key(k);
     else if (SCR === 'addons') addonPanel.key(k);
     else if (SCR === 'set') settings.key(k);

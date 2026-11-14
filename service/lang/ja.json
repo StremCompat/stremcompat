@@ -500,5 +500,14 @@
   "m3uRefreshAll": "今すぐリストを更新",
   "removeListConfirm": "もう一度OKでこのリストを削除",
   "m3uManage": "リストを管理",
-  "noLists": "M3U リストはまだありません"
+  "noLists": "M3U リストはまだありません",
+  "store_all": "すべて",
+  "store_streams": "映画とシリーズ",
+  "store_channels": "チャンネル",
+  "store_subtitles": "字幕",
+  "store_catalogs": "カタログ",
+  "storeConfigure": "スマホで設定",
+  "storeConfigureHint": "このアドオンは先に設定が必要です。コードを読み取りスマホで設定し、「アドレスで追加」から追加してください。",
+  "folderAll": "すべて",
+  "folderSourceUnavailable": "このソースは TMDB または Trakt のもので、Nuvio のアプリでのみ開けます。"
 }

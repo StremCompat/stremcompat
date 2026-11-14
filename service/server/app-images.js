@@ -1,6 +1,8 @@
-// /app/img: a picture for the native interface. JPEG and PNG pass as they are (the interface
+// /app/img: a picture for the interfaces. JPEG and PNG pass as they are (the native interface
 // decodes and shrinks them itself, off the drawing thread); anything else, such as WebP, becomes
-// a JPEG through FFmpeg, one picture at a time.
+// a JPEG through FFmpeg, one picture at a time. With ?w= a large picture (an IPTV logo of a few
+// megabytes, an addon's background) is made that wide first, so the TV never decodes it whole.
+// Addresses that fail are remembered for a while and not asked again.
 
 var spawn = require('child_process').spawn;
 var { FFMPEG } = require('./config');
@@ -10,6 +12,10 @@ var { NICE, lowerPriority } = require('./priority');
 var IMAGE_LIMIT = 6 * 1024 * 1024;
 var CONVERT_TIMEOUT_MS = 9000;
 var CONVERT_MAX_WIDTH = 1280;
+var SMALL_ENOUGH = 48 * 1024; /* below this a picture passes as it is, even with ?w= */
+var FAILED_KEEP_MS = 30 * 60 * 1000;
+var FAILED_MAX = 500;
+var failed = {}; /* address -> when it failed */
 
 function isJpeg(b) {
   return b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
@@ -65,7 +71,7 @@ function convertNext() {
       '-frames:v',
       '1',
       '-vf',
-      "scale='min(" + CONVERT_MAX_WIDTH + ",iw)':-2",
+      "scale='min(" + job.width + ",iw)':-2",
       '-q:v',
       '4',
       '-f',
@@ -90,23 +96,39 @@ function convertNext() {
   worker.stdin.end(job.input);
 }
 
-function convert(input, cb) {
-  queue.push({ input: input, cb: cb });
+function convert(input, width, cb) {
+  queue.push({ input: input, width: width, cb: cb });
   convertNext();
 }
 
+function remember(address) {
+  var keys = Object.keys(failed);
+  if (keys.length >= FAILED_MAX) delete failed[keys[0]];
+  failed[address] = Date.now();
+}
+
 function appImage(req, res, q) {
-  var address = String(q.u || '');
+  var address = String(q.u || ''),
+    width = Math.max(0, Math.min(CONVERT_MAX_WIDTH, parseInt(q.w, 10) || 0));
   if (!/^https?:\/\//i.test(address)) return missing(res);
+  if (failed[address] && Date.now() - failed[address] < FAILED_KEEP_MS) return missing(res);
   fetchUrl(
     address,
     function (body) {
-      if (!body || !body.length) return missing(res);
-      if (isJpeg(body)) return send(res, 'image/jpeg', body);
-      if (isPng(body)) return send(res, 'image/png', body);
-      convert(body, function (jpeg) {
+      if (!body || !body.length) {
+        remember(address);
+        return missing(res);
+      }
+      var plain = isJpeg(body) ? 'image/jpeg' : isPng(body) ? 'image/png' : '';
+      if (plain && (!width || body.length <= SMALL_ENOUGH)) return send(res, plain, body);
+      convert(body, width || CONVERT_MAX_WIDTH, function (jpeg) {
         if (jpeg) send(res, 'image/jpeg', jpeg);
-        else missing(res);
+        /* without FFmpeg (Samsung) a JPEG or PNG still passes as it is */ else if (plain)
+          send(res, plain, body);
+        else {
+          remember(address);
+          missing(res);
+        }
       });
     },
     0,

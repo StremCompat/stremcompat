@@ -500,5 +500,14 @@
   "m3uRefreshAll": "지금 목록 업데이트",
   "removeListConfirm": "이 목록을 제거하려면 OK를 한 번 더",
   "m3uManage": "목록 관리",
-  "noLists": "아직 추가된 M3U 목록이 없습니다"
+  "noLists": "아직 추가된 M3U 목록이 없습니다",
+  "store_all": "전체",
+  "store_streams": "영화 및 시리즈",
+  "store_channels": "채널",
+  "store_subtitles": "자막",
+  "store_catalogs": "카탈로그",
+  "storeConfigure": "휴대폰에서 설정",
+  "storeConfigureHint": "이 애드온은 먼저 설정해야 합니다. 코드를 스캔해 휴대폰에서 설정한 뒤 \"주소로 추가\"로 추가하세요.",
+  "folderAll": "전체",
+  "folderSourceUnavailable": "이 소스는 TMDB 또는 Trakt에서 오며 Nuvio 앱에서만 열 수 있습니다."
 }

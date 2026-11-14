@@ -500,5 +500,14 @@
   "m3uRefreshAll": "立即更新列表",
   "removeListConfirm": "再按一次 OK 移除此列表",
   "m3uManage": "管理列表",
-  "noLists": "尚未添加 M3U 列表"
+  "noLists": "尚未添加 M3U 列表",
+  "store_all": "全部",
+  "store_streams": "电影和剧集",
+  "store_channels": "频道",
+  "store_subtitles": "字幕",
+  "store_catalogs": "目录",
+  "storeConfigure": "在手机上配置",
+  "storeConfigureHint": "此插件需要先配置。扫描二维码在手机上配置，然后在这里用“按地址添加”添加。",
+  "folderAll": "全部",
+  "folderSourceUnavailable": "此来源来自 TMDB 或 Trakt，只能在 Nuvio 自己的应用中打开。"
 }

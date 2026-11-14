@@ -32,6 +32,8 @@ function syncCollections(cb) {
       if (cb) cb(false);
       return;
     }
+    /* the Home order kept by Nuvio: catalogs and collections mixed, each one on or off */
+    lsSet('nuvioHome', { items: r.home || [], showType: r.showType !== false });
     var cur = '';
     try {
       cur = localStorage.getItem('nuvioCollections') || '';

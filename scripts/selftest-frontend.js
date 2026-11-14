@@ -520,22 +520,28 @@ assert.strictEqual(matchNext([{ addon:'Torrentio',quality:'1080p',title:'x.rar',
   assert.strictEqual(small.applied.length, 0, 'the titles passed by themselves on a TV with little memory');
 })();
 /* Nuvio Collections: pinned first, a folder row per installed addon catalog, None as no genre,
-   and folders with nothing installed left out */
+   TMDB/Trakt folders kept with an unavailable tab, tiles in Nuvio's shape, and Home mixing
+   collections and catalogs in the order Nuvio keeps */
 (function nuvioCollections() {
   var addon = { transportUrl: 'https://a.example/manifest.json', manifest: { id: 'a', catalogs: [{ type: 'movie', id: 'top', name: 'Top' }] } };
   var ctx = {
     window: {}, TV_PROFILE: {}, tx: function (k) { return k; }, addonBase: function () { return 'https://a.example'; }, addonQuery: function () { return ''; },
     remoteAddons: function () { return [addon]; },
+    lsJson: function (k) { return k === 'nuvioHome' ? { items: [{ key: 'a:movie:top', enabled: true, order: 0, title: 'My top' }, { key: 'collection_c1', enabled: true, order: 1 }] } : null; },
     nuvioCollections: function () {
       return [
-        { title: 'Later', folders: [{ id: 'f1', title: 'Films', sources: [{ provider: 'addon', addonId: 'a', type: 'movie', catalogId: 'top', genre: 'None' }] }] },
+        { id: 'c1', title: 'Later', folders: [{ id: 'f1', title: 'Films', tileShape: 'landscape', sources: [{ provider: 'addon', addonId: 'a', type: 'movie', catalogId: 'top', genre: 'None' }] }] },
         { title: 'Pinned', pinToTop: true, folders: [{ id: 'f2', title: 'Kids', sources: [{ provider: 'addon', addonId: 'a', type: 'movie', catalogId: 'top', genre: 'Animation' }] }, { id: 'f3', title: 'Lists', sources: [{ provider: 'trakt' }] }] }
       ];
     }
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'data', 'catalogs.js'), 'utf8'), ctx);
   var rows = ctx.collectionTileDefs();
-  assert.strictEqual(rows.map(function (r) { return r.title + ':' + r.tiles.length; }).join(), 'Pinned:1,Later:1', 'collections out of order, or a folder without installed catalogs kept');
+  assert.strictEqual(rows.map(function (r) { return r.title + ':' + r.tiles.length; }).join(), 'Pinned:2,Later:1', 'collections out of order');
+  assert.ok(ctx.folderView(rows[0].tiles[1].folder).sources[0].unavailable, 'a Trakt folder did not say its source is unavailable');
+  assert.strictEqual(rows[1].tiles[0].shape + rows[0].tiles[0].glyph, 'wideKI', 'a tile lost its shape or its letters');
+  var home = ctx.nuvioHomeOrder(rows, [{ title: 'Top', key: 'k', nkey: 'a:movie:top' }]);
+  assert.strictEqual(home.map(function (h) { return h.title; }).join(), 'Pinned,My top,Later', "Home is not in Nuvio's order");
   var kids = ctx.folderRowDefs(rows[0].tiles[0].folder)[0], films = ctx.folderRowDefs(rows[1].tiles[0].folder)[0];
   assert.strictEqual(kids.url, 'https://a.example/catalog/movie/top/genre=Animation.json', 'a folder genre was not asked of the addon');
   assert.strictEqual(films.url, 'https://a.example/catalog/movie/top.json', 'Nuvio\'s None was taken as a genre');

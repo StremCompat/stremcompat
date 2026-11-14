@@ -79,21 +79,25 @@ function orderedCollections() {
   for (i = 0; i < cols.length; i++) if (cols[i] && !cols[i].pinToTop) out.push(cols[i]);
   return out;
 }
-/* The rows a Collections folder opens to: one per source that points at an installed addon
-   catalog. TMDB and Trakt sources need Nuvio's own feeds and are left out. */
-function folderRowDefs(folder) {
+/* The sources of a Collections folder: one per source that points at an installed addon catalog,
+   with what a page of it needs ({ base, type, id, query, genre }); TMDB and Trakt sources need
+   Nuvio's own feeds, so they come marked unavailable. */
+function folderSources(folder) {
   var a = remoteAddons(),
     byId = {},
     out = [],
-    i;
-  for (i = 0; i < a.length; i++) {
+    showType = (lsJson('nuvioHome') || {}).showType;
+  for (var i = 0; i < a.length; i++) {
     var man = a[i] && a[i].manifest;
     if (man && man.id && !byId[man.id]) byId[man.id] = a[i];
   }
   var sources = folder.sources && folder.sources.length ? folder.sources : folder.catalogSources || [];
   for (var s = 0; s < sources.length && out.length < (TV_PROFILE.catalogRowsCap || 16); s++) {
     var src = sources[s] || {};
-    if (src.provider && src.provider !== 'addon') continue;
+    if (src.provider && src.provider !== 'addon') {
+      out.push({ title: src.title || src.provider, unavailable: true });
+      continue;
+    }
     var addon = byId[src.addonId],
       cats = (addon && addon.manifest.catalogs) || [],
       cat = null;
@@ -105,27 +109,56 @@ function folderRowDefs(folder) {
     if (/^(none|null|undefined)$/i.test(genre)) genre = '';
     out.push({
       title:
-        (cat.name ? cat.name : folder.title || '') +
+        (cat.name || folder.title || '') +
         (genre ? ' · ' + genre : '') +
-        ' · ' +
-        typeLabel(cat.type),
+        (showType ? ' · ' + typeLabel(cat.type) : ''),
+      base: addonBase(addon),
       type: cat.type,
-      url:
-        addonBase(addon) +
-        '/catalog/' +
-        cat.type +
-        '/' +
-        encodeURIComponent(cat.id) +
-        (genre ? '/genre=' + encodeURIComponent(genre) : '') +
-        '.json' +
-        addonQuery(addon),
+      id: String(cat.id),
+      query: addonQuery(addon),
+      genre: genre,
       key: catalogCacheKey(addon, cat) + (genre ? '_' + stableHash(genre) : '')
     });
   }
   return out;
 }
+/* a folder as a Home of rows (viewMode ROWS): one row per available source */
+function folderRowDefs(folder) {
+  var out = [],
+    sources = folderSources(folder);
+  for (var i = 0; i < sources.length; i++) {
+    var s = sources[i];
+    if (s.unavailable) continue;
+    out.push({ title: s.title, type: s.type, url: discoverPageUrl(s, s.genre, 0), key: s.key });
+  }
+  return out;
+}
+/* a folder of the profile's Collections by its id */
+function findFolder(id) {
+  var cols = nuvioCollections();
+  for (var c = 0; c < cols.length; c++)
+    for (var f = 0; f < ((cols[c] && cols[c].folders) || []).length; f++)
+      if (String(cols[c].folders[f].id) === String(id)) return cols[c].folders[f];
+  return null;
+}
+/* how a folder page shows: tabs over a grid (Nuvio's default) or rows; "All" first when there is
+   more than one source and the folder asks for it */
+function folderView(folder) {
+  var sources = folderSources(folder),
+    usable = sources.filter(function (s) {
+      return !s.unavailable;
+    });
+  return {
+    title: folder.title || '',
+    cover: folder.coverImageUrl || '',
+    rows: folder.viewMode === 'ROWS',
+    all: folder.showAllTab !== false && usable.length > 1,
+    sources: sources
+  };
+}
 /* Home rows for the Collections: one row of folder tiles per collection (no requests until a
-   folder is opened), only folders that have something to show. */
+   folder is opened), only folders that have something to show. A tile is drawn as Nuvio asks:
+   poster, square or wide, its cover, else its emoji, else the first letters of its name. */
 function collectionTileDefs() {
   var cols = orderedCollections(),
     out = [];
@@ -134,18 +167,53 @@ function collectionTileDefs() {
       folders = cols[c].folders || [];
     for (var f = 0; f < folders.length; f++) {
       var folder = folders[f];
-      if (!folder || !folderRowDefs(folder).length) continue;
+      if (!folder || !folderSources(folder).length) continue;
+      var shape = String(folder.tileShape || 'poster').toLowerCase();
       tiles.push({
         folder: folder,
         id: 'folder:' + (folder.id || cols[c].title + '/' + folder.title),
         type: 'folder',
         name: folder.hideTitle ? '' : folder.title || '',
-        background: folder.coverImageUrl || ''
+        poster: folder.coverImageUrl || '',
+        shape: shape === 'landscape' || shape === 'wide' ? 'wide' : shape === 'square' ? 'square' : 'poster',
+        glyph:
+          folder.coverEmoji ||
+          String(folder.title || '?')
+            .slice(0, 2)
+            .toUpperCase()
       });
     }
-    if (tiles.length) out.push({ title: cols[c].title || '', tiles: tiles });
+    if (tiles.length)
+      out.push({
+        title: cols[c].title || '',
+        tiles: tiles,
+        key: 'collection_' + cols[c].id,
+        pinned: !!cols[c].pinToTop
+      });
   }
   return out;
+}
+/* Collections and catalog rows in the order Nuvio keeps (each one on or off, with its own title);
+   pinned collections first, and what Nuvio does not name after the rest */
+function nuvioHomeOrder(cols, cats) {
+  var items = (lsJson('nuvioHome') || {}).items || [],
+    rank = {},
+    all = cols.concat(cats),
+    out = [];
+  for (var i = 0; i < items.length; i++) rank[items[i].key] = items[i];
+  for (var a = 0; a < all.length; a++) {
+    var row = all[a],
+      said = rank[row.nkey || row.key];
+    if (said && !said.enabled) continue;
+    if (said && said.title) row.title = said.title;
+    out.push({ row: row, at: row.pinned ? -1 : said ? said.order : 100000 + a });
+  }
+  out.sort(function (x, y) {
+    return x.at - y.at;
+  });
+  return out.map(function (x) {
+    return x.row;
+  });
 }
 /* every addon catalog that can be a Home row, in the addons' order */
 function boardCatalogs() {
@@ -167,7 +235,9 @@ function boardCatalogs() {
         title: (cat.name ? cat.name + ' · ' : '') + typeLabel(cat.type),
         type: cat.type,
         url: base + '/catalog/' + cat.type + '/' + encodeURIComponent(cat.id) + '.json' + addonQuery(a[i]),
-        key: catalogCacheKey(a[i], cat)
+        key: catalogCacheKey(a[i], cat),
+        /* the name Nuvio's Home order uses for it */
+        nkey: man.id + ':' + cat.type + ':' + cat.id
       });
     }
   }
@@ -218,10 +288,10 @@ function saveHomeLayout(rows) {
 }
 /* HOME rows = YOUR addon catalogs (in order); Cinemeta defaults if none configured */
 function homeDefs() {
-  var tiles = collectionTileDefs();
-  /* with Nuvio Collections, Home is those collections only, as in Nuvio's own apps */
-  if (tiles.length) return tiles;
-  var cats = homeCatalogs();
+  var cols = collectionTileDefs(),
+    cats = homeCatalogs();
+  /* with Nuvio Collections, Home mixes them with the catalogs as Nuvio's apps do */
+  if (cols.length) return nuvioHomeOrder(cols, cats);
   if (!cats.length)
     cats = [
       {

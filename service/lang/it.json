@@ -500,5 +500,14 @@
   "m3uRefreshAll": "Aggiorna le liste ora",
   "removeListConfirm": "Premi di nuovo OK per rimuovere questa lista",
   "m3uManage": "Gestisci liste",
-  "noLists": "Nessuna lista M3U aggiunta"
+  "noLists": "Nessuna lista M3U aggiunta",
+  "store_all": "Tutti",
+  "store_streams": "Film e serie",
+  "store_channels": "Canali",
+  "store_subtitles": "Sottotitoli",
+  "store_catalogs": "Cataloghi",
+  "storeConfigure": "Configura sul telefono",
+  "storeConfigureHint": "Questo addon va configurato prima. Scansiona il codice, configuralo sul telefono e poi aggiungilo qui con «Aggiungi per indirizzo».",
+  "folderAll": "Tutti",
+  "folderSourceUnavailable": "Questa fonte viene da TMDB o Trakt, che solo l’app di Nuvio può aprire."
 }

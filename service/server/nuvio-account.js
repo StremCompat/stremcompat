@@ -813,19 +813,40 @@ function addonCollection(session, cb) {
 }
 
 /* the profile's Collections (folders of catalogs built in Nuvio), as Nuvio stores them */
+function parsedJson(raw, fallback) {
+  if (typeof raw !== 'string') return raw || fallback;
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return fallback;
+  }
+}
+/* The profile's Collections, with the order Nuvio keeps for Home (catalogs and collections mixed,
+   each one on or off, sync_pull_home_catalog_settings): { result: [...], home: [...] } */
 function collections(session, cb) {
   rpc(session, 'sync_pull_collections', { p_profile_id: session.profile }, function (rows, status) {
     if (!rows) return cb({ error: { code: status || 0, message: 'collections' } });
     var row = Array.isArray(rows) ? rows[0] : rows,
-      raw = (row && row.collections_json) || [];
-    if (typeof raw === 'string') {
-      try {
-        raw = JSON.parse(raw);
-      } catch (e) {
-        raw = [];
-      }
-    }
-    cb({ result: Array.isArray(raw) ? raw : [] });
+      raw = parsedJson(row && row.collections_json, []);
+    var body = { p_profile_id: session.profile, p_platform: 'home_catalog_shared' };
+    rpc(session, 'sync_pull_home_catalog_settings', body, function (settings) {
+      var blob = Array.isArray(settings) ? settings[0] : settings,
+        json = parsedJson(blob && blob.settings_json, {}) || {},
+        items = (Array.isArray(json.items) ? json.items : []).map(function (it) {
+          return {
+            key: it.is_collection
+              ? 'collection_' + it.collection_id
+              : it.addon_id + ':' + it.type + ':' + it.catalog_id,
+            enabled: it.enabled !== false,
+            order: Number(it.order) || 0,
+            title: String(it.custom_title || '')
+          };
+        });
+      items.sort(function (a, b) {
+        return a.order - b.order;
+      });
+      cb({ result: Array.isArray(raw) ? raw : [], home: items, showType: json.show_catalog_type !== false });
+    });
   });
 }
 

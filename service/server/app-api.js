@@ -70,7 +70,21 @@ function home(req, res) {
   for (var r = 0; r < rows.length; r++) decorate(rows[r].items, rows[r].wide);
   for (var i = 0; i < defs.length; i++) {
     var d = defs[i];
-    if (d.tiles) rows.push({ title: d.title, items: d.tiles, wide: true, collection: true });
+    if (d.tiles)
+      rows.push({
+        title: d.title,
+        collection: true,
+        items: d.tiles.map(function (t) {
+          return {
+            id: t.folder.id,
+            type: 'folder',
+            name: t.name,
+            art: t.poster,
+            shape: t.shape,
+            glyph: t.glyph
+          };
+        })
+      });
     else rows.push({ title: d.title, catalog: { url: d.url, key: d.key, type: d.type }, ranked: !!d.ranked });
   }
   sendJson(res, { rows: rows });
@@ -480,6 +494,65 @@ function act(req, res) {
   });
 }
 
+/* ---------- a Collections folder as Nuvio's apps open it (web: folder.js) ---------- */
+/* GET ?id=: its title, cover and tabs (rows: it asks for rows instead) */
+function folder(req, res, q) {
+  var L = logic(),
+    f = L.findFolder(q.id);
+  if (!f) return fail(res, 404, 'unknown folder');
+  var v = L.folderView(f),
+    tabs = v.sources.map(function (s) {
+      return { title: s.title, unavailable: !!s.unavailable };
+    });
+  if (v.all) tabs.unshift({ title: L.tx('folderAll'), all: true });
+  sendJson(res, { title: v.title, cover: v.cover, rows: v.rows, tabs: tabs });
+}
+
+/* GET ?id=&tab=&skip=: a page of a tab's titles; "All" mixes the first page of each source */
+function folderPage(req, res, q) {
+  var L = logic(),
+    f = L.findFolder(q.id);
+  if (!f) return fail(res, 404, 'unknown folder');
+  var v = L.folderView(f),
+    tab = parseInt(q.tab, 10) || 0,
+    skip = parseInt(q.skip, 10) || 0,
+    usable = v.sources.filter(function (s) {
+      return !s.unavailable;
+    });
+  if (v.all) tab--;
+  function answer(metas, more) {
+    sendJson(res, { items: decorate(metas, false), more: more });
+  }
+  if (tab >= 0) {
+    var s = v.sources[tab];
+    if (!s || s.unavailable) return answer([], false);
+    return fetchAddonJson(L.discoverPageUrl(s, s.genre, skip), function (j) {
+      var metas = (j && j.metas) || [];
+      answer(metas, metas.length > 0);
+    });
+  }
+  var pages = new Array(usable.length),
+    left = usable.length;
+  if (!left) return answer([], false);
+  usable.forEach(function (s, i) {
+    fetchAddonJson(L.discoverPageUrl(s, s.genre, 0), function (j) {
+      pages[i] = (j && j.metas) || [];
+      if (--left) return;
+      var seen = {},
+        mixed = [];
+      for (var r = 0; r < 100; r++)
+        pages.forEach(function (p) {
+          var m = p[r];
+          if (m && !seen[m.type + ':' + m.id]) {
+            seen[m.type + ':' + m.id] = 1;
+            mixed.push(m);
+          }
+        });
+      answer(mixed, false);
+    });
+  });
+}
+
 /* Settings > Organize catalogs: GET every Home row in the viewer's order, the hidden ones
    marked; POST { rows: [{ key, hidden }] } keeps that order */
 function rows(req, res) {
@@ -524,6 +597,8 @@ module.exports = {
     },
     '/app/state': state,
     '/app/rows': rows,
+    '/app/folder': folder,
+    '/app/folder/page': folderPage,
     '/app/handover': runtime.handover,
     '/app/streams': streams,
     '/app/strings': strings,

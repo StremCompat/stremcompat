@@ -176,6 +176,7 @@ on(
     else if (SCR === 'search') search.key(k);
     else if (SCR === 'lib' || SCR === 'cal') curBoard().key(k);
     else if (SCR === 'tv') channelsView.key(k);
+    else if (SCR === 'folder') folderPage.key(k);
     else if (SCR === 'fold') fold.key(k);
     else if (SCR === 'addons') addonPanel.key(k);
     else if (SCR === 'set') settings.key(k);

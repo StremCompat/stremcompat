@@ -16,6 +16,7 @@ function showScr(name) {
         search: 'scrSearch',
         addons: 'scrAddons',
         tv: 'scrTv',
+        folder: 'scrFolder',
         set: 'scrSet',
         login: 'scrLogin',
         sim: 'scrSim'
@@ -27,6 +28,7 @@ function showScr(name) {
     'scrSearch',
     'scrAddons',
     'scrTv',
+    'scrFolder',
     'scrSet',
     'scrLogin',
     'scrSim'
@@ -112,6 +114,9 @@ function goScr(name, params, noStack) {
   } else if (name === 'tv') {
     showScr(name);
     channelsView.enter();
+  } else if (name === 'folder') {
+    showScr(name);
+    folderPage.enter(params.folder);
   } else if (name === 'fold') {
     showScr('fold');
     fold.built = false;
@@ -202,7 +207,7 @@ function paintChips() {
   else bodyRemove('navopen');
   for (var i = 0; i < chips.length; i++) {
     var t = chipTarget[i];
-    var cur = t === SCR || (t === 'home' && (SCR === 'detail' || SCR === 'sim'));
+    var cur = t === SCR || (t === 'home' && (SCR === 'detail' || SCR === 'sim' || SCR === 'folder'));
     var f = topNav.active && i === topNav.idx;
     chips[i].className = 'chip' + (cur ? ' cur' : '') + (f ? ' f' : '');
   }

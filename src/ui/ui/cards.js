@@ -34,7 +34,35 @@ function unloadBoard(b) {
   if (!b) return;
   for (var r = 0; r < b.rows.length; r++) setRowLoaded(b.rows[r], false);
 }
+/* a Collections folder tile: its cover, else its emoji or first letters, and its name under it */
+function makeFolderCard(it, eager) {
+  var d = document.createElement('div'),
+    art = document.createElement('div');
+  d.className = 'card folder f-' + (it.shape || 'poster');
+  art.className = 'fart';
+  if (it.poster) {
+    var img = new Image();
+    img.onerror = function () {
+      art.innerHTML = '<div class="fglyph">' + esc(it.glyph || '') + '</div>';
+    };
+    if (eager) img.src = it.poster;
+    else {
+      img._full = it.poster;
+      img.src = BLANK_IMG;
+    }
+    art.appendChild(img);
+  } else art.innerHTML = '<div class="fglyph">' + esc(it.glyph || '') + '</div>';
+  d.appendChild(art);
+  if (it.name) {
+    var label = document.createElement('div');
+    label.className = 'flabel';
+    label.textContent = it.name;
+    d.appendChild(label);
+  }
+  return d;
+}
 function makeCard(it, wide, label, eager) {
+  if (it.folder) return makeFolderCard(it, eager);
   var d = document.createElement('div');
   d.className = 'card' + (wide ? ' wide' : '') + (label && !wide ? ' labeled' : '');
   /* no artwork: drop the broken image and show the title on a gradient instead */

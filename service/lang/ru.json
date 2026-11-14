@@ -500,5 +500,14 @@
   "m3uRefreshAll": "Обновить списки сейчас",
   "removeListConfirm": "Нажмите OK ещё раз, чтобы удалить список",
   "m3uManage": "Управление списками",
-  "noLists": "Списков M3U пока нет"
+  "noLists": "Списков M3U пока нет",
+  "store_all": "Все",
+  "store_streams": "Фильмы и сериалы",
+  "store_channels": "Каналы",
+  "store_subtitles": "Субтитры",
+  "store_catalogs": "Каталоги",
+  "storeConfigure": "Настроить на телефоне",
+  "storeConfigureHint": "Этот аддон нужно сначала настроить. Отсканируйте код, настройте его на телефоне и добавьте здесь через «Добавить по адресу».",
+  "folderAll": "Все",
+  "folderSourceUnavailable": "Этот источник из TMDB или Trakt, его открывает только приложение Nuvio."
 }

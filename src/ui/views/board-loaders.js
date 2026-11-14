@@ -64,7 +64,7 @@ function loadCatalogRows(board, defs, includeCW, keepFocus) {
     (function (def, di) {
       /* a Collections row: folder tiles, already known, nothing to fetch */
       if (def.tiles) {
-        var tileRow = buildRow(def.title, def.tiles, true, false, di < 3);
+        var tileRow = buildRow(def.title, def.tiles, false, false, di < 3);
         board.rows.push(tileRow);
         reveal(tileRow, 120 + di * 80);
         waiting--;
@@ -251,10 +251,8 @@ function buildHomeRows(keep) {
 function openItem(it) {
   /* a channel of an addon's row plays live (its sources), with no title page */
   if (isLiveType(it.type)) return playChannel(it, 'beta#home');
-  if (it.folder) {
-    goScr('fold', { folder: it.folder });
-    return;
-  }
+  /* a folder opens as Nuvio's apps open it: tabs over a grid, or rows when it asks for them */
+  if (it.folder) return goScr(folderView(it.folder).rows ? 'fold' : 'folder', { folder: it.folder });
   if (it.more) {
     disc.openCatalog(it.catalog);
     return;

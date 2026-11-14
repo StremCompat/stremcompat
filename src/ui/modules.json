@@ -46,6 +46,7 @@
   "views/text-panel.js",
   "views/addons.js",
   "views/channels.js",
+  "views/folder.js",
   "views/settings.js",
   "views/server-address.js",
   "views/login.js",
