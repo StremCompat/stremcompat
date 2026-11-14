@@ -3,7 +3,7 @@
 // the phone approves, or an email and password. The QR comes as rows of modules to draw.
 
 var { fetchJson, readJsonBody, sendJson } = require('./http-util');
-var { chooseProfile, profiles, qrPoll, qrStart } = require('./nuvio-account');
+var { avatars, chooseProfile, profiles, qrPoll, qrStart, saveProfile } = require('./nuvio-account');
 var { qrRows } = require('./qr');
 var runtime = require('./app-runtime');
 
@@ -93,12 +93,34 @@ function useProfile(req, res, q) {
   });
 }
 
+/* the avatars a profile can have */
+function avatarList(req, res) {
+  avatars(runtime.logic().authKey() || '', function (list) {
+    sendJson(res, { avatars: list || [] });
+  });
+}
+
+/* { index (none for a new one), name, color, avatar } -> { ok, index } */
+function saveOne(req, res) {
+  readJsonBody(req, 4096, function (body) {
+    if (!body || !body.name) return sendJson(res, { ok: false });
+    saveProfile(
+      runtime.logic().authKey() || '',
+      { index: body.index, name: String(body.name), color: body.color, avatar: body.avatar },
+      function (index) {
+        sendJson(res, index ? { ok: true, index: index } : { ok: false });
+      }
+    );
+  });
+}
+
 module.exports = {
   routes: {
     '/app/login/start': start,
     '/app/login/poll': poll,
     '/app/profiles': profileList,
-    '/app/profile': useProfile
+    '/app/profile': useProfile,
+    '/app/avatars': avatarList
   },
-  postRoutes: { '/app/login/email': email }
+  postRoutes: { '/app/login/email': email, '/app/profile/save': saveOne }
 };
