@@ -52,7 +52,7 @@ CONFIG="--disable-everything --disable-autodetect --disable-doc --disable-debug 
   --enable-small --enable-zlib --enable-static --disable-shared --enable-ffmpeg --enable-ffprobe --disable-ffplay \
   --enable-network --enable-protocol=http,tcp,file,pipe \
   --enable-demuxer=matroska,mov,mpegts,avi,hls,image2,mjpeg,image_jpeg_pipe,image_png_pipe,image_webp_pipe,srt,ass,webvtt,flv,mp3,aac,ac3,eac3,dts \
-  --enable-parser=h264,hevc,mpeg4video,mpegvideo,vp9,av1,aac,ac3,dca,mpegaudio,mjpeg,png,vorbis,opus,flac \
+  --enable-parser=h264,hevc,mpeg4video,mpegvideo,vp9,av1,aac,ac3,dca,mpegaudio,mjpeg,png,webp,vorbis,opus,flac \
   --enable-decoder=h264,hevc,mpeg4,mpeg2video,vp9,mjpeg,png,webp,subrip,srt,ass,ssa,webvtt,mov_text,text \
   --enable-encoder=mjpeg,subrip,srt \
   --enable-muxer=mjpeg,image2pipe,srt,null --enable-filter=scale,format,null \
