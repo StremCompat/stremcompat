@@ -15,7 +15,7 @@ var PLAYLIST_LIMIT = 2 * 1024 * 1024;
 var IDLE_LIMIT_MS = 20000;
 var LINK_REMEMBERED_MS = 120000;
 var MAX_LINKS_REMEMBERED = 80;
-var PASSED_ON = ['content-type', 'content-length', 'content-range', 'accept-ranges', 'last-modified', 'etag'];
+var PASSED_ON = ['Content-Type', 'Content-Length', 'Content-Range', 'Accept-Ranges', 'Last-Modified', 'ETag'];
 var EXPIRED = { 403: true, 404: true, 410: true };
 var MAX_SEEK_FIXES = 80;
 /* the start of a film waits for these reads: past this, it goes on unchanged */
@@ -100,8 +100,10 @@ function refuse(res, status) {
 
 function passedOnHeaders(upstream) {
   var out = {};
+  // AVPlay on some Samsung firmware looks for canonical range header names on the wire.
   PASSED_ON.forEach(function (name) {
-    if (upstream.headers[name] != null) out[name] = upstream.headers[name];
+    var value = upstream.headers[name.toLowerCase()];
+    if (value != null) out[name] = value;
   });
   return out;
 }
@@ -124,10 +126,10 @@ function sendPlaylist(transfer, address, upstream) {
     var text = rewritePlaylist(Buffer.concat(parts).toString('utf8'), address, transfer.ref);
     var body = Buffer.from(text, 'utf8');
     var headers = passedOnHeaders(upstream);
-    delete headers['content-range'];
-    headers['content-type'] = 'application/vnd.apple.mpegurl';
-    headers['content-length'] = body.length;
-    headers['accept-ranges'] = 'none';
+    delete headers['Content-Range'];
+    headers['Content-Type'] = 'application/vnd.apple.mpegurl';
+    headers['Content-Length'] = body.length;
+    headers['Accept-Ranges'] = 'none';
     res.writeHead(upstream.statusCode, headers);
     res.end(body);
   });
@@ -135,7 +137,7 @@ function sendPlaylist(transfer, address, upstream) {
 
 function sendBytes(transfer, upstream, address, custom) {
   var headers = passedOnHeaders(upstream);
-  headers['accept-ranges'] = headers['accept-ranges'] || 'bytes';
+  headers['Accept-Ranges'] = headers['Accept-Ranges'] || 'bytes';
   transfer.res.writeHead(upstream.statusCode, headers);
   upstream.on('error', function () {
     transfer.res.end();

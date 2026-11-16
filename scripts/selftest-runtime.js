@@ -97,7 +97,13 @@ function request(options, body) {
       });
       res.on('end', function () {
         var text = Buffer.concat(chunks).toString('utf8');
-        resolve({ status: res.statusCode, text: text, headers: res.headers, body: Buffer.concat(chunks) });
+        resolve({
+          status: res.statusCode,
+          text: text,
+          headers: res.headers,
+          rawHeaders: res.rawHeaders,
+          body: Buffer.concat(chunks)
+        });
       });
     });
     req.setTimeout(5000, function () {
@@ -1148,6 +1154,9 @@ async function proxyTests() {
   assert.strictEqual(part.status, 206, 'a Range request lost its status');
   assert.strictEqual(part.text, '234', 'a Range request returned the wrong bytes');
   assert.strictEqual(part.headers['content-range'], 'bytes 2-4/10', 'Content-Range was lost');
+  ['Content-Range', 'Content-Length', 'Accept-Ranges'].forEach(function (name) {
+    assert.ok(part.rawHeaders.indexOf(name) >= 0, name + ' did not retain the casing Samsung AVPlay expects');
+  });
   /* a Matroska file whose first index only chains to a second one is pointed at its Cues */
   var chainedWhole = await viaProxyBytes('/chained.mkv');
   assert.strictEqual(chainedWhole.length, chainedMkv.file.length, 'a patched file changed length');
@@ -1378,12 +1387,14 @@ async function main() {
         res.end('0123456789');
         return;
       }
+      var rangeBody = '0123456789'.slice(+askedRange[1], +askedRange[2] + 1);
       res.writeHead(206, {
-        'Content-Type': 'video/mp4',
-        'Content-Range': 'bytes ' + askedRange[1] + '-' + askedRange[2] + '/10',
-        'Accept-Ranges': 'bytes'
+        'content-type': 'video/mp4',
+        'content-range': 'bytes ' + askedRange[1] + '-' + askedRange[2] + '/10',
+        'content-length': rangeBody.length,
+        'accept-ranges': 'bytes'
       });
-      res.end('0123456789'.slice(+askedRange[1], +askedRange[2] + 1));
+      res.end(rangeBody);
       return;
     }
     if (req.url === '/attrs.m3u8') {
