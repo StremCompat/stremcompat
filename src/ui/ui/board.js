@@ -188,6 +188,8 @@ function makeBoard(loader) {
       if (row.col === old) return;
       setFRow(row, row.col);
       this.slideRow(row);
+      /* the pictures follow the focus along the row */
+      if (row.cardEls && row.cardEls.length > 24) setRowLoaded(row, true);
       this.hero();
     },
     hero: function () {

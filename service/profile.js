@@ -17,7 +17,7 @@ var DEVELOPMENT_PROFILE = {
   targetLabel: 'LG 50UM7500PSB / webOS 4.x',
   lowMemory: false,
   sourceCap: 60,
-  libraryCap: 60,
+  libraryCap: 1000,
   catalogCap: 16,
   catalogRowsCap: 24,
   discoverCap: 80,

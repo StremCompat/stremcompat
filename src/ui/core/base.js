@@ -8,7 +8,7 @@ var TV_PROFILE = window.__SC_PROFILE__ || {
   serviceId: 'io.github.alexesmm.legacytv.server',
   lowMemory: false,
   sourceCap: 60,
-  libraryCap: 60,
+  libraryCap: 1000,
   catalogCap: 16,
   catalogRowsCap: 24,
   discoverCap: 80

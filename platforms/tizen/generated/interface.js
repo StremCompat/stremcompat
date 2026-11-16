@@ -99,7 +99,7 @@ var TV_PROFILE = window.__SC_PROFILE__ || {
   serviceId: 'io.github.alexesmm.legacytv.server',
   lowMemory: false,
   sourceCap: 60,
-  libraryCap: 60,
+  libraryCap: 1000,
   catalogCap: 16,
   catalogRowsCap: 24,
   discoverCap: 80
@@ -4466,6 +4466,8 @@ function makeBoard(loader) {
       if (row.col === old) return;
       setFRow(row, row.col);
       this.slideRow(row);
+      /* the pictures follow the focus along the row */
+      if (row.cardEls && row.cardEls.length > 24) setRowLoaded(row, true);
       this.hero();
     },
     hero: function () {
@@ -5047,17 +5049,24 @@ function setRowLoaded(row, on) {
   if (!row || !row.cardsEl) return;
   if (row._loaded === on && on !== true) return;
   row._loaded = on;
-  var imgs = row.cardsEl.getElementsByTagName('img');
-  for (var i = imgs.length - 1; i >= 0; i--) {
-    var im = imgs[i];
-    if (!on) {
-      if (im.src && im.src !== BLANK_IMG) {
-        im._full = im.src;
-        im.src = BLANK_IMG;
+  /* within a row only the cards near its focus keep their pictures, so a row of hundreds of titles
+     (a big Library) costs no more than a short one */
+  var cards = row.cardEls && row.cardEls.length ? row.cardEls : [row.cardsEl],
+    col = row.col || 0;
+  for (var c = 0; c < cards.length; c++) {
+    var near = on && (cards === row.cardEls ? c >= col - 8 && c <= col + 16 : true),
+      imgs = cards[c].getElementsByTagName('img');
+    for (var i = imgs.length - 1; i >= 0; i--) {
+      var im = imgs[i];
+      if (!near) {
+        if (im.src && im.src !== BLANK_IMG) {
+          im._full = im.src;
+          im.src = BLANK_IMG;
+        }
+      } else if (im._full) {
+        im.src = im._full;
+        im._full = null;
       }
-    } else if (im._full) {
-      im.src = im._full;
-      im._full = null;
     }
   }
 }
