@@ -10,6 +10,8 @@
 #dInfo div{margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #dInfo .facts{font-size:22px;color:rgba(255,255,255,.6)}
 #dInfo .awards{font-size:23px;color:rgba(245,197,24,.86)}
+body #dDesc.rolling,body.series-episode #dDesc.rolling{display:block;-webkit-line-clamp:none;max-height:none}
+#dDesc .dtx{display:block}
 #dDesc{margin-top:12px;font-size:27px;line-height:1.45;color:rgba(255,255,255,.78);max-width:60%;max-height:118px;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
 #dBtns{margin-top:32px}
 .btn{display:-webkit-inline-flex;display:inline-flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;box-sizing:border-box;height:64px;margin-right:12px;border-radius:32px;font-size:26px;font-weight:700;vertical-align:top;background:rgba(255,255,255,.1);color:rgba(255,255,255,.9);transition:background .12s ease}

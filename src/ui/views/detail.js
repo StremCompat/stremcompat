@@ -1,3 +1,60 @@
+/* A description longer than its box: after a few seconds with the page still, the text rolls slowly
+   up inside the same box, rests at the end and comes back, as TV streaming apps do; any key brings
+   it back to the top. Nothing keeps running once the title page is left. */
+var descRoll = {
+  t: null,
+  stop: function () {
+    if (this.t) clearTimeout(this.t);
+    this.t = null;
+    var el = $('dDesc');
+    if (el && / rolling/.test(el.className)) {
+      var text = el.textContent;
+      el.className = el.className.replace(/ rolling/g, '');
+      el.style.height = '';
+      el.textContent = text;
+    }
+  },
+  arm: function () {
+    var self = this;
+    this.stop();
+    this.t = setTimeout(function () {
+      self.roll();
+    }, 3000);
+  },
+  roll: function () {
+    var el = $('dDesc'),
+      self = this;
+    this.t = null;
+    if (SCR !== 'detail' || !el || el.style.display === 'none' || el.scrollHeight <= el.clientHeight + 2)
+      return;
+    var box = el.clientHeight,
+      text = el.textContent;
+    el.style.height = box + 'px';
+    el.className += ' rolling';
+    el.innerHTML = '<span class="dtx">' + esc(text) + '</span>';
+    var span = el.firstChild,
+      dist = span.offsetHeight - box;
+    if (dist <= 0) return this.stop();
+    var secs = Math.max(4, Math.round(dist / 22));
+    function move(y, s) {
+      span.style.webkitTransition = '-webkit-transform ' + s + 's linear';
+      span.style.transition = 'transform ' + s + 's linear';
+      span.style.webkitTransform = span.style.transform = 'translateY(-' + y + 'px)';
+    }
+    this.t = setTimeout(function () {
+      move(dist, secs);
+      self.t = setTimeout(
+        function () {
+          move(0, 1);
+          self.t = setTimeout(function () {
+            self.roll();
+          }, 4000);
+        },
+        (secs + 3) * 1000
+      );
+    }, 50);
+  }
+};
 // Title detail screen: actions, seasons, episode ranges and episode list.
 var detail = {
   meta: null,
@@ -104,6 +161,7 @@ var detail = {
     if (m.awards) info += '<div class="awards">' + esc(m.awards) + '</div>';
     $('dInfo').innerHTML = info;
     $('dDesc').textContent = m.description || '';
+    descRoll.arm();
     this.baseMeta = $('dMeta').innerHTML;
     this.baseInfo = info;
     this.baseDesc = m.description || '';
@@ -371,6 +429,7 @@ var detail = {
     streamsUI.show(this.type, this.id, vid, this.meta && this.meta.name);
   },
   key: function (k) {
+    descRoll.arm();
     if (this.zone === 'btns') {
       if (k === 39) this.btnIdx = Math.min(this.btnEls.length - 1, this.btnIdx + 1);
       else if (k === 37) {

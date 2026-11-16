@@ -40,6 +40,8 @@ window.__logic = {
   homeLibraryRows: homeLibraryRows,
   homeRowChoices: homeRowChoices,
   folderView: folderView,
+  folderSources: folderSources,
+  discoverMax: discoverMax,
   findFolder: findFolder,
   dropLiveFromLibrary: dropLiveFromLibrary,
   saveHomeLayout: saveHomeLayout,

@@ -195,7 +195,7 @@ var disc = {
       'beta_discover_v3_' + stableHash([(cat && cat.key) || '', genre.value || 'all'].join('|'));
     var cached = lsJson(this.cacheKey);
     if (cached && cached.v === 3 && cached.items && cached.items.length) {
-      this.items = cached.items.slice(0, TV_PROFILE.discoverCap || 40);
+      this.items = cached.items.slice(0, discoverMax());
       this.skip = cached.skip || this.items.length;
       this.ended = !!cached.ended;
       this.renderGrid();
@@ -207,7 +207,7 @@ var disc = {
     var self = this,
       gen = expectedGen == null ? this.gen : expectedGen,
       url = this.pageUrl(offset),
-      cap = TV_PROFILE.discoverCap || 40;
+      cap = discoverMax();
     if (!url) return;
     this.loading = true;
     this.request = xhrJson(url, function (j) {
@@ -256,7 +256,14 @@ var disc = {
       } else for (i = 0; i < incoming.length && self.items.length < cap; i++) self.items.push(incoming[i]);
       self.skip = Math.max(self.skip, offset + metas.length);
       if (!metas.length || (!incoming.length && offset > 0) || self.items.length >= cap) self.ended = true;
-      lsSet(self.cacheKey, { v: 3, t: Date.now(), items: self.items, skip: self.skip, ended: self.ended });
+      /* only the first pages are kept for the next visit: the rest comes again from the addon */
+      lsSet(self.cacheKey, {
+        v: 3,
+        t: Date.now(),
+        items: self.items.slice(0, DISCOVER_CACHED),
+        skip: Math.min(self.skip, DISCOVER_CACHED),
+        ended: self.ended && self.items.length <= DISCOVER_CACHED
+      });
       self.renderGrid();
     });
   },
@@ -264,11 +271,31 @@ var disc = {
     if (this.zone === 'grid' && !this.loading && !this.ended && this.items.length - this.idx <= this.cols * 2)
       this.requestPage(this.skip, false, this.gen);
   },
+  /* Only the rows around the focus exist on screen (a spacer stands for the ones above), so the
+     list can grow far without the TV holding hundreds of cards; moving near an edge of that window
+     builds it again around the focus. */
+  gridCols: function () {
+    var step = (document.documentElement.clientHeight || 1080) <= 800 ? 192 : 288,
+      gridWidth = $('discGridClip').clientWidth || contentWidth();
+    return Math.max(3, Math.floor((gridWidth - 14) / step));
+  },
+  gridRowH: function () {
+    return (document.documentElement.clientHeight || 1080) <= 800 ? 288 : 420;
+  },
   renderGrid: function () {
-    var host = $('discGrid');
+    var host = $('discGrid'),
+      cols = (this.cols = this.gridCols()),
+      row = Math.floor(this.idx / cols);
     host.innerHTML = '';
     this.els = [];
-    for (var i = 0; i < this.items.length; i++) {
+    this.base = Math.max(0, row - 2) * cols;
+    this.winEnd = Math.min(this.items.length, (row + 5) * cols);
+    if (this.base) {
+      var spacer = document.createElement('div');
+      spacer.style.height = (this.base / cols) * this.gridRowH() + 'px';
+      host.appendChild(spacer);
+    }
+    for (var i = this.base; i < this.winEnd; i++) {
       var c = makeCard(this.items[i], false, true, false);
       host.appendChild(c);
       this.els.push(c);
@@ -283,7 +310,15 @@ var disc = {
   },
   paint: function () {
     setF(this.filterEls, !topNav.active && this.zone === 'filters' ? this.filterIdx : -1);
-    setF(this.els, !topNav.active && this.zone === 'grid' ? this.idx : -1);
+    var cols = (this.cols = this.gridCols());
+    /* the focus near an edge of the window on screen: build it again around the focus */
+    if (
+      this.els.length &&
+      ((this.base && this.idx < this.base + cols) ||
+        (this.winEnd < this.items.length && this.idx >= this.winEnd - cols))
+    )
+      return this.renderGrid();
+    setF(this.els, !topNav.active && this.zone === 'grid' ? this.idx - (this.base || 0) : -1);
     setF(this.optionEls, !topNav.active && this.zone === 'filters' && this.filterOpen ? this.optionIdx : -1);
     if (this.menuEl && this.optionEls[this.optionIdx]) {
       var option = this.optionEls[this.optionIdx],
@@ -293,14 +328,11 @@ var disc = {
       else if (bottom > this.menuEl.scrollTop + this.menuEl.clientHeight)
         this.menuEl.scrollTop = bottom - this.menuEl.clientHeight;
     }
-    var step = (document.documentElement.clientHeight || 1080) <= 800 ? 192 : 288,
-      gridWidth = $('discGridClip').clientWidth || contentWidth();
-    this.cols = Math.max(3, Math.floor((gridWidth - 14) / step));
-    var row = Math.floor(this.idx / this.cols),
-      rowH = (document.documentElement.clientHeight || 1080) <= 800 ? 288 : 420;
+    var row = Math.floor(this.idx / cols),
+      rowH = this.gridRowH();
     for (var i = 0; i < this.els.length; i++) {
       var imgs = this.els[i].getElementsByTagName('img'),
-        near = Math.abs(Math.floor(i / this.cols) - row) <= 1;
+        near = Math.abs(Math.floor((this.base + i) / cols) - row) <= 1;
       for (var z = 0; z < imgs.length; z++) {
         var im = imgs[z];
         if (near && im._full) {

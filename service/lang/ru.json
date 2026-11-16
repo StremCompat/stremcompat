@@ -509,5 +509,13 @@
   "storeConfigure": "Настроить на телефоне",
   "storeConfigureHint": "Этот аддон нужно сначала настроить. Отсканируйте код, настройте его на телефоне и добавьте здесь через «Добавить по адресу».",
   "folderAll": "Все",
-  "folderSourceUnavailable": "Этот источник из TMDB или Trakt, его открывает только приложение Nuvio."
+  "folderSourceUnavailable": "Этот источник из TMDB или Trakt, его открывает только приложение Nuvio.",
+  "folderAddonMissing": "Установите аддон {0} в Nuvio, чтобы увидеть этот список.",
+  "folderLists": "Списков: {0}",
+  "folderExplore": "OK, чтобы открыть",
+  "discoverMaxLabel": "Названий в «Обзоре»",
+  "discoverMax80": "80 (слабые ТВ)",
+  "discoverMax200": "200 (стандарт)",
+  "discoverMax500": "500 (ТВ с большей памятью)",
+  "pointerLabel": "Указатель Magic Remote"
 }

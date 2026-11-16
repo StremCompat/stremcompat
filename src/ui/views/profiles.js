@@ -175,7 +175,8 @@ var profilePanel = {
     var p = this.list[i];
     if (!p) return this.edit(null);
     var self = this;
-    if (p.locked && !p.current)
+    /* a protected profile asks its PIN every time the app opens, the one in use included */
+    if (p.locked)
       return this.askPin(tx('pinEnter', p.name || tx('profileNumber', p.index)), p, function (pin) {
         self.use(p, pin);
       });
@@ -186,7 +187,7 @@ var profilePanel = {
   use: function (p, pin) {
     var self = this;
     this.open = false;
-    if (p.current) {
+    if (p.current && !p.locked) {
       lsSet('profileFace', { name: p.name, color: p.color, avatar: p.avatar });
       return this.done(false);
     }
@@ -210,7 +211,7 @@ var profilePanel = {
         postJson(API + '/api/getUser', { authKey: self.account }, function (u) {
           if (u && u.result) lsSet('user', u.result);
           lsRawSet('addons', '');
-          self.done(true);
+          self.done(!p.current);
         });
       },
       20000

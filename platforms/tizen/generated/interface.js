@@ -484,6 +484,14 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    folderAddonMissing: 'Install the {0} addon in Nuvio to see this list.',
+    folderLists: '{0} lists',
+    folderExplore: 'OK to explore',
+    discoverMaxLabel: 'Titles in Discover',
+    discoverMax80: '80 (weaker TVs)',
+    discoverMax200: '200 (standard)',
+    discoverMax500: '500 (TVs with more memory)',
+    pointerLabel: 'Magic Remote pointer',
     folderAll: 'All',
     folderSourceUnavailable: 'This source comes from TMDB or Trakt, which only Nuvio’s own app can open.',
     store_all: 'All',
@@ -1002,6 +1010,14 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    folderAddonMissing: 'Instale o addon {0} no Nuvio para ver esta lista.',
+    folderLists: '{0} listas',
+    folderExplore: 'OK para explorar',
+    discoverMaxLabel: 'Títulos no Descobrir',
+    discoverMax80: '80 (TVs mais fracas)',
+    discoverMax200: '200 (padrão)',
+    discoverMax500: '500 (TVs com mais memória)',
+    pointerLabel: 'Ponteiro do Magic Remote',
     folderAll: 'Todos',
     folderSourceUnavailable: 'Esta fonte vem do TMDB ou do Trakt, que só o app do Nuvio consegue abrir.',
     store_all: 'Todos',
@@ -2189,6 +2205,13 @@ function uiLook() {
     ? 'light'
     : 'standard';
 }
+/* how many titles Discover keeps loading (Settings); small TVs start lower */
+var DISCOVER_CACHED = 80;
+function discoverMax() {
+  var chosen = parseInt(lsRaw('discoverMax', ''), 10);
+  if (chosen > 0) return chosen;
+  return (TV_PROFILE.discoverCap || 80) < 80 ? 80 : 200;
+}
 /* Simple: fewer choices on screen (Settings) */
 function simpleMode() {
   return lsRaw('uiMode', 'full') === 'simple';
@@ -2666,10 +2689,24 @@ function folderSources(folder) {
     }
     var addon = byId[src.addonId],
       cats = (addon && addon.manifest.catalogs) || [],
-      cat = null;
-    for (var k = 0; k < cats.length; k++)
-      if (cats[k] && cats[k].type === src.type && String(cats[k].id) === String(src.catalogId)) cat = cats[k];
-    if (!cat) continue;
+      cat = null,
+      byIdOnly = null;
+    for (var k = 0; k < cats.length; k++) {
+      if (!cats[k] || String(cats[k].id) !== String(src.catalogId)) continue;
+      if (cats[k].type === src.type) cat = cats[k];
+      else if (!byIdOnly) byIdOnly = cats[k];
+    }
+    /* the same catalog under another type (anime kept as series, say) still counts */
+    cat = cat || byIdOnly;
+    /* an addon or catalog not here keeps its place, marked, so the folder never disappears */
+    if (!cat) {
+      out.push({
+        title: (addon && addon.manifest.name) || src.addonId || '?',
+        unavailable: true,
+        missing: true
+      });
+      continue;
+    }
     /* Nuvio stores "no genre" as the text None (or null) */
     var genre = src.genre ? String(src.genre).trim() : '';
     if (/^(none|null|undefined)$/i.test(genre)) genre = '';
@@ -2726,7 +2763,8 @@ function collectionTileDefs() {
     for (var f = 0; f < folders.length; f++) {
       var folder = folders[f];
       if (!folder || !folderSources(folder).length) continue;
-      var shape = String(folder.tileShape || 'poster').toLowerCase();
+      /* Nuvio's own default shape is square */
+      var shape = String(folder.tileShape || 'square').toLowerCase();
       tiles.push({
         folder: folder,
         id: 'folder:' + (folder.id || cols[c].title + '/' + folder.title),
@@ -4450,6 +4488,7 @@ function makeBoard(loader) {
         return;
       }
       this.heroItem = it;
+      if (it.folder) return this.heroFolder(it);
       var lg = $('heroLogo'),
         tt = $('heroTitle');
       var self = this;
@@ -4500,6 +4539,38 @@ function makeBoard(loader) {
           }
         });
       }
+    },
+    /* a Collections folder: its own backdrop and title logo when the collection has them (Nuvio's
+       order: hero backdrop, then cover, then backdrop), how many lists it holds, OK to explore */
+    heroFolder: function (it) {
+      var f = it.folder,
+        lg = $('heroLogo'),
+        tt = $('heroTitle'),
+        self = this;
+      function viaServer(u, w) {
+        return u ? '/app/img?w=' + w + '&u=' + encodeURIComponent(u) : '';
+      }
+      tt.textContent = f.title || '';
+      tt.className = heroTitleClass(f.title);
+      tt.style.display = '';
+      lg.style.display = 'none';
+      if (f.titleLogoUrl) {
+        var logo = viaServer(f.titleLogoUrl, 800),
+          im = new Image();
+        im.onload = function () {
+          if (self.heroItem !== it) return;
+          lg.src = logo;
+          lg.style.display = 'block';
+          tt.style.display = 'none';
+        };
+        im.src = logo;
+      }
+      var n = folderSources(f).length;
+      $('heroMeta').innerHTML = '';
+      $('heroGenres').textContent = '';
+      setHeroDesc(tx('folderLists', n) + ' · ' + tx('folderExplore'));
+      $('heroCast').textContent = '';
+      setBg(viaServer(f.heroBackdropUrl || f.coverImageUrl || f.backdropImageUrl, 1280));
     },
     focusedItem: function () {
       if (this === home && featuredShown()) return featuredItem();
@@ -4741,7 +4812,7 @@ var disc = {
       'beta_discover_v3_' + stableHash([(cat && cat.key) || '', genre.value || 'all'].join('|'));
     var cached = lsJson(this.cacheKey);
     if (cached && cached.v === 3 && cached.items && cached.items.length) {
-      this.items = cached.items.slice(0, TV_PROFILE.discoverCap || 40);
+      this.items = cached.items.slice(0, discoverMax());
       this.skip = cached.skip || this.items.length;
       this.ended = !!cached.ended;
       this.renderGrid();
@@ -4753,7 +4824,7 @@ var disc = {
     var self = this,
       gen = expectedGen == null ? this.gen : expectedGen,
       url = this.pageUrl(offset),
-      cap = TV_PROFILE.discoverCap || 40;
+      cap = discoverMax();
     if (!url) return;
     this.loading = true;
     this.request = xhrJson(url, function (j) {
@@ -4802,7 +4873,14 @@ var disc = {
       } else for (i = 0; i < incoming.length && self.items.length < cap; i++) self.items.push(incoming[i]);
       self.skip = Math.max(self.skip, offset + metas.length);
       if (!metas.length || (!incoming.length && offset > 0) || self.items.length >= cap) self.ended = true;
-      lsSet(self.cacheKey, { v: 3, t: Date.now(), items: self.items, skip: self.skip, ended: self.ended });
+      /* only the first pages are kept for the next visit: the rest comes again from the addon */
+      lsSet(self.cacheKey, {
+        v: 3,
+        t: Date.now(),
+        items: self.items.slice(0, DISCOVER_CACHED),
+        skip: Math.min(self.skip, DISCOVER_CACHED),
+        ended: self.ended && self.items.length <= DISCOVER_CACHED
+      });
       self.renderGrid();
     });
   },
@@ -4810,11 +4888,31 @@ var disc = {
     if (this.zone === 'grid' && !this.loading && !this.ended && this.items.length - this.idx <= this.cols * 2)
       this.requestPage(this.skip, false, this.gen);
   },
+  /* Only the rows around the focus exist on screen (a spacer stands for the ones above), so the
+     list can grow far without the TV holding hundreds of cards; moving near an edge of that window
+     builds it again around the focus. */
+  gridCols: function () {
+    var step = (document.documentElement.clientHeight || 1080) <= 800 ? 192 : 288,
+      gridWidth = $('discGridClip').clientWidth || contentWidth();
+    return Math.max(3, Math.floor((gridWidth - 14) / step));
+  },
+  gridRowH: function () {
+    return (document.documentElement.clientHeight || 1080) <= 800 ? 288 : 420;
+  },
   renderGrid: function () {
-    var host = $('discGrid');
+    var host = $('discGrid'),
+      cols = (this.cols = this.gridCols()),
+      row = Math.floor(this.idx / cols);
     host.innerHTML = '';
     this.els = [];
-    for (var i = 0; i < this.items.length; i++) {
+    this.base = Math.max(0, row - 2) * cols;
+    this.winEnd = Math.min(this.items.length, (row + 5) * cols);
+    if (this.base) {
+      var spacer = document.createElement('div');
+      spacer.style.height = (this.base / cols) * this.gridRowH() + 'px';
+      host.appendChild(spacer);
+    }
+    for (var i = this.base; i < this.winEnd; i++) {
       var c = makeCard(this.items[i], false, true, false);
       host.appendChild(c);
       this.els.push(c);
@@ -4829,7 +4927,15 @@ var disc = {
   },
   paint: function () {
     setF(this.filterEls, !topNav.active && this.zone === 'filters' ? this.filterIdx : -1);
-    setF(this.els, !topNav.active && this.zone === 'grid' ? this.idx : -1);
+    var cols = (this.cols = this.gridCols());
+    /* the focus near an edge of the window on screen: build it again around the focus */
+    if (
+      this.els.length &&
+      ((this.base && this.idx < this.base + cols) ||
+        (this.winEnd < this.items.length && this.idx >= this.winEnd - cols))
+    )
+      return this.renderGrid();
+    setF(this.els, !topNav.active && this.zone === 'grid' ? this.idx - (this.base || 0) : -1);
     setF(this.optionEls, !topNav.active && this.zone === 'filters' && this.filterOpen ? this.optionIdx : -1);
     if (this.menuEl && this.optionEls[this.optionIdx]) {
       var option = this.optionEls[this.optionIdx],
@@ -4839,14 +4945,11 @@ var disc = {
       else if (bottom > this.menuEl.scrollTop + this.menuEl.clientHeight)
         this.menuEl.scrollTop = bottom - this.menuEl.clientHeight;
     }
-    var step = (document.documentElement.clientHeight || 1080) <= 800 ? 192 : 288,
-      gridWidth = $('discGridClip').clientWidth || contentWidth();
-    this.cols = Math.max(3, Math.floor((gridWidth - 14) / step));
-    var row = Math.floor(this.idx / this.cols),
-      rowH = (document.documentElement.clientHeight || 1080) <= 800 ? 288 : 420;
+    var row = Math.floor(this.idx / cols),
+      rowH = this.gridRowH();
     for (var i = 0; i < this.els.length; i++) {
       var imgs = this.els[i].getElementsByTagName('img'),
-        near = Math.abs(Math.floor(i / this.cols) - row) <= 1;
+        near = Math.abs(Math.floor((this.base + i) / cols) - row) <= 1;
       for (var z = 0; z < imgs.length; z++) {
         var im = imgs[z];
         if (near && im._full) {
@@ -4973,6 +5076,14 @@ function unloadBoard(b) {
   for (var r = 0; r < b.rows.length; r++) setRowLoaded(b.rows[r], false);
 }
 /* a Collections folder tile: its cover, else its emoji or first letters, and its name under it */
+/* A folder's cover as the local server shrinks it to the tile's width (a pack's covers are often
+   large and decoding them whole is what made the tiles slow and blurry); a PNG keeps its alpha. */
+function folderArtUrl(it) {
+  var w = it.shape === 'wide' ? 640 : 360;
+  return /^https?:\/\//i.test(it.poster)
+    ? '/app/img?w=' + w + '&u=' + encodeURIComponent(it.poster)
+    : it.poster;
+}
 function makeFolderCard(it, eager) {
   var d = document.createElement('div'),
     art = document.createElement('div');
@@ -4983,9 +5094,9 @@ function makeFolderCard(it, eager) {
     img.onerror = function () {
       art.innerHTML = '<div class="fglyph">' + esc(it.glyph || '') + '</div>';
     };
-    if (eager) img.src = it.poster;
+    if (eager) img.src = folderArtUrl(it);
     else {
-      img._full = it.poster;
+      img._full = folderArtUrl(it);
       img.src = BLANK_IMG;
     }
     art.appendChild(img);
@@ -5982,6 +6093,25 @@ function settingsCategories() {
       ],
       d: 'false'
     },
+    {
+      k: 'discoverMax',
+      lb: tx('discoverMaxLabel'),
+      opts: [
+        ['80', tx('discoverMax80')],
+        ['200', tx('discoverMax200')],
+        ['500', tx('discoverMax500')]
+      ],
+      d: String(discoverMax())
+    },
+    {
+      k: 'pointer',
+      lb: tx('pointerLabel'),
+      opts: [
+        ['on', tx('enabled')],
+        ['off', tx('disabled')]
+      ],
+      d: 'on'
+    },
     { k: '__rows', lb: tx('organizeCatalogs'), action: true },
     { head: tx('navChannels'), id: 'channels' },
     { k: '__m3u', lb: tx('m3uAdd'), action: true },
@@ -6757,6 +6887,63 @@ function checkNewEpisodes(done) {
   }
   next();
 }
+/* A description longer than its box: after a few seconds with the page still, the text rolls slowly
+   up inside the same box, rests at the end and comes back, as TV streaming apps do; any key brings
+   it back to the top. Nothing keeps running once the title page is left. */
+var descRoll = {
+  t: null,
+  stop: function () {
+    if (this.t) clearTimeout(this.t);
+    this.t = null;
+    var el = $('dDesc');
+    if (el && / rolling/.test(el.className)) {
+      var text = el.textContent;
+      el.className = el.className.replace(/ rolling/g, '');
+      el.style.height = '';
+      el.textContent = text;
+    }
+  },
+  arm: function () {
+    var self = this;
+    this.stop();
+    this.t = setTimeout(function () {
+      self.roll();
+    }, 3000);
+  },
+  roll: function () {
+    var el = $('dDesc'),
+      self = this;
+    this.t = null;
+    if (SCR !== 'detail' || !el || el.style.display === 'none' || el.scrollHeight <= el.clientHeight + 2)
+      return;
+    var box = el.clientHeight,
+      text = el.textContent;
+    el.style.height = box + 'px';
+    el.className += ' rolling';
+    el.innerHTML = '<span class="dtx">' + esc(text) + '</span>';
+    var span = el.firstChild,
+      dist = span.offsetHeight - box;
+    if (dist <= 0) return this.stop();
+    var secs = Math.max(4, Math.round(dist / 22));
+    function move(y, s) {
+      span.style.webkitTransition = '-webkit-transform ' + s + 's linear';
+      span.style.transition = 'transform ' + s + 's linear';
+      span.style.webkitTransform = span.style.transform = 'translateY(-' + y + 'px)';
+    }
+    this.t = setTimeout(function () {
+      move(dist, secs);
+      self.t = setTimeout(
+        function () {
+          move(0, 1);
+          self.t = setTimeout(function () {
+            self.roll();
+          }, 4000);
+        },
+        (secs + 3) * 1000
+      );
+    }, 50);
+  }
+};
 // Title detail screen: actions, seasons, episode ranges and episode list.
 var detail = {
   meta: null,
@@ -6863,6 +7050,7 @@ var detail = {
     if (m.awards) info += '<div class="awards">' + esc(m.awards) + '</div>';
     $('dInfo').innerHTML = info;
     $('dDesc').textContent = m.description || '';
+    descRoll.arm();
     this.baseMeta = $('dMeta').innerHTML;
     this.baseInfo = info;
     this.baseDesc = m.description || '';
@@ -7130,6 +7318,7 @@ var detail = {
     streamsUI.show(this.type, this.id, vid, this.meta && this.meta.name);
   },
   key: function (k) {
+    descRoll.arm();
     if (this.zone === 'btns') {
       if (k === 39) this.btnIdx = Math.min(this.btnEls.length - 1, this.btnIdx + 1);
       else if (k === 37) {
@@ -8000,7 +8189,8 @@ var profilePanel = {
     var p = this.list[i];
     if (!p) return this.edit(null);
     var self = this;
-    if (p.locked && !p.current)
+    /* a protected profile asks its PIN every time the app opens, the one in use included */
+    if (p.locked)
       return this.askPin(tx('pinEnter', p.name || tx('profileNumber', p.index)), p, function (pin) {
         self.use(p, pin);
       });
@@ -8011,7 +8201,7 @@ var profilePanel = {
   use: function (p, pin) {
     var self = this;
     this.open = false;
-    if (p.current) {
+    if (p.current && !p.locked) {
       lsSet('profileFace', { name: p.name, color: p.color, avatar: p.avatar });
       return this.done(false);
     }
@@ -8035,7 +8225,7 @@ var profilePanel = {
         postJson(API + '/api/getUser', { authKey: self.account }, function (u) {
           if (u && u.result) lsSet('user', u.result);
           lsRawSet('addons', '');
-          self.done(true);
+          self.done(!p.current);
         });
       },
       20000
@@ -10093,7 +10283,9 @@ var folderPage = {
           tab.loading
             ? tx('searching')
             : tab.source && tab.source.unavailable
-              ? tx('folderSourceUnavailable')
+              ? tab.source.missing
+                ? tx('folderAddonMissing', tab.source.title)
+                : tx('folderSourceUnavailable')
               : tx('nothingFound')
         ) +
         '</div>';
@@ -11184,6 +11376,8 @@ function pointerUI(target, activate) {
     }
     i = pointerIndex(target, disc.els);
     if (i >= 0) {
+      /* the cards on screen start at the window's first title */
+      i += disc.base || 0;
       disc.zone = 'grid';
       disc.idx = i;
       disc.paint();
@@ -11308,6 +11502,10 @@ function pointerUI(target, activate) {
 }
 var pointerHoverTimer = null,
   pointerHoverTarget = null;
+/* Settings can turn the Magic Remote pointer off: a light touch of the remote then moves nothing */
+function pointerOff() {
+  return lsRaw('pointer', 'on') === 'off';
+}
 function queuePointerHover(target) {
   pointerHoverTarget = target;
   if (pointerHoverTimer) clearTimeout(pointerHoverTimer);
@@ -11322,7 +11520,7 @@ on(
   document,
   'mouseover',
   function (e) {
-    queuePointerHover(e.target);
+    if (!pointerOff()) queuePointerHover(e.target);
   },
   false
 );
@@ -11335,6 +11533,11 @@ on(
       pointerHoverTimer = null;
     }
     pointerHoverTarget = null;
+    if (pointerOff()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     idleTouch();
     if (pointerUI(e.target, true)) {
       e.preventDefault();

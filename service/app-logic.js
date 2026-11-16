@@ -451,6 +451,14 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    folderAddonMissing: 'Install the {0} addon in Nuvio to see this list.',
+    folderLists: '{0} lists',
+    folderExplore: 'OK to explore',
+    discoverMaxLabel: 'Titles in Discover',
+    discoverMax80: '80 (weaker TVs)',
+    discoverMax200: '200 (standard)',
+    discoverMax500: '500 (TVs with more memory)',
+    pointerLabel: 'Magic Remote pointer',
     folderAll: 'All',
     folderSourceUnavailable: 'This source comes from TMDB or Trakt, which only Nuvio’s own app can open.',
     store_all: 'All',
@@ -969,6 +977,14 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    folderAddonMissing: 'Instale o addon {0} no Nuvio para ver esta lista.',
+    folderLists: '{0} listas',
+    folderExplore: 'OK para explorar',
+    discoverMaxLabel: 'Títulos no Descobrir',
+    discoverMax80: '80 (TVs mais fracas)',
+    discoverMax200: '200 (padrão)',
+    discoverMax500: '500 (TVs com mais memória)',
+    pointerLabel: 'Ponteiro do Magic Remote',
     folderAll: 'Todos',
     folderSourceUnavailable: 'Esta fonte vem do TMDB ou do Trakt, que só o app do Nuvio consegue abrir.',
     store_all: 'Todos',
@@ -1853,6 +1869,13 @@ function uiLook() {
     ? 'light'
     : 'standard';
 }
+/* how many titles Discover keeps loading (Settings); small TVs start lower */
+var DISCOVER_CACHED = 80;
+function discoverMax() {
+  var chosen = parseInt(lsRaw('discoverMax', ''), 10);
+  if (chosen > 0) return chosen;
+  return (TV_PROFILE.discoverCap || 80) < 80 ? 80 : 200;
+}
 /* Simple: fewer choices on screen (Settings) */
 function simpleMode() {
   return lsRaw('uiMode', 'full') === 'simple';
@@ -2330,10 +2353,24 @@ function folderSources(folder) {
     }
     var addon = byId[src.addonId],
       cats = (addon && addon.manifest.catalogs) || [],
-      cat = null;
-    for (var k = 0; k < cats.length; k++)
-      if (cats[k] && cats[k].type === src.type && String(cats[k].id) === String(src.catalogId)) cat = cats[k];
-    if (!cat) continue;
+      cat = null,
+      byIdOnly = null;
+    for (var k = 0; k < cats.length; k++) {
+      if (!cats[k] || String(cats[k].id) !== String(src.catalogId)) continue;
+      if (cats[k].type === src.type) cat = cats[k];
+      else if (!byIdOnly) byIdOnly = cats[k];
+    }
+    /* the same catalog under another type (anime kept as series, say) still counts */
+    cat = cat || byIdOnly;
+    /* an addon or catalog not here keeps its place, marked, so the folder never disappears */
+    if (!cat) {
+      out.push({
+        title: (addon && addon.manifest.name) || src.addonId || '?',
+        unavailable: true,
+        missing: true
+      });
+      continue;
+    }
     /* Nuvio stores "no genre" as the text None (or null) */
     var genre = src.genre ? String(src.genre).trim() : '';
     if (/^(none|null|undefined)$/i.test(genre)) genre = '';
@@ -2390,7 +2427,8 @@ function collectionTileDefs() {
     for (var f = 0; f < folders.length; f++) {
       var folder = folders[f];
       if (!folder || !folderSources(folder).length) continue;
-      var shape = String(folder.tileShape || 'poster').toLowerCase();
+      /* Nuvio's own default shape is square */
+      var shape = String(folder.tileShape || 'square').toLowerCase();
       tiles.push({
         folder: folder,
         id: 'folder:' + (folder.id || cols[c].title + '/' + folder.title),
@@ -4382,6 +4420,25 @@ function settingsCategories() {
       ],
       d: 'false'
     },
+    {
+      k: 'discoverMax',
+      lb: tx('discoverMaxLabel'),
+      opts: [
+        ['80', tx('discoverMax80')],
+        ['200', tx('discoverMax200')],
+        ['500', tx('discoverMax500')]
+      ],
+      d: String(discoverMax())
+    },
+    {
+      k: 'pointer',
+      lb: tx('pointerLabel'),
+      opts: [
+        ['on', tx('enabled')],
+        ['off', tx('disabled')]
+      ],
+      d: 'on'
+    },
     { k: '__rows', lb: tx('organizeCatalogs'), action: true },
     { head: tx('navChannels'), id: 'channels' },
     { k: '__m3u', lb: tx('m3uAdd'), action: true },
@@ -4508,6 +4565,8 @@ window.__logic = {
   homeLibraryRows: homeLibraryRows,
   homeRowChoices: homeRowChoices,
   folderView: folderView,
+  folderSources: folderSources,
+  discoverMax: discoverMax,
   findFolder: findFolder,
   dropLiveFromLibrary: dropLiveFromLibrary,
   saveHomeLayout: saveHomeLayout,

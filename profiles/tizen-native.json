@@ -5,7 +5,7 @@
   "appId": "StrmCmpNtv.App",
   "serviceId": "StrmCmpNtv.Server",
   "title": "StremCompat Native (Beta)",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "port": 8097,
   "localTorrents": false,
   "graphicsResolution": "1920x1080",

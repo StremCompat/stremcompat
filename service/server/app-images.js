@@ -1,10 +1,14 @@
-// /app/img: a picture for the interfaces. JPEG and PNG pass as they are (the native interface
+// /app/img: a picture for the interfaces. JPEG, PNG and SVG pass as they are (the native interface
 // decodes and shrinks them itself, off the drawing thread); anything else, such as WebP, becomes
 // a JPEG through FFmpeg, one picture at a time. With ?w= a large picture (an IPTV logo of a few
-// megabytes, an addon's background) is made that wide first, so the TV never decodes it whole.
+// megabytes, an addon's background, a collection's cover) is made that wide first, so the TV never
+// decodes it whole; a PNG stays a PNG, so a title logo keeps its transparency.
 // Addresses that fail are remembered for a while and not asked again.
 
 var spawn = require('child_process').spawn;
+var fs = require('fs');
+var os = require('os');
+var path = require('path');
 var { FFMPEG } = require('./config');
 var { fetchUrl } = require('./http-util');
 var { NICE, lowerPriority } = require('./priority');
@@ -22,6 +26,9 @@ function isJpeg(b) {
 }
 function isPng(b) {
   return b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
+}
+function isSvg(b) {
+  return /^\s*(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*<svg[\s>]/i.test(b.slice(0, 512).toString('utf8'));
 }
 
 function send(res, type, data) {
@@ -48,10 +55,14 @@ function convertNext() {
   var job = queue.shift(),
     parts = [],
     finished = false,
+    /* the picture goes to FFmpeg as a file: the TV's FFmpeg has no WebP parser, and without one a
+       WebP read from a pipe never learns its size */
+    file = path.join(os.tmpdir(), 'sc-img-' + process.pid + '-' + Date.now() + '.bin'),
     worker;
   function end(data) {
     if (finished) return;
     finished = true;
+    fs.unlink(file, function () {});
     clearTimeout(timer);
     converting = false;
     job.cb(data);
@@ -64,20 +75,16 @@ function convertNext() {
     end(null);
   }, CONVERT_TIMEOUT_MS);
   try {
+    fs.writeFileSync(file, job.input);
     worker = spawn(FFMPEG, [
       '-nostdin',
       '-i',
-      'pipe:0',
+      file,
       '-frames:v',
       '1',
       '-vf',
-      "scale='min(" + job.width + ",iw)':-2",
-      '-q:v',
-      '4',
-      '-f',
-      'mjpeg',
-      'pipe:1'
-    ]);
+      "scale='min(" + job.width + ",iw)':-2"
+    ].concat(job.png ? ['-c:v', 'png', '-f', 'image2pipe'] : ['-q:v', '4', '-f', 'mjpeg'], ['pipe:1']));
     lowerPriority(worker, NICE.INTERACTIVE);
   } catch (e) {
     return end(null);
@@ -92,12 +99,10 @@ function convertNext() {
     var data = Buffer.concat(parts);
     end(code === 0 && data.length ? data : null);
   });
-  worker.stdin.on('error', function () {});
-  worker.stdin.end(job.input);
 }
 
-function convert(input, width, cb) {
-  queue.push({ input: input, width: width, cb: cb });
+function convert(input, width, png, cb) {
+  queue.push({ input: input, width: width, png: png, cb: cb });
   convertNext();
 }
 
@@ -119,10 +124,12 @@ function appImage(req, res, q) {
         remember(address);
         return missing(res);
       }
+      if (isSvg(body)) return send(res, 'image/svg+xml', body);
       var plain = isJpeg(body) ? 'image/jpeg' : isPng(body) ? 'image/png' : '';
       if (plain && (!width || body.length <= SMALL_ENOUGH)) return send(res, plain, body);
-      convert(body, width || CONVERT_MAX_WIDTH, function (jpeg) {
-        if (jpeg) send(res, 'image/jpeg', jpeg);
+      var png = plain === 'image/png';
+      convert(body, width || CONVERT_MAX_WIDTH, png, function (made) {
+        if (made) send(res, png ? 'image/png' : 'image/jpeg', made);
         /* without FFmpeg (Samsung) a JPEG or PNG still passes as it is */ else if (plain)
           send(res, plain, body);
         else {

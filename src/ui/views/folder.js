@@ -103,7 +103,9 @@ var folderPage = {
           tab.loading
             ? tx('searching')
             : tab.source && tab.source.unavailable
-              ? tx('folderSourceUnavailable')
+              ? tab.source.missing
+                ? tx('folderAddonMissing', tab.source.title)
+                : tx('folderSourceUnavailable')
               : tx('nothingFound')
         ) +
         '</div>';

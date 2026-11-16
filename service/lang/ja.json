@@ -509,5 +509,13 @@
   "storeConfigure": "スマホで設定",
   "storeConfigureHint": "このアドオンは先に設定が必要です。コードを読み取りスマホで設定し、「アドレスで追加」から追加してください。",
   "folderAll": "すべて",
-  "folderSourceUnavailable": "このソースは TMDB または Trakt のもので、Nuvio のアプリでのみ開けます。"
+  "folderSourceUnavailable": "このソースは TMDB または Trakt のもので、Nuvio のアプリでのみ開けます。",
+  "folderAddonMissing": "このリストを見るには Nuvio で {0} アドオンをインストールしてください。",
+  "folderLists": "{0} 件のリスト",
+  "folderExplore": "OK で開く",
+  "discoverMaxLabel": "ディスカバーの作品数",
+  "discoverMax80": "80（性能の低いテレビ）",
+  "discoverMax200": "200（標準）",
+  "discoverMax500": "500（メモリの多いテレビ）",
+  "pointerLabel": "マジックリモコンのポインター"
 }

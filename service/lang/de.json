@@ -509,5 +509,13 @@
   "storeConfigure": "Am Handy einrichten",
   "storeConfigureHint": "Dieses Addon muss zuerst eingerichtet werden. Code scannen, am Handy einrichten und dann hier mit „Per Adresse hinzufügen“ hinzufügen.",
   "folderAll": "Alle",
-  "folderSourceUnavailable": "Diese Quelle stammt von TMDB oder Trakt, die nur Nuvios eigene App öffnen kann."
+  "folderSourceUnavailable": "Diese Quelle stammt von TMDB oder Trakt, die nur Nuvios eigene App öffnen kann.",
+  "folderAddonMissing": "Installiere das Addon {0} in Nuvio, um diese Liste zu sehen.",
+  "folderLists": "{0} Listen",
+  "folderExplore": "OK zum Erkunden",
+  "discoverMaxLabel": "Titel in Entdecken",
+  "discoverMax80": "80 (schwächere TVs)",
+  "discoverMax200": "200 (Standard)",
+  "discoverMax500": "500 (TVs mit mehr Speicher)",
+  "pointerLabel": "Magic-Remote-Zeiger"
 }

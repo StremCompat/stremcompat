@@ -7,6 +7,13 @@ function uiLook() {
     ? 'light'
     : 'standard';
 }
+/* how many titles Discover keeps loading (Settings); small TVs start lower */
+var DISCOVER_CACHED = 80;
+function discoverMax() {
+  var chosen = parseInt(lsRaw('discoverMax', ''), 10);
+  if (chosen > 0) return chosen;
+  return (TV_PROFILE.discoverCap || 80) < 80 ? 80 : 200;
+}
 /* Simple: fewer choices on screen (Settings) */
 function simpleMode() {
   return lsRaw('uiMode', 'full') === 'simple';

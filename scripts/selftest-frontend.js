@@ -523,7 +523,7 @@ assert.strictEqual(matchNext([{ addon:'Torrentio',quality:'1080p',title:'x.rar',
    TMDB/Trakt folders kept with an unavailable tab, tiles in Nuvio's shape, and Home mixing
    collections and catalogs in the order Nuvio keeps */
 (function nuvioCollections() {
-  var addon = { transportUrl: 'https://a.example/manifest.json', manifest: { id: 'a', catalogs: [{ type: 'movie', id: 'top', name: 'Top' }] } };
+  var addon = { transportUrl: 'https://a.example/manifest.json', manifest: { id: 'a', catalogs: [{ type: 'movie', id: 'top', name: 'Top' }, { type: 'anime', id: 'mal.top', name: 'Top anime' }] } };
   var ctx = {
     window: {}, TV_PROFILE: {}, tx: function (k) { return k; }, addonBase: function () { return 'https://a.example'; }, addonQuery: function () { return ''; },
     remoteAddons: function () { return [addon]; },
@@ -531,17 +531,26 @@ assert.strictEqual(matchNext([{ addon:'Torrentio',quality:'1080p',title:'x.rar',
     nuvioCollections: function () {
       return [
         { id: 'c1', title: 'Later', folders: [{ id: 'f1', title: 'Films', tileShape: 'landscape', sources: [{ provider: 'addon', addonId: 'a', type: 'movie', catalogId: 'top', genre: 'None' }] }] },
-        { title: 'Pinned', pinToTop: true, folders: [{ id: 'f2', title: 'Kids', sources: [{ provider: 'addon', addonId: 'a', type: 'movie', catalogId: 'top', genre: 'Animation' }] }, { id: 'f3', title: 'Lists', sources: [{ provider: 'trakt' }] }] }
+        { title: 'Pinned', pinToTop: true, folders: [{ id: 'f2', title: 'Kids', sources: [{ provider: 'addon', addonId: 'a', type: 'movie', catalogId: 'top', genre: 'Animation' }] }, { id: 'f3', title: 'Lists', sources: [{ provider: 'trakt' }] }] },
+        { id: 'p', title: 'Pack', folders: [
+          { id: 'p1', title: 'Wide', tileShape: 'LANDSCAPE', sources: [{ addonId: 'a', type: 'series', catalogId: 'mal.top' }] },
+          { id: 'p2', title: 'Missing', tileShape: 'POSTER', sources: [{ addonId: 'aio-metadata', type: 'movie', catalogId: 'tmdb.top' }] }
+        ] }
       ];
     }
   };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'data', 'catalogs.js'), 'utf8'), ctx);
   var rows = ctx.collectionTileDefs();
-  assert.strictEqual(rows.map(function (r) { return r.title + ':' + r.tiles.length; }).join(), 'Pinned:2,Later:1', 'collections out of order');
+  assert.strictEqual(rows.map(function (r) { return r.title + ':' + r.tiles.length; }).join(), 'Pinned:2,Later:1,Pack:2', 'collections out of order');
+  assert.strictEqual(rows[0].tiles[0].shape, 'square', 'a folder with no shape is not square, as in Nuvio');
+  assert.strictEqual(rows[2].tiles.map(function (f) { return f.shape; }).join(), 'wide,poster', 'a pack folder lost its shape');
+  assert.ok(!ctx.folderSources(rows[2].tiles[0].folder)[0].unavailable, 'a catalog kept under another type was not found');
+  var missing = ctx.folderSources(rows[2].tiles[1].folder)[0];
+  assert.ok(missing.unavailable && missing.missing && missing.title === 'aio-metadata', 'a folder whose addon is missing did not say so');
   assert.ok(ctx.folderView(rows[0].tiles[1].folder).sources[0].unavailable, 'a Trakt folder did not say its source is unavailable');
   assert.strictEqual(rows[1].tiles[0].shape + rows[0].tiles[0].glyph, 'wideKI', 'a tile lost its shape or its letters');
   var home = ctx.nuvioHomeOrder(rows, [{ title: 'Top', key: 'k', nkey: 'a:movie:top' }]);
-  assert.strictEqual(home.map(function (h) { return h.title; }).join(), 'Pinned,My top,Later', "Home is not in Nuvio's order");
+  assert.strictEqual(home.map(function (h) { return h.title; }).join(), 'Pinned,My top,Later,Pack', "Home is not in Nuvio's order");
   var kids = ctx.folderRowDefs(rows[0].tiles[0].folder)[0], films = ctx.folderRowDefs(rows[1].tiles[0].folder)[0];
   assert.strictEqual(kids.url, 'https://a.example/catalog/movie/top/genre=Animation.json', 'a folder genre was not asked of the addon');
   assert.strictEqual(films.url, 'https://a.example/catalog/movie/top.json', 'Nuvio\'s None was taken as a genre');

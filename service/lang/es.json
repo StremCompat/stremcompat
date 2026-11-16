@@ -509,5 +509,13 @@
   "storeConfigure": "Configurar en el móvil",
   "storeConfigureHint": "Este addon necesita configurarse antes. Escanea el código, configúralo en el móvil y luego añádelo aquí con «Añadir por dirección».",
   "folderAll": "Todo",
-  "folderSourceUnavailable": "Esta fuente viene de TMDB o Trakt, que solo la app de Nuvio puede abrir."
+  "folderSourceUnavailable": "Esta fuente viene de TMDB o Trakt, que solo la app de Nuvio puede abrir.",
+  "folderAddonMissing": "Instala el addon {0} en Nuvio para ver esta lista.",
+  "folderLists": "{0} listas",
+  "folderExplore": "OK para explorar",
+  "discoverMaxLabel": "Títulos en Descubrir",
+  "discoverMax80": "80 (TV más débiles)",
+  "discoverMax200": "200 (estándar)",
+  "discoverMax500": "500 (TV con más memoria)",
+  "pointerLabel": "Puntero del Magic Remote"
 }

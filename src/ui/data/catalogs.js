@@ -100,10 +100,24 @@ function folderSources(folder) {
     }
     var addon = byId[src.addonId],
       cats = (addon && addon.manifest.catalogs) || [],
-      cat = null;
-    for (var k = 0; k < cats.length; k++)
-      if (cats[k] && cats[k].type === src.type && String(cats[k].id) === String(src.catalogId)) cat = cats[k];
-    if (!cat) continue;
+      cat = null,
+      byIdOnly = null;
+    for (var k = 0; k < cats.length; k++) {
+      if (!cats[k] || String(cats[k].id) !== String(src.catalogId)) continue;
+      if (cats[k].type === src.type) cat = cats[k];
+      else if (!byIdOnly) byIdOnly = cats[k];
+    }
+    /* the same catalog under another type (anime kept as series, say) still counts */
+    cat = cat || byIdOnly;
+    /* an addon or catalog not here keeps its place, marked, so the folder never disappears */
+    if (!cat) {
+      out.push({
+        title: (addon && addon.manifest.name) || src.addonId || '?',
+        unavailable: true,
+        missing: true
+      });
+      continue;
+    }
     /* Nuvio stores "no genre" as the text None (or null) */
     var genre = src.genre ? String(src.genre).trim() : '';
     if (/^(none|null|undefined)$/i.test(genre)) genre = '';
@@ -160,7 +174,8 @@ function collectionTileDefs() {
     for (var f = 0; f < folders.length; f++) {
       var folder = folders[f];
       if (!folder || !folderSources(folder).length) continue;
-      var shape = String(folder.tileShape || 'poster').toLowerCase();
+      /* Nuvio's own default shape is square */
+      var shape = String(folder.tileShape || 'square').toLowerCase();
       tiles.push({
         folder: folder,
         id: 'folder:' + (folder.id || cols[c].title + '/' + folder.title),

@@ -61,16 +61,19 @@ body.plainboard #rowsClip{top:150px}
 .card.noart{background:linear-gradient(155deg,#222225 0%,#11161d 72%)}
 .card.noart .nm{top:auto;padding:20px 18px;font-size:27px;font-weight:700;line-height:1.25;color:#fff}
 .card.wide.noart .nm,.card.labeled.noart .nm{display:none !important}
-/* a Collections folder tile as Nuvio draws it: poster, square or wide, the name under the picture */
+/* a Collections folder tile as Nuvio's TV app draws it: the cover fills the tile, true to its shape
+   (poster 2:3, square 1:1, wide 16:9, all as wide as a poster or 16:9 of it), the name inside at the
+   bottom, the focus a white ring and a slight growth */
 .card.folder,#rows .card.folder{height:348px;background:transparent;overflow:visible}
-.card.folder .fart{position:absolute;left:0;right:0;top:0;bottom:44px;border-radius:12px;overflow:hidden;background:#1a1a1c;text-align:center}
+.card.folder .fart{position:absolute;left:0;right:0;top:0;bottom:0;border-radius:12px;overflow:hidden;background:#1a1a1c;text-align:center}
 .card.folder .fart img{width:100%;height:100%;object-fit:cover}
 .card.folder .fglyph{position:absolute;left:0;right:0;top:50%;margin-top:-0.6em;font-size:58px;font-weight:800;color:rgba(255,255,255,.85)}
-.card.folder .flabel{position:absolute;left:0;right:0;bottom:0;height:38px;line-height:38px;font-size:21px;font-weight:600;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card.folder.f .fart{box-shadow:0 0 0 4px #fff}
-.card.folder.f-poster,#rows .card.folder.f-poster{width:232px}
-.card.folder.f-square,#rows .card.folder.f-square{width:304px}
-.card.folder.f-wide,#rows .card.folder.f-wide{width:540px}
+.card.folder .flabel{position:absolute;left:0;right:0;bottom:0;padding:34px 14px 12px;font-size:21px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:0 0 12px 12px;background:linear-gradient(to top,rgba(0,0,0,.78),rgba(0,0,0,0))}
+.card.folder.f{box-shadow:none !important;transform:none;z-index:6}
+.card.folder.f .fart{box-shadow:0 0 0 4px #fff;transform:scale(1.04)}
+.card.folder.f-poster,#rows .card.folder.f-poster{width:232px;height:348px}
+.card.folder.f-square,#rows .card.folder.f-square{width:232px;height:232px}
+.card.folder.f-wide,#rows .card.folder.f-wide{width:412px;height:232px}
 .card.ph{background:rgba(255,255,255,.055)}
 .pbar{position:absolute;left:14px;right:14px;bottom:12px;height:6px;border-radius:3px;background:rgba(255,255,255,.28);overflow:hidden}
 .pbar div{height:100%;background:#fff}

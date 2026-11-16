@@ -96,13 +96,13 @@
   #fdTabs{margin-top:12px}
   #fdGridClip{top:100px}
   #fdGrid .card{margin-bottom:16px}
-  .card.folder{height:264px}
-  .card.folder .fart{bottom:32px}
-  .card.folder .flabel{height:28px;line-height:28px;font-size:14px}
-  .card.folder.f-poster{width:155px}
-  .card.folder.f-square{width:232px}
-  .card.folder.f-wide{width:412px}
+  .card.folder{height:232px}
+  .card.folder .flabel{padding:24px 10px 8px;font-size:14px}
+  .card.folder.f-poster{width:155px;height:232px}
+  .card.folder.f-square{width:155px;height:155px}
+  .card.folder.f-wide{width:276px;height:155px}
   .card.folder .fglyph{font-size:40px}
+  .card.folder.f .fart{transform:scale(1.04)}
   #tvWrap{top:30px;left:112px;right:30px}
   #tvTitle{font-size:34px}
   #tvCats{top:64px;width:300px}

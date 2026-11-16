@@ -247,6 +247,25 @@ function settingsCategories() {
       ],
       d: 'false'
     },
+    {
+      k: 'discoverMax',
+      lb: tx('discoverMaxLabel'),
+      opts: [
+        ['80', tx('discoverMax80')],
+        ['200', tx('discoverMax200')],
+        ['500', tx('discoverMax500')]
+      ],
+      d: String(discoverMax())
+    },
+    {
+      k: 'pointer',
+      lb: tx('pointerLabel'),
+      opts: [
+        ['on', tx('enabled')],
+        ['off', tx('disabled')]
+      ],
+      d: 'on'
+    },
     { k: '__rows', lb: tx('organizeCatalogs'), action: true },
     { head: tx('navChannels'), id: 'channels' },
     { k: '__m3u', lb: tx('m3uAdd'), action: true },

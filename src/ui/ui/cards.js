@@ -35,6 +35,14 @@ function unloadBoard(b) {
   for (var r = 0; r < b.rows.length; r++) setRowLoaded(b.rows[r], false);
 }
 /* a Collections folder tile: its cover, else its emoji or first letters, and its name under it */
+/* A folder's cover as the local server shrinks it to the tile's width (a pack's covers are often
+   large and decoding them whole is what made the tiles slow and blurry); a PNG keeps its alpha. */
+function folderArtUrl(it) {
+  var w = it.shape === 'wide' ? 640 : 360;
+  return /^https?:\/\//i.test(it.poster)
+    ? '/app/img?w=' + w + '&u=' + encodeURIComponent(it.poster)
+    : it.poster;
+}
 function makeFolderCard(it, eager) {
   var d = document.createElement('div'),
     art = document.createElement('div');
@@ -45,9 +53,9 @@ function makeFolderCard(it, eager) {
     img.onerror = function () {
       art.innerHTML = '<div class="fglyph">' + esc(it.glyph || '') + '</div>';
     };
-    if (eager) img.src = it.poster;
+    if (eager) img.src = folderArtUrl(it);
     else {
-      img._full = it.poster;
+      img._full = folderArtUrl(it);
       img.src = BLANK_IMG;
     }
     art.appendChild(img);

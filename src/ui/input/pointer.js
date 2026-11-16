@@ -163,6 +163,8 @@ function pointerUI(target, activate) {
     }
     i = pointerIndex(target, disc.els);
     if (i >= 0) {
+      /* the cards on screen start at the window's first title */
+      i += disc.base || 0;
       disc.zone = 'grid';
       disc.idx = i;
       disc.paint();
@@ -287,6 +289,10 @@ function pointerUI(target, activate) {
 }
 var pointerHoverTimer = null,
   pointerHoverTarget = null;
+/* Settings can turn the Magic Remote pointer off: a light touch of the remote then moves nothing */
+function pointerOff() {
+  return lsRaw('pointer', 'on') === 'off';
+}
 function queuePointerHover(target) {
   pointerHoverTarget = target;
   if (pointerHoverTimer) clearTimeout(pointerHoverTimer);
@@ -301,7 +307,7 @@ on(
   document,
   'mouseover',
   function (e) {
-    queuePointerHover(e.target);
+    if (!pointerOff()) queuePointerHover(e.target);
   },
   false
 );
@@ -314,6 +320,11 @@ on(
       pointerHoverTimer = null;
     }
     pointerHoverTarget = null;
+    if (pointerOff()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     idleTouch();
     if (pointerUI(e.target, true)) {
       e.preventDefault();

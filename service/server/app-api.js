@@ -75,13 +75,19 @@ function home(req, res) {
         title: d.title,
         collection: true,
         items: d.tiles.map(function (t) {
+          var f = t.folder;
           return {
-            id: t.folder.id,
+            id: f.id,
             type: 'folder',
-            name: t.name,
+            name: f.title || '',
+            hideName: !t.name,
             art: t.poster,
             shape: t.shape,
-            glyph: t.glyph
+            glyph: t.glyph,
+            /* the hero over a focused folder, in Nuvio's order */
+            backdrop: f.heroBackdropUrl || f.coverImageUrl || f.backdropImageUrl || '',
+            logo: f.titleLogoUrl || '',
+            description: L.tx('folderLists', L.folderSources(f).length) + ' · ' + L.tx('folderExplore')
           };
         })
       });
@@ -324,7 +330,8 @@ function discover(req, res, q) {
       }),
       genres: genres,
       items: decorate(items, false),
-      ended: ended
+      ended: ended,
+      max: L.discoverMax()
     });
   }
   var url = L.discoverPageUrl(cat, genre.value, skip);
@@ -502,7 +509,7 @@ function folder(req, res, q) {
   if (!f) return fail(res, 404, 'unknown folder');
   var v = L.folderView(f),
     tabs = v.sources.map(function (s) {
-      return { title: s.title, unavailable: !!s.unavailable };
+      return { title: s.title, unavailable: !!s.unavailable, message: s.missing ? L.tx('folderAddonMissing', s.title) : '' };
     });
   if (v.all) tabs.unshift({ title: L.tx('folderAll'), all: true });
   sendJson(res, { title: v.title, cover: v.cover, rows: v.rows, tabs: tabs });

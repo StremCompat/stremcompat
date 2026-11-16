@@ -208,6 +208,7 @@ function makeBoard(loader) {
         return;
       }
       this.heroItem = it;
+      if (it.folder) return this.heroFolder(it);
       var lg = $('heroLogo'),
         tt = $('heroTitle');
       var self = this;
@@ -258,6 +259,38 @@ function makeBoard(loader) {
           }
         });
       }
+    },
+    /* a Collections folder: its own backdrop and title logo when the collection has them (Nuvio's
+       order: hero backdrop, then cover, then backdrop), how many lists it holds, OK to explore */
+    heroFolder: function (it) {
+      var f = it.folder,
+        lg = $('heroLogo'),
+        tt = $('heroTitle'),
+        self = this;
+      function viaServer(u, w) {
+        return u ? '/app/img?w=' + w + '&u=' + encodeURIComponent(u) : '';
+      }
+      tt.textContent = f.title || '';
+      tt.className = heroTitleClass(f.title);
+      tt.style.display = '';
+      lg.style.display = 'none';
+      if (f.titleLogoUrl) {
+        var logo = viaServer(f.titleLogoUrl, 800),
+          im = new Image();
+        im.onload = function () {
+          if (self.heroItem !== it) return;
+          lg.src = logo;
+          lg.style.display = 'block';
+          tt.style.display = 'none';
+        };
+        im.src = logo;
+      }
+      var n = folderSources(f).length;
+      $('heroMeta').innerHTML = '';
+      $('heroGenres').textContent = '';
+      setHeroDesc(tx('folderLists', n) + ' · ' + tx('folderExplore'));
+      $('heroCast').textContent = '';
+      setBg(viaServer(f.heroBackdropUrl || f.coverImageUrl || f.backdropImageUrl, 1280));
     },
     focusedItem: function () {
       if (this === home && featuredShown()) return featuredItem();
