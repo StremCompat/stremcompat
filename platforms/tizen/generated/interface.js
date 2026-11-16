@@ -3296,11 +3296,10 @@ function compactSourcePool(input, cap) {
     for (var r = kept[k] || 0; r < buckets[k].length; r++) rest.push(buckets[k][r]);
   }
   rest.sort(sourceOrder);
-  /* Debrid and direct links carry no seeder count, so by seeders a torrent addon filled the whole
-     list ahead of them. Each addon whose sources have none keeps a share (half of the list, split
-     evenly among all addons); addons with seeders compete by rank as before. */
+  /* One torrent addon with hundreds of results (Torrentio) filled the whole list by seeders, and
+     every other addon vanished from it. Each addon keeps a share (half of the list, split evenly
+     among all addons) of its best sources; the rest of the list is filled by rank as before. */
   var share = {},
-    seeded = {},
     addons = 0,
     left = [];
   for (i = 0; i < unique.length; i++) {
@@ -3309,7 +3308,6 @@ function compactSourcePool(input, cap) {
       share[k] = 0;
       addons++;
     }
-    if (unique[i].seeders != null) seeded[k] = true;
   }
   for (i = 0; i < selected.length; i++)
     share[selected[i].addon || ''] = (share[selected[i].addon || ''] || 0) + 1;
@@ -3317,7 +3315,7 @@ function compactSourcePool(input, cap) {
   for (i = 0; i < rest.length; i++) {
     s = rest[i];
     k = s.addon || '';
-    if (selected.length < cap && !seeded[k] && share[k] < floor) {
+    if (selected.length < cap && share[k] < floor) {
       share[k]++;
       selected.push(s);
       kept[s.quality || 'Other'] = (kept[s.quality || 'Other'] || 0) + 1;

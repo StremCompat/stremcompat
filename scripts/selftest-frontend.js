@@ -223,9 +223,12 @@ for (mi = 0; mi < 12; mi++) mixedSources.push({ url: 'https://d.example/' + mi, 
 var mixed = firstRun.context.__SC_COMPACT_SOURCES__(mixedSources, 60).items;
 assert.strictEqual(mixed.length, 60, 'the source budget was not used');
 assert.ok(mixed.filter(function (item) { return item.addon === 'Debrid'; }).length >= 12, 'a debrid addon was pushed off the source list');
-/* addons that all report seeders keep the ranking they had before */
+/* a torrent addon with hundreds of results no longer pushes a smaller addon with seeders off the list
+   (only Torrentio showed): each keeps its share, and the rest still goes by rank */
 var seededOnly = mixedSources.slice(0, 90).concat(mixedSources.slice(0, 40).map(function (item, n) { return { url: 'https://u.example/' + n, quality: '1080p', seeders: 10, addon: 'Other', _seq: 200 + n }; }));
-assert.ok(firstRun.context.__SC_COMPACT_SOURCES__(seededOnly, 60).items.every(function (item) { return item.addon === 'Torrents'; }), 'addons with seeders lost their ranking');
+var seededKept = firstRun.context.__SC_COMPACT_SOURCES__(seededOnly, 60).items;
+assert.strictEqual(seededKept.filter(function (item) { return item.addon === 'Other'; }).length, 15, 'a smaller addon with seeders was pushed off the source list');
+assert.strictEqual(seededKept.filter(function (item) { return item.addon === 'Torrents'; }).length, 45, 'the rest of the list did not go by rank');
 assert.ok(!sourceHas(source, "location.assign('/play?u='"), 'beta player fallback leaked a source URL into browser history');
 assert.ok(!sourceHas(source, 'self.poll=setInterval'), 'QR polling still allows overlapping interval requests');
 assert.ok(sourceHas(source, "if(this.type!=='series')this.addBtn(tx(simpleMode()?'sourcesButton':'watch')"), 'movie details do not expose an explicit Watch action, or the whole list in Simple');
