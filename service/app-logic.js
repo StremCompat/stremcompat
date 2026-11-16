@@ -2182,8 +2182,24 @@ function pushLibItems(items) {
 }
 // Account addon collection.
 /* addons: silent pull from the account at every boot (no buttons needed) */
+/* The list holds every addon's whole manifest (often hundreds of KB): it is read once and kept while
+   the stored text is the same, instead of parsed again for each folder and row of Home, which on a
+   weak TV kept the native app's server busy for minutes. Callers only read it. */
+var addonsRead = { raw: undefined, list: [] };
 function addons() {
-  return lsJson('addons') || [];
+  var raw = null;
+  try {
+    raw = localStorage.getItem('addons');
+  } catch (e) {}
+  if (raw !== addonsRead.raw) {
+    addonsRead.raw = raw;
+    try {
+      addonsRead.list = JSON.parse(raw || 'null') || [];
+    } catch (e) {
+      addonsRead.list = [];
+    }
+  }
+  return addonsRead.list;
 }
 /* The addons asked for catalogs, metadata and sources: all but Local files, which the
    streaming server serves for a computer's own video folders. The TV has none, so asking
