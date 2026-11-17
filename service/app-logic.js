@@ -1928,6 +1928,14 @@ function posterOf(it) {
   if (it.poster) return it.poster;
   return isImdb(it.id) ? 'https://images.metahub.space/poster/small/' + it.id + '/img' : '';
 }
+/* RPDB posters print their ratings along the bottom edge, so a labelled card shows its title under
+   the poster instead of over it; a grid's rows grow by that line (titleUnderExtra) */
+function titleUnder(it) {
+  return !!it && /ratingposterdb\.com/i.test(posterOf(it));
+}
+function titleUnderExtra(it) {
+  return titleUnder(it) ? ((document.documentElement.clientHeight || 1080) <= 800 ? 26 : 36) : 0;
+}
 var ICON = {
   exit: '<svg viewBox="0 0 24 24"><path d="M10 17l1.4-1.4L8.8 13H20v-2H8.8l2.6-2.6L10 7l-5 5zM4 3h8v2H4v14h8v2H4a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',

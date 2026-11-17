@@ -2212,6 +2212,14 @@ function posterOf(it) {
   if (it.poster) return it.poster;
   return isImdb(it.id) ? 'https://images.metahub.space/poster/small/' + it.id + '/img' : '';
 }
+/* RPDB posters print their ratings along the bottom edge, so a labelled card shows its title under
+   the poster instead of over it; a grid's rows grow by that line (titleUnderExtra) */
+function titleUnder(it) {
+  return !!it && /ratingposterdb\.com/i.test(posterOf(it));
+}
+function titleUnderExtra(it) {
+  return titleUnder(it) ? ((document.documentElement.clientHeight || 1080) <= 800 ? 26 : 36) : 0;
+}
 var ICON = {
   exit: '<svg viewBox="0 0 24 24"><path d="M10 17l1.4-1.4L8.8 13H20v-2H8.8l2.6-2.6L10 7l-5 5zM4 3h8v2H4v14h8v2H4a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>',
   play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
@@ -4962,7 +4970,7 @@ var disc = {
     return Math.max(3, Math.floor((gridWidth - 14) / step));
   },
   gridRowH: function () {
-    return (document.documentElement.clientHeight || 1080) <= 800 ? 288 : 420;
+    return ((document.documentElement.clientHeight || 1080) <= 800 ? 288 : 420) + titleUnderExtra(this.items[0]);
   },
   renderGrid: function () {
     var host = $('discGrid'),
@@ -5185,7 +5193,8 @@ function makeFolderCard(it, eager) {
 function makeCard(it, wide, label, eager) {
   if (it.folder) return makeFolderCard(it, eager);
   var d = document.createElement('div');
-  d.className = 'card' + (wide ? ' wide' : '') + (label && !wide ? ' labeled' : '');
+  d.className =
+    'card' + (wide ? ' wide' : '') + (label && !wide ? ' labeled' + (titleUnder(it) ? ' tunder' : '') : '');
   /* no artwork: drop the broken image and show the title on a gradient instead */
   function noArt(img) {
     if (img && img.parentNode) img.parentNode.removeChild(img);
@@ -6591,7 +6600,7 @@ var similar = {
   },
   paint: function () {
     setF(this.els, topNav.active ? -1 : this.idx);
-    var rowH = this.els[0] ? this.els[0].offsetHeight + 26 : 470;
+    var rowH = this.els[0] ? this.els[0].offsetHeight + 26 + titleUnderExtra(this.items[0]) : 470;
     var row = Math.floor(this.idx / this.cols);
     for (var i = 0; i < this.els.length; i++) {
       var imgs = this.els[i].getElementsByTagName('img'),
@@ -10456,7 +10465,7 @@ var folderPage = {
     setF(this.els, !off && this.zone === 'grid' ? this.idx : -1);
     var small = (document.documentElement.clientHeight || 1080) <= 800,
       step = small ? 192 : 288,
-      rowH = small ? 288 : 420;
+      rowH = (small ? 288 : 420) + titleUnderExtra((this.tabs[this.tabIdx] || { items: [] }).items[0]);
     this.cols = Math.max(3, Math.floor((($('fdGridClip').clientWidth || contentWidth()) - 14) / step));
     var row = Math.floor(this.idx / this.cols);
     /* only the rows near the focus load their posters */

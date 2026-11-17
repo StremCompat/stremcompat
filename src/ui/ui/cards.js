@@ -79,7 +79,8 @@ function makeFolderCard(it, eager) {
 function makeCard(it, wide, label, eager) {
   if (it.folder) return makeFolderCard(it, eager);
   var d = document.createElement('div');
-  d.className = 'card' + (wide ? ' wide' : '') + (label && !wide ? ' labeled' : '');
+  d.className =
+    'card' + (wide ? ' wide' : '') + (label && !wide ? ' labeled' + (titleUnder(it) ? ' tunder' : '') : '');
   /* no artwork: drop the broken image and show the title on a gradient instead */
   function noArt(img) {
     if (img && img.parentNode) img.parentNode.removeChild(img);
