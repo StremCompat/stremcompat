@@ -73,6 +73,7 @@ window.__logic = {
   orderedSources: orderedSources,
   posterOf: posterOf,
   pullLib: pullLib,
+  pruneCaches: pruneCaches,
   pushLib: pushLib,
   qualityChips: qualityChips,
   /* after another profile was chosen: its user, addons and collections */

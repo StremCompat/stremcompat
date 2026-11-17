@@ -10,11 +10,27 @@ var runtime = require('./app-runtime');
 var LINK = 'https://link.stremio.com/api/';
 var STREMIO_POLL_S = 2.5; /* as the web sign-in asks */
 
+/* the account's library (Continue Watching, progress), waited for at most a few seconds */
+var LIBRARY_WAIT_MS = 6000;
+function withLibrary(L, done) {
+  var answered = false;
+  function once() {
+    if (answered) return;
+    answered = true;
+    done();
+  }
+  setTimeout(once, LIBRARY_WAIT_MS);
+  L.pullLib(once);
+}
+
 function signedIn(res, ak, user) {
-  runtime.logic().completeSignIn(ak, user || null, function (nuvio) {
+  var L = runtime.logic();
+  L.completeSignIn(ak, user || null, function (nuvio) {
     /* the library is named after the user: the logic starts again with it */
-    runtime.restart();
-    sendJson(res, { done: true, profiles: nuvio });
+    withLibrary(L, function () {
+      runtime.restart();
+      sendJson(res, { done: true, profiles: nuvio });
+    });
   });
 }
 
@@ -87,8 +103,10 @@ function useProfile(req, res, q) {
         JSON.stringify({ name: p.name, color: p.color, avatar: p.avatar })
       );
       L.reloadAccount(function () {
-        runtime.restart();
-        sendJson(res, { ok: true });
+        withLibrary(L, function () {
+          runtime.restart();
+          sendJson(res, { ok: true });
+        });
       });
     });
   });

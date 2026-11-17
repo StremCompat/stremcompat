@@ -27,6 +27,10 @@ function isJpeg(b) {
 function isPng(b) {
   return b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
 }
+function canBeClear(b) {
+  var webp = b.length > 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP';
+  return webp || (b.length > 4 && b.toString('ascii', 0, 4) === 'GIF8');
+}
 function isSvg(b) {
   return /^\s*(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*<svg[\s>]/i.test(b.slice(0, 512).toString('utf8'));
 }
@@ -127,7 +131,9 @@ function appImage(req, res, q) {
       if (isSvg(body)) return send(res, 'image/svg+xml', body);
       var plain = isJpeg(body) ? 'image/jpeg' : isPng(body) ? 'image/png' : '';
       if (plain && (!width || body.length <= SMALL_ENOUGH)) return send(res, plain, body);
-      var png = plain === 'image/png';
+      /* a picture that can be transparent (PNG, WebP, GIF: logos over the artwork) stays a PNG, so
+         its transparency is kept; only pictures that have none become JPEG */
+      var png = plain === 'image/png' || canBeClear(body);
       convert(body, width || CONVERT_MAX_WIDTH, png, function (made) {
         if (made) send(res, png ? 'image/png' : 'image/jpeg', made);
         /* without FFmpeg (Samsung) a JPEG or PNG still passes as it is */ else if (plain)

@@ -80,7 +80,10 @@ function act(req, res) {
     if (k === '__sync')
       return L.pullLib(function () {
         L.syncAddons(function (changed) {
-          say(L.tx(changed ? 'addonsUpdated' : 'addonsCurrent'), { changed: !!changed });
+          L.syncCollections(function () {
+            /* the library may have changed too: Home is built again in any case */
+            say(L.tx(changed ? 'addonsUpdated' : 'addonsCurrent'), { changed: true });
+          });
         });
       });
     if (k === '__clearSearches') {

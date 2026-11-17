@@ -24,20 +24,55 @@ function fail(res, status, why) {
   res.end(JSON.stringify({ error: why }));
 }
 
+/* ---------- the account, as the web interface brings it at every start ---------- */
+var LIBRARY_WAIT_MS = 6000;
+var refreshed = false; /* this run of the server already brought the account */
+/* The library first (Continue Watching and progress), waited for at most a few seconds so Home
+   comes with it; then the addons, the Collections and, once a day, the new episodes, quietly. */
+function refreshAccount(done) {
+  var L = logic(),
+    answered = false;
+  function once() {
+    if (answered) return;
+    answered = true;
+    done();
+  }
+  setTimeout(once, LIBRARY_WAIT_MS);
+  L.pruneCaches();
+  L.pullLib(function () {
+    once();
+    L.syncAddons(function () {
+      L.syncCollections(function () {
+        L.checkNewEpisodes(function () {});
+      });
+    });
+  });
+}
+
 /* ---------- who is signed in, in which language ---------- */
 function state(req, res, q) {
   if (q.tvLanguage) runtime.setTvLanguage(q.tvLanguage);
   runtime.takeOver(function () {
-    var L = logic(),
-      u = L.user();
-    L.dropLiveFromLibrary();
-    sendJson(res, {
-      version: APP_VERSION,
-      language: L.uiLanguage(),
-      signedIn: !!L.authKey(),
-      provider: L.authKey() ? (L.isNuvioAccount() ? 'nuvio' : 'stremio') : '',
-      email: (u && u.email) || ''
-    });
+    var L = logic();
+    if (L.authKey() && !refreshed) {
+      refreshed = true;
+      return refreshAccount(function () {
+        answerState(res);
+      });
+    }
+    answerState(res);
+  });
+}
+function answerState(res) {
+  var L = logic(),
+    u = L.user();
+  L.dropLiveFromLibrary();
+  sendJson(res, {
+    version: APP_VERSION,
+    language: L.uiLanguage(),
+    signedIn: !!L.authKey(),
+    provider: L.authKey() ? (L.isNuvioAccount() ? 'nuvio' : 'stremio') : '',
+    email: (u && u.email) || ''
   });
 }
 
@@ -592,6 +627,7 @@ function migrate(req, res) {
 }
 
 module.exports = {
+  refreshAccount: refreshAccount,
   routes: {
     '/app/addons': addonList,
     '/app/calendar': calendar,
