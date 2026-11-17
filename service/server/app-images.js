@@ -3,13 +3,15 @@
 // a JPEG through FFmpeg, one picture at a time. With ?w= a large picture (an IPTV logo of a few
 // megabytes, an addon's background, a collection's cover) is made that wide first, so the TV never
 // decodes it whole; a PNG stays a PNG, so a title logo keeps its transparency.
-// Addresses that fail are remembered for a while and not asked again.
+// Addresses that fail are remembered for a while and not asked again. What is sent is kept on disk
+// by address and width, so a cover is fetched and converted once instead of at every start.
 
 var spawn = require('child_process').spawn;
 var fs = require('fs');
 var os = require('os');
 var path = require('path');
-var { FFMPEG } = require('./config');
+var crypto = require('crypto');
+var { DIR, FFMPEG } = require('./config');
 var { fetchUrl } = require('./http-util');
 var { NICE, lowerPriority } = require('./priority');
 
@@ -20,6 +22,10 @@ var SMALL_ENOUGH = 48 * 1024; /* below this a picture passes as it is, even with
 var FAILED_KEEP_MS = 30 * 60 * 1000;
 var FAILED_MAX = 500;
 var failed = {}; /* address -> when it failed */
+var DISK = path.join(DIR, '.imgcache');
+var DISK_MAX = 600; /* files; the oldest go first, checked every DISK_CHECK writes */
+var DISK_CHECK = 50;
+var diskWrites = 0;
 
 function isJpeg(b) {
   return b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
@@ -28,11 +34,65 @@ function isPng(b) {
   return b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
 }
 function canBeClear(b) {
-  var webp = b.length > 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP';
-  return webp || (b.length > 4 && b.toString('ascii', 0, 4) === 'GIF8');
+  var webp = b.length > 20 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP';
+  if (webp) {
+    /* the first chunk says it: plain lossy (VP8) has no alpha; extended (VP8X) has an alpha flag */
+    var chunk = b.toString('ascii', 12, 16);
+    if (chunk === 'VP8 ') return false;
+    if (chunk === 'VP8X') return (b[20] & 0x10) !== 0;
+    return true;
+  }
+  return b.length > 4 && b.toString('ascii', 0, 4) === 'GIF8';
 }
 function isSvg(b) {
   return /^\s*(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*<svg[\s>]/i.test(b.slice(0, 512).toString('utf8'));
+}
+
+function sniff(b) {
+  if (isJpeg(b)) return 'image/jpeg';
+  if (isPng(b)) return 'image/png';
+  return isSvg(b) ? 'image/svg+xml' : '';
+}
+
+/* ---------- the disk copy: a cover is fetched and converted once ---------- */
+function diskFile(address, width) {
+  return path.join(
+    DISK,
+    crypto
+      .createHash('md5')
+      .update(address + '|' + width)
+      .digest('hex')
+  );
+}
+
+function trimDisk() {
+  fs.readdir(DISK, function (err, names) {
+    if (err || names.length <= DISK_MAX) return;
+    var files = names.map(function (name) {
+      var file = path.join(DISK, name);
+      try {
+        return { file: file, time: fs.statSync(file).mtime.getTime() };
+      } catch (e) {
+        return { file: file, time: 0 };
+      }
+    });
+    files.sort(function (a, b) {
+      return a.time - b.time;
+    });
+    files.slice(0, files.length - Math.floor(DISK_MAX * 0.8)).forEach(function (f) {
+      fs.unlink(f.file, function () {});
+    });
+  });
+}
+
+function keep(file, data) {
+  fs.mkdir(DISK, function () {
+    fs.writeFile(file + '.tmp', data, function (err) {
+      if (err) return;
+      fs.rename(file + '.tmp', file, function () {});
+      if (++diskWrites % DISK_CHECK === 0) trimDisk();
+    });
+  });
 }
 
 function send(res, type, data) {
@@ -121,6 +181,23 @@ function appImage(req, res, q) {
     width = Math.max(0, Math.min(CONVERT_MAX_WIDTH, parseInt(q.w, 10) || 0));
   if (!/^https?:\/\//i.test(address)) return missing(res);
   if (failed[address] && Date.now() - failed[address] < FAILED_KEEP_MS) return missing(res);
+  var file = diskFile(address, width);
+  fs.readFile(file, function (err, kept) {
+    var type = !err && kept && kept.length ? sniff(kept) : '';
+    if (type) return send(res, type, kept);
+    fetchAndSend(
+      address,
+      width,
+      function (type, data) {
+        keep(file, data);
+        send(res, type, data);
+      },
+      res
+    );
+  });
+}
+
+function fetchAndSend(address, width, done, res) {
   fetchUrl(
     address,
     function (body) {
@@ -128,16 +205,16 @@ function appImage(req, res, q) {
         remember(address);
         return missing(res);
       }
-      if (isSvg(body)) return send(res, 'image/svg+xml', body);
+      if (isSvg(body)) return done('image/svg+xml', body);
       var plain = isJpeg(body) ? 'image/jpeg' : isPng(body) ? 'image/png' : '';
-      if (plain && (!width || body.length <= SMALL_ENOUGH)) return send(res, plain, body);
+      if (plain && (!width || body.length <= SMALL_ENOUGH)) return done(plain, body);
       /* a picture that can be transparent (PNG, WebP, GIF: logos over the artwork) stays a PNG, so
          its transparency is kept; only pictures that have none become JPEG */
       var png = plain === 'image/png' || canBeClear(body);
       convert(body, width || CONVERT_MAX_WIDTH, png, function (made) {
-        if (made) send(res, png ? 'image/png' : 'image/jpeg', made);
+        if (made) done(png ? 'image/png' : 'image/jpeg', made);
         /* without FFmpeg (Samsung) a JPEG or PNG still passes as it is */ else if (plain)
-          send(res, plain, body);
+          done(plain, body);
         else {
           remember(address);
           missing(res);
