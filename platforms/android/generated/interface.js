@@ -467,6 +467,7 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    cachedTag: 'Cached',
     audioNotPlayable: 'This TV can\'t play this audio. Try another audio track or source.',
     addonsLeft: 'Still answering: {0}',
     notOnThisTv: 'Didn\'t play on this TV: {0}',
@@ -996,6 +997,7 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    cachedTag: 'Em cache',
     audioNotPlayable: 'Esta TV não toca este áudio. Tente outra faixa de áudio ou outra fonte.',
     addonsLeft: 'Ainda respondendo: {0}',
     notOnThisTv: 'Não tocou nesta TV: {0}',
@@ -1536,6 +1538,12 @@ function streamCompatibility(s) {
     if (!/(hdr10\+?|\bhdr\b)/.test(t)) rank = Math.max(rank, 2);
   }
   if (/\b(hevc|h[ ._-]?265|x265)\b/.test(t) && /\b(10[ ._-]?bit|main[ ._-]?10)\b/.test(t)) add('HEVC 10-bit');
+  /* 10-bit H.264 (Hi10P, common in anime releases): no TV or phone decodes it in hardware, so it
+     goes to the end with the formats that do not play */
+  if (/\bhi10p?\b/.test(t) || (/\b(h[ ._-]?264|x264|avc)\b/.test(t) && /\b10[ ._-]?bit\b/.test(t))) {
+    add('H.264 10-bit');
+    rank = Math.max(rank, 3);
+  }
   if (/\b(true[ ._-]?hd)\b/.test(t)) add('TrueHD');
   else if (/\b(dts[ ._-]?hd|dts)\b/.test(t)) add('DTS');
   if (/\b(e[ ._-]?ac[ ._-]?3|eac3|ddp|dd\+)\b/.test(t)) add('E-AC-3');
@@ -1756,6 +1764,29 @@ function torrentTrackers(s) {
 }
 /* the addon's stream as the interface and the player use it; null when it cannot be played */
 /* addonBase tells apart two installations of an addon with the same name */
+/* A debrid service that already has the file, from how the addons name it: Torrentio's "[RD+]",
+   Comet's "[TORBOX⚡]", "RD⚡" or "⚡ RD", MediaFusion's "⚡"; '' when it is not cached or not said.
+   Such a source starts at once, without waiting for peers. */
+var CACHED_SERVICES = [
+  ['RD', /\b(rd|real[ -]?debrid)\b/i],
+  ['AD', /\b(ad|all[ -]?debrid)\b/i],
+  ['TB', /\b(tb|torbox)\b/i],
+  ['PM', /\b(pm|premiumize)\b/i],
+  ['DL', /\b(dl|debrid[ -]?link)\b/i],
+  ['ED', /\b(ed|easy[ -]?debrid)\b/i],
+  ['OC', /\b(oc|offcloud)\b/i],
+  ['PK', /\b(pk|pikpak)\b/i]
+];
+function cachedService(s) {
+  var name = String(s.name || ''),
+    plus = name.match(/\[([A-Za-z]{2,10})\+\]/),
+    bolt = /\u26A1/.test(name);
+  if (!plus && !bolt) return '';
+  var said = plus ? plus[1] : name;
+  for (var i = 0; i < CACHED_SERVICES.length; i++)
+    if (CACHED_SERVICES[i][1].test(said)) return CACHED_SERVICES[i][0];
+  return 'debrid';
+}
 function sourceItem(s, addonName, addonBase) {
   var url = s.url,
     h = s.behaviorHints || {};
@@ -1775,6 +1806,7 @@ function sourceItem(s, addonName, addonBase) {
     notWebReady: !!h.notWebReady,
     headers: (h.proxyHeaders && h.proxyHeaders.request) || null
   };
+  item.cached = cachedService(s);
   var languages = streamLanguageInfo(s);
   item.langs = languages.audio;
   item.subLangs = languages.subs;
@@ -3088,7 +3120,23 @@ function sourceTags(s) {
     low = t.toLowerCase(),
     out = [],
     m;
+  if (s.cached) out.push({ t: s.cached === 'debrid' ? tx('cachedTag') : s.cached, c: 'cached' });
   if (s.quality && s.quality !== 'Other' && s.quality !== 'Recent') out.push({ t: s.quality, c: 'q' });
+  /* where the release comes from; a camera copy is a warning */
+  var origin = /\b(hd)?cam(rip)?\b|\b(hd)?ts\b|\btelesync\b/.test(low)
+    ? 'CAM'
+    : /\bremux\b/.test(low)
+      ? ''
+      : /\b(blu[ ._-]?ray|bdrip|brrip)\b/.test(low)
+        ? 'BluRay'
+        : /\bweb[ ._-]?dl\b/.test(low)
+          ? 'WEB-DL'
+          : /\bweb[ ._-]?rip\b/.test(low)
+            ? 'WEBRip'
+            : /\bhdtv\b/.test(low)
+              ? 'HDTV'
+              : '';
+  if (origin) out.push({ t: origin, c: origin === 'CAM' ? 'warn' : 'src' });
   /* what makes a release stand out, as badges of their own */
   if (/(dolby[ ._-]?vision|\bdovi\b|\bdv\b)/.test(low)) out.push({ t: 'DOLBY VISION', c: 'fx' });
   if (/hdr10\+/.test(low)) out.push({ t: 'HDR10+', c: 'fx' });
@@ -3106,10 +3154,14 @@ function sourceTags(s) {
   var langTags = [];
   if (s.langs && s.langs.length) langTags.push({ t: langTagText(s.langs), c: 'lang' });
   if (s.subLangs && s.subLangs.length) langTags.push(subTag(s.subLangs));
-  Array.prototype.splice.apply(out, [out.length && out[0].c === 'q' ? 1 : 0, 0].concat(langTags));
+  var at = 0;
+  while (at < out.length && (out[at].c === 'cached' || out[at].c === 'q')) at++;
+  Array.prototype.splice.apply(out, [at, 0].concat(langTags));
   return out;
 }
 window.__SC_SOURCE_TAGS__ = sourceTags;
+window.__SC_SOURCE_ITEM__ = sourceItem;
+window.__SC_SOURCE_TEXT__ = sourceText;
 window.__SC_STREAM_LANGUAGES__ = streamLanguages;
 window.__SC_LANGUAGE_INFO__ = streamLanguageInfo;
 /* 'PT-BR', 'ES-LA · EN', 'MULTI', or the first two and '+2' when there are more */
@@ -3229,7 +3281,34 @@ function bestSource(items, quality, language) {
   var known = playable.filter(function (s) {
     return s.quality !== 'Other' && s.quality !== 'SD';
   });
-  return asked[0] || known[0] || playable[0] || null;
+  return asked[0] || healthyBest(playable, language) || known[0] || playable[0] || null;
+}
+/* With no quality asked for: among the sources that will start well (cached, a direct link, or a
+   torrent with enough seeders) in the best language there is, 1080p first (it plays on every TV
+   and phone), then 4K, then 720p, each in the list's order. The most seeded 720p used to win over
+   a healthy 1080p. */
+var HEALTHY_SEEDERS = 10,
+  BEST_QUALITIES = ['1080p', '4K', '720p'];
+function healthyBest(playable, language) {
+  var healthy = playable.filter(function (s) {
+    return s.cached || s.seeders == null || s.seeders < 0 || s.seeders >= HEALTHY_SEEDERS;
+  });
+  if (!healthy.length) return null;
+  var rank = function (s) {
+    return language && language !== 'Auto' ? langRank(s, language) : 0;
+  };
+  var best = Math.min.apply(
+    null,
+    healthy.map(function (s) {
+      return rank(s);
+    })
+  );
+  healthy = healthy.filter(function (s) {
+    return rank(s) === best;
+  });
+  for (var q = 0; q < BEST_QUALITIES.length; q++)
+    for (var i = 0; i < healthy.length; i++) if (healthy[i].quality === BEST_QUALITIES[q]) return healthy[i];
+  return null;
 }
 window.__SC_BEST_SOURCE__ = bestSource;
 /* Best from the title page plays once every addon answered, or this long after the search began
@@ -3289,6 +3368,7 @@ function sourceOrder(a, b) {
   var ar = a.compatRank || 0,
     br = b.compatRank || 0;
   if (ar !== br) return ar - br;
+  if (!a.cached !== !b.cached) return a.cached ? -1 : 1;
   var as = a.seeders == null ? -1 : a.seeders,
     bs = b.seeders == null ? -1 : b.seeders;
   if (as !== bs) return bs - as;
@@ -3407,7 +3487,9 @@ function qualityChips(pool, trimmed) {
     if (key !== 'All' && !counts[key]) continue;
     out.push({
       key: key,
-      label: qualityLabel(key) + (key === 'All' ? '' : ' ' + counts[key] + ((trimmed || {})[key] ? '+' : ''))
+      label:
+        qualityLabel(key) +
+        (key === 'All' ? '' : ' \u00b7 ' + counts[key] + ((trimmed || {})[key] ? '+' : ''))
     });
   }
   return out;
@@ -3481,8 +3563,24 @@ function orderedSources(pool, quality, langKey, addon) {
 function sourceHeading(s) {
   return s.stored ? tx('continuePlayback') : s.addon || 'Addon';
 }
+/* The release name, as the list shows it: without what the badges already say (Torrentio's
+   "👤 120 💾 1.4 GB ⚙️ ThePirateBay" and the lines of flags), so the name is what remains. */
 function sourceText(s) {
-  return String(s.title || s.name || '').replace(/\n/g, '  ');
+  var raw = String(s.title || s.name || ''),
+    lines = raw.split('\n').map(function (line) {
+      return line
+        .replace(/(\uD83D\uDC64|\uD83D\uDC65)\s*\d+/g, '')
+        .replace(/\uD83D\uDCBE\s*[\d.,]+\s*[KMGT]i?B/gi, '')
+        .replace(/\u2699\uFE0F?\s*\S+/g, '')
+        .replace(/(\uD83C[\uDDE6-\uDDFF]){2}/g, '')
+        .replace(/^[\s|/·-]+|[\s|/·-]+$/g, '');
+    });
+  var text = lines
+    .filter(function (line) {
+      return line.length > 0;
+    })
+    .join('  ');
+  return text || raw.replace(/\n/g, '  ');
 }
 /* onLeft(names), when given, hears which addons are still to answer each time one does */
 function fetchStreams(type, vid, onPart, onDone, onLeft) {

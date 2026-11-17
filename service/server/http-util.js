@@ -9,6 +9,11 @@ var zlib = require('zlib');
 var MAX_REDIRECTS = 5;
 var FILE_LIMIT = 8 * 1024 * 1024;
 var ADDON_LIMIT = 4 * 1024 * 1024;
+/* Connections to the same host are kept open and used again: every new HTTPS connection costs a TLS
+   handshake, which takes hundreds of milliseconds on a TV's processor, and Home asks the same
+   addons for many catalogs in a row. */
+var AGENT_SETTINGS = { keepAlive: true, maxSockets: 6, maxFreeSockets: 4 };
+var agents = { 'http:': new http.Agent(AGENT_SETTINGS), 'https:': new https.Agent(AGENT_SETTINGS) };
 
 function unpackGzip(buf) {
   var gzipped = buf.length > 1 && buf[0] === 0x1f && buf[1] === 0x8b;
@@ -60,7 +65,8 @@ function download(address, settings, cb, hops) {
         port: target.port,
         path: target.path,
         method: 'GET',
-        headers: settings.headers || {}
+        headers: settings.headers || {},
+        agent: agents[target.protocol]
       },
       function (res) {
         var moved = res.statusCode >= 300 && res.statusCode < 400 && res.headers.location;

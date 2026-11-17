@@ -520,5 +520,6 @@
   "pointerLabel": "Magic-Remote-Zeiger",
   "addonsLeft": "Antworten noch: {0}",
   "notOnThisTv": "Lief auf diesem Fernseher nicht: {0}",
-  "audioNotPlayable": "Dieser Fernseher kann diesen Ton nicht abspielen. Versuche eine andere Tonspur oder Quelle."
+  "audioNotPlayable": "Dieser Fernseher kann diesen Ton nicht abspielen. Versuche eine andere Tonspur oder Quelle.",
+  "cachedTag": "Im Cache"
 }

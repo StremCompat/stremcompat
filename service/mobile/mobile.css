@@ -981,6 +981,23 @@ img {
   background: none;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7);
 }
+.source .tag.cached {
+  background: rgba(48, 209, 88, 0.2);
+  color: #9ff0b4;
+  padding-left: 17px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%239ff0b4' d='M13 2 4 14h7l-1 8 9-12h-7z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 4px 50%;
+  background-size: 11px 11px;
+}
+.source .tag.src {
+  background: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+.source .tag.warn {
+  background: rgba(255, 159, 10, 0.2);
+  color: #ffc46b;
+}
 .source .tag.size,
 .source .tag.seed,
 .source .tag.sublang {

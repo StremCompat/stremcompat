@@ -21,7 +21,23 @@ function sourceTags(s) {
     low = t.toLowerCase(),
     out = [],
     m;
+  if (s.cached) out.push({ t: s.cached === 'debrid' ? tx('cachedTag') : s.cached, c: 'cached' });
   if (s.quality && s.quality !== 'Other' && s.quality !== 'Recent') out.push({ t: s.quality, c: 'q' });
+  /* where the release comes from; a camera copy is a warning */
+  var origin = /\b(hd)?cam(rip)?\b|\b(hd)?ts\b|\btelesync\b/.test(low)
+    ? 'CAM'
+    : /\bremux\b/.test(low)
+      ? ''
+      : /\b(blu[ ._-]?ray|bdrip|brrip)\b/.test(low)
+        ? 'BluRay'
+        : /\bweb[ ._-]?dl\b/.test(low)
+          ? 'WEB-DL'
+          : /\bweb[ ._-]?rip\b/.test(low)
+            ? 'WEBRip'
+            : /\bhdtv\b/.test(low)
+              ? 'HDTV'
+              : '';
+  if (origin) out.push({ t: origin, c: origin === 'CAM' ? 'warn' : 'src' });
   /* what makes a release stand out, as badges of their own */
   if (/(dolby[ ._-]?vision|\bdovi\b|\bdv\b)/.test(low)) out.push({ t: 'DOLBY VISION', c: 'fx' });
   if (/hdr10\+/.test(low)) out.push({ t: 'HDR10+', c: 'fx' });
@@ -39,10 +55,14 @@ function sourceTags(s) {
   var langTags = [];
   if (s.langs && s.langs.length) langTags.push({ t: langTagText(s.langs), c: 'lang' });
   if (s.subLangs && s.subLangs.length) langTags.push(subTag(s.subLangs));
-  Array.prototype.splice.apply(out, [out.length && out[0].c === 'q' ? 1 : 0, 0].concat(langTags));
+  var at = 0;
+  while (at < out.length && (out[at].c === 'cached' || out[at].c === 'q')) at++;
+  Array.prototype.splice.apply(out, [at, 0].concat(langTags));
   return out;
 }
 window.__SC_SOURCE_TAGS__ = sourceTags;
+window.__SC_SOURCE_ITEM__ = sourceItem;
+window.__SC_SOURCE_TEXT__ = sourceText;
 window.__SC_STREAM_LANGUAGES__ = streamLanguages;
 window.__SC_LANGUAGE_INFO__ = streamLanguageInfo;
 /* 'PT-BR', 'ES-LA · EN', 'MULTI', or the first two and '+2' when there are more */
@@ -162,7 +182,34 @@ function bestSource(items, quality, language) {
   var known = playable.filter(function (s) {
     return s.quality !== 'Other' && s.quality !== 'SD';
   });
-  return asked[0] || known[0] || playable[0] || null;
+  return asked[0] || healthyBest(playable, language) || known[0] || playable[0] || null;
+}
+/* With no quality asked for: among the sources that will start well (cached, a direct link, or a
+   torrent with enough seeders) in the best language there is, 1080p first (it plays on every TV
+   and phone), then 4K, then 720p, each in the list's order. The most seeded 720p used to win over
+   a healthy 1080p. */
+var HEALTHY_SEEDERS = 10,
+  BEST_QUALITIES = ['1080p', '4K', '720p'];
+function healthyBest(playable, language) {
+  var healthy = playable.filter(function (s) {
+    return s.cached || s.seeders == null || s.seeders < 0 || s.seeders >= HEALTHY_SEEDERS;
+  });
+  if (!healthy.length) return null;
+  var rank = function (s) {
+    return language && language !== 'Auto' ? langRank(s, language) : 0;
+  };
+  var best = Math.min.apply(
+    null,
+    healthy.map(function (s) {
+      return rank(s);
+    })
+  );
+  healthy = healthy.filter(function (s) {
+    return rank(s) === best;
+  });
+  for (var q = 0; q < BEST_QUALITIES.length; q++)
+    for (var i = 0; i < healthy.length; i++) if (healthy[i].quality === BEST_QUALITIES[q]) return healthy[i];
+  return null;
 }
 window.__SC_BEST_SOURCE__ = bestSource;
 /* Best from the title page plays once every addon answered, or this long after the search began
@@ -222,6 +269,7 @@ function sourceOrder(a, b) {
   var ar = a.compatRank || 0,
     br = b.compatRank || 0;
   if (ar !== br) return ar - br;
+  if (!a.cached !== !b.cached) return a.cached ? -1 : 1;
   var as = a.seeders == null ? -1 : a.seeders,
     bs = b.seeders == null ? -1 : b.seeders;
   if (as !== bs) return bs - as;
@@ -340,7 +388,9 @@ function qualityChips(pool, trimmed) {
     if (key !== 'All' && !counts[key]) continue;
     out.push({
       key: key,
-      label: qualityLabel(key) + (key === 'All' ? '' : ' ' + counts[key] + ((trimmed || {})[key] ? '+' : ''))
+      label:
+        qualityLabel(key) +
+        (key === 'All' ? '' : ' \u00b7 ' + counts[key] + ((trimmed || {})[key] ? '+' : ''))
     });
   }
   return out;
@@ -414,8 +464,24 @@ function orderedSources(pool, quality, langKey, addon) {
 function sourceHeading(s) {
   return s.stored ? tx('continuePlayback') : s.addon || 'Addon';
 }
+/* The release name, as the list shows it: without what the badges already say (Torrentio's
+   "👤 120 💾 1.4 GB ⚙️ ThePirateBay" and the lines of flags), so the name is what remains. */
 function sourceText(s) {
-  return String(s.title || s.name || '').replace(/\n/g, '  ');
+  var raw = String(s.title || s.name || ''),
+    lines = raw.split('\n').map(function (line) {
+      return line
+        .replace(/(\uD83D\uDC64|\uD83D\uDC65)\s*\d+/g, '')
+        .replace(/\uD83D\uDCBE\s*[\d.,]+\s*[KMGT]i?B/gi, '')
+        .replace(/\u2699\uFE0F?\s*\S+/g, '')
+        .replace(/(\uD83C[\uDDE6-\uDDFF]){2}/g, '')
+        .replace(/^[\s|/·-]+|[\s|/·-]+$/g, '');
+    });
+  var text = lines
+    .filter(function (line) {
+      return line.length > 0;
+    })
+    .join('  ');
+  return text || raw.replace(/\n/g, '  ');
 }
 /* onLeft(names), when given, hears which addons are still to answer each time one does */
 function fetchStreams(type, vid, onPart, onDone, onLeft) {

@@ -153,8 +153,11 @@ function guide() {
   );
 }
 
+/* what the stand-in addon was asked and over how many connections (they are kept open) */
+var addonSeen = { requests: 0, connections: 0 };
 function addonServer() {
-  return http.createServer(function (req, res) {
+  var server = http.createServer(function (req, res) {
+    addonSeen.requests++;
     if (req.url === '/list.m3u') {
       res.writeHead(200, { 'Content-Type': 'audio/x-mpegurl' });
       return res.end(bigList());
@@ -171,6 +174,10 @@ function addonServer() {
     res.writeHead(answer ? 200 : 404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(answer || { error: 'not found' }));
   });
+  server.on('connection', function () {
+    addonSeen.connections++;
+  });
+  return server;
 }
 
 async function main() {
@@ -563,6 +570,10 @@ async function main() {
     assert.ok(poster.status === 200 && poster.text.length > 0, 'a JPEG did not pass through /app/img');
     var nothing = await request('/app/img?u=' + encodeURIComponent('file:///etc/passwd'));
     assert.strictEqual(nothing.status, 404, '/app/img read something other than a web address');
+    assert.ok(
+      addonSeen.requests > 4 && addonSeen.connections < addonSeen.requests / 2,
+      'the connections to the addon were not used again: ' + JSON.stringify(addonSeen)
+    );
 
     console.log(
       'OK: storage handed over, account, texts, Home rows, catalog, title with episodes, title page, sources as they arrive, playing and progress, library, channels, calendar, settings, pictures.'

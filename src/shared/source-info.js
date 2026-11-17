@@ -52,6 +52,12 @@ function streamCompatibility(s) {
     if (!/(hdr10\+?|\bhdr\b)/.test(t)) rank = Math.max(rank, 2);
   }
   if (/\b(hevc|h[ ._-]?265|x265)\b/.test(t) && /\b(10[ ._-]?bit|main[ ._-]?10)\b/.test(t)) add('HEVC 10-bit');
+  /* 10-bit H.264 (Hi10P, common in anime releases): no TV or phone decodes it in hardware, so it
+     goes to the end with the formats that do not play */
+  if (/\bhi10p?\b/.test(t) || (/\b(h[ ._-]?264|x264|avc)\b/.test(t) && /\b10[ ._-]?bit\b/.test(t))) {
+    add('H.264 10-bit');
+    rank = Math.max(rank, 3);
+  }
   if (/\b(true[ ._-]?hd)\b/.test(t)) add('TrueHD');
   else if (/\b(dts[ ._-]?hd|dts)\b/.test(t)) add('DTS');
   if (/\b(e[ ._-]?ac[ ._-]?3|eac3|ddp|dd\+)\b/.test(t)) add('E-AC-3');
@@ -272,6 +278,29 @@ function torrentTrackers(s) {
 }
 /* the addon's stream as the interface and the player use it; null when it cannot be played */
 /* addonBase tells apart two installations of an addon with the same name */
+/* A debrid service that already has the file, from how the addons name it: Torrentio's "[RD+]",
+   Comet's "[TORBOX⚡]", "RD⚡" or "⚡ RD", MediaFusion's "⚡"; '' when it is not cached or not said.
+   Such a source starts at once, without waiting for peers. */
+var CACHED_SERVICES = [
+  ['RD', /\b(rd|real[ -]?debrid)\b/i],
+  ['AD', /\b(ad|all[ -]?debrid)\b/i],
+  ['TB', /\b(tb|torbox)\b/i],
+  ['PM', /\b(pm|premiumize)\b/i],
+  ['DL', /\b(dl|debrid[ -]?link)\b/i],
+  ['ED', /\b(ed|easy[ -]?debrid)\b/i],
+  ['OC', /\b(oc|offcloud)\b/i],
+  ['PK', /\b(pk|pikpak)\b/i]
+];
+function cachedService(s) {
+  var name = String(s.name || ''),
+    plus = name.match(/\[([A-Za-z]{2,10})\+\]/),
+    bolt = /\u26A1/.test(name);
+  if (!plus && !bolt) return '';
+  var said = plus ? plus[1] : name;
+  for (var i = 0; i < CACHED_SERVICES.length; i++)
+    if (CACHED_SERVICES[i][1].test(said)) return CACHED_SERVICES[i][0];
+  return 'debrid';
+}
 function sourceItem(s, addonName, addonBase) {
   var url = s.url,
     h = s.behaviorHints || {};
@@ -291,6 +320,7 @@ function sourceItem(s, addonName, addonBase) {
     notWebReady: !!h.notWebReady,
     headers: (h.proxyHeaders && h.proxyHeaders.request) || null
   };
+  item.cached = cachedService(s);
   var languages = streamLanguageInfo(s);
   item.langs = languages.audio;
   item.subLangs = languages.subs;

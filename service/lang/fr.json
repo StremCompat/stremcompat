@@ -520,5 +520,6 @@
   "pointerLabel": "Pointeur de la Magic Remote",
   "addonsLeft": "Réponse en attente : {0}",
   "notOnThisTv": "N'a pas été lu sur ce téléviseur : {0}",
-  "audioNotPlayable": "Ce téléviseur ne lit pas cet audio. Essayez une autre piste audio ou source."
+  "audioNotPlayable": "Ce téléviseur ne lit pas cet audio. Essayez une autre piste audio ou source.",
+  "cachedTag": "En cache"
 }

@@ -520,5 +520,6 @@
   "pointerLabel": "Magic Remote 指针",
   "addonsLeft": "仍在响应：{0}",
   "notOnThisTv": "无法在此电视上播放：{0}",
-  "audioNotPlayable": "此电视无法播放此音频。请尝试其他音轨或来源。"
+  "audioNotPlayable": "此电视无法播放此音频。请尝试其他音轨或来源。",
+  "cachedTag": "已缓存"
 }
