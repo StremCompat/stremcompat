@@ -527,5 +527,7 @@
   "skipIntroSetting": "Passer l'intro et le récap",
   "skipOnOk": "Avec OK",
   "skipByItself": "Automatique",
-  "forcedSubsSetting": "Sous-titres forcés uniquement"
+  "forcedSubsSetting": "Sous-titres forcés uniquement",
+  "upcomingRow": "Épisodes à venir",
+  "upcomingTag": "S{0} É{1} · {2}"
 }

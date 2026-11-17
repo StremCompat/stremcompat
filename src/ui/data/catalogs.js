@@ -336,6 +336,8 @@ function homeLibraryRows() {
   if (cwMapped.length) rows.push({ title: tx('continueWatching'), items: cwMapped, wide: true });
   var fresh = newEpisodeItems();
   if (fresh.length) rows.push({ title: tx('newEpisodes'), items: fresh, wide: true });
+  var soon = upcomingItems();
+  if (soon.length) rows.push({ title: tx('upcomingRow'), items: soon, wide: true });
   var mine = libGridItems().slice(0, 20),
     mineMapped = [];
   for (var mi = 0; mi < mine.length; mi++)

@@ -6,8 +6,34 @@ var CALENDAR_SERIES = 30,
   CALENDAR_AFTER = 60 * 86400000,
   CALENDAR_AT_ONCE = 4,
   CALENDAR_KEEP_MS = 6 * 3600 * 1000,
-  calendarKept = null;
+  CALENDAR_KEY = 'beta_calendar',
+  /* kept in storage too, so a restart of the interface (a new language) keeps the Upcoming row */
+  calendarKept = lsJson(CALENDAR_KEY);
 /* the series are asked four at a time, and the answer kept six hours */
+/* The next episode still to air of each followed series, soonest first, from the calendar kept
+   (Home's Upcoming row; calendarEpisodes fills it at start) */
+var UPCOMING_MAX = 20;
+function upcomingItems() {
+  var now = Date.now(),
+    seen = {},
+    out = [];
+  var items = (calendarKept && calendarKept.items) || [];
+  for (var i = 0; i < items.length && out.length < UPCOMING_MAX; i++) {
+    var it = items[i];
+    if (it.released <= now || seen[it.id]) continue;
+    seen[it.id] = 1;
+    out.push({
+      id: it.id,
+      type: 'series',
+      name: it.name,
+      poster: it.poster,
+      background: it.background,
+      videoId: it.videoId,
+      airsAt: it.released
+    });
+  }
+  return out;
+}
 function calendarEpisodes(done) {
   if (calendarKept && Date.now() - calendarKept.at < CALENDAR_KEEP_MS) return done(calendarKept.items);
   var series = followedSeries().slice(0, CALENDAR_SERIES),
@@ -44,6 +70,7 @@ function calendarEpisodes(done) {
         return a.released - b.released;
       });
       calendarKept = { at: Date.now(), items: out };
+      lsSet(CALENDAR_KEY, calendarKept);
       done(out);
     });
   }

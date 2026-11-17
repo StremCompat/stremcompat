@@ -527,5 +527,7 @@
   "skipIntroSetting": "Пропуск заставки и пересказа",
   "skipOnOk": "По кнопке OK",
   "skipByItself": "Автоматически",
-  "forcedSubsSetting": "Только форсированные субтитры"
+  "forcedSubsSetting": "Только форсированные субтитры",
+  "upcomingRow": "Скоро выйдут",
+  "upcomingTag": "С{0} Э{1} · {2}"
 }

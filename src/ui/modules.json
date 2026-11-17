@@ -17,6 +17,7 @@
   "data/account.js",
   "data/addons.js",
   "data/catalogs.js",
+  "data/calendar.js",
   "data/streams.js",
   "data/playback.js",
   "ui/focus.js",

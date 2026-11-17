@@ -43,7 +43,9 @@ function refreshAccount(done) {
     once();
     L.syncAddons(function () {
       L.syncCollections(function () {
-        L.checkNewEpisodes(function () {});
+        L.checkNewEpisodes(function () {
+          L.calendarEpisodes(function () {});
+        });
       });
     });
   });
@@ -91,6 +93,7 @@ function decorate(items, wide) {
     it.art = wide ? L.bgSmall(it) : L.posterOf(it);
     it.backdrop = L.bgOf(it);
     it.inLibrary = !!L.libHas(it.id);
+    it.upcoming = !!it.airsAt;
     if (wide) it.subtitle = L.cwSubtitle(it);
     else it.watched = !!L.itemWatched(it);
   }

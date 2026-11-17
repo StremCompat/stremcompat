@@ -527,5 +527,7 @@
   "skipIntroSetting": "跳过片头和回顾",
   "skipOnOk": "按 OK",
   "skipByItself": "自动",
-  "forcedSubsSetting": "仅强制字幕"
+  "forcedSubsSetting": "仅强制字幕",
+  "upcomingRow": "即将播出",
+  "upcomingTag": "S{0} E{1} · {2}"
 }

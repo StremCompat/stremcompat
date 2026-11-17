@@ -527,5 +527,7 @@
   "skipIntroSetting": "Saltar intro y resumen",
   "skipOnOk": "Con OK",
   "skipByItself": "Automático",
-  "forcedSubsSetting": "Solo subtítulos forzados"
+  "forcedSubsSetting": "Solo subtítulos forzados",
+  "upcomingRow": "Próximos episodios",
+  "upcomingTag": "T{0} E{1} · {2}"
 }

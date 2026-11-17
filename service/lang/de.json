@@ -527,5 +527,7 @@
   "skipIntroSetting": "Vorspann und Rückblick überspringen",
   "skipOnOk": "Mit OK",
   "skipByItself": "Automatisch",
-  "forcedSubsSetting": "Nur erzwungene Untertitel"
+  "forcedSubsSetting": "Nur erzwungene Untertitel",
+  "upcomingRow": "Kommende Folgen",
+  "upcomingTag": "S{0} F{1} · {2}"
 }

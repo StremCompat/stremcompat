@@ -527,5 +527,7 @@
   "skipIntroSetting": "Salta sigla e riassunto",
   "skipOnOk": "Con OK",
   "skipByItself": "Automatico",
-  "forcedSubsSetting": "Solo sottotitoli forzati"
+  "forcedSubsSetting": "Solo sottotitoli forzati",
+  "upcomingRow": "Prossimi episodi",
+  "upcomingTag": "S{0} E{1} · {2}"
 }

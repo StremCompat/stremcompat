@@ -138,6 +138,10 @@ function showHome(libraryPulled) {
     setTimeout(function () {
       checkNewEpisodes(function (changed) {
         if (changed) home.built = false;
+        /* the episodes still to air, for the Upcoming row of the next Home build */
+        calendarEpisodes(function () {
+          if (upcomingItems().length) home.built = false;
+        });
       });
     }, 8000);
     /* the last start stopped before Home or login: say where, for a report */

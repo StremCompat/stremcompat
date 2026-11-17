@@ -527,5 +527,7 @@
   "skipIntroSetting": "오프닝·요약 건너뛰기",
   "skipOnOk": "OK로",
   "skipByItself": "자동",
-  "forcedSubsSetting": "강제 자막만"
+  "forcedSubsSetting": "강제 자막만",
+  "upcomingRow": "공개 예정 에피소드",
+  "upcomingTag": "S{0} E{1} · {2}"
 }

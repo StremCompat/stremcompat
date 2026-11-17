@@ -486,6 +486,8 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    upcomingRow: 'Upcoming episodes',
+    upcomingTag: 'S{0} E{1} · {2}',
     forcedSubsSetting: 'Forced subtitles only',
     skipIntroSetting: 'Skip intro and recap',
     skipOnOk: 'With OK',
@@ -1022,6 +1024,8 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    upcomingRow: 'Próximos episódios',
+    upcomingTag: 'T{0} E{1} · {2}',
     forcedSubsSetting: 'Só legendas forçadas',
     skipIntroSetting: 'Pular abertura e recapitulação',
     skipOnOk: 'Com OK',
@@ -2099,12 +2103,21 @@ function cwCard(it) {
 }
 window.__SC_CW_CARD__ = cwCard;
 /* "Up next · S2 E6", "S2 E5 · 12 min left" or "48 min left" under a Continue Watching title */
+/* the day an episode airs, short: "Tue 24 Nov" */
+function airDay(at) {
+  try {
+    return new Date(at).toLocaleDateString(UI_LANG, { weekday: 'short', day: 'numeric', month: 'short' });
+  } catch (e) {
+    return new Date(at).toISOString().slice(5, 10);
+  }
+}
 function cwSubtitle(it) {
   var ep = '';
   if (it.videoId && it.videoId.indexOf(':') > 0) {
     var pp = it.videoId.split(':');
     if (pp.length >= 3) {
       if (it.upNext) return tx('cwUpNext', pp[pp.length - 2], pp[pp.length - 1]);
+      if (it.airsAt) return tx('upcomingTag', pp[pp.length - 2], pp[pp.length - 1], airDay(it.airsAt));
       if (it.fresh) return tx('newEpisodeTag', pp[pp.length - 2], pp[pp.length - 1]);
       ep = tx('cwEpisode', pp[pp.length - 2], pp[pp.length - 1]);
     }
@@ -2698,6 +2711,8 @@ function homeLibraryRows() {
   if (cwMapped.length) rows.push({ title: tx('continueWatching'), items: cwMapped, wide: true });
   var fresh = newEpisodeItems();
   if (fresh.length) rows.push({ title: tx('newEpisodes'), items: fresh, wide: true });
+  var soon = upcomingItems();
+  if (soon.length) rows.push({ title: tx('upcomingRow'), items: soon, wide: true });
   var mine = libGridItems().slice(0, 20),
     mineMapped = [];
   for (var mi = 0; mi < mine.length; mi++)
@@ -4045,8 +4060,34 @@ var CALENDAR_SERIES = 30,
   CALENDAR_AFTER = 60 * 86400000,
   CALENDAR_AT_ONCE = 4,
   CALENDAR_KEEP_MS = 6 * 3600 * 1000,
-  calendarKept = null;
+  CALENDAR_KEY = 'beta_calendar',
+  /* kept in storage too, so a restart of the interface (a new language) keeps the Upcoming row */
+  calendarKept = lsJson(CALENDAR_KEY);
 /* the series are asked four at a time, and the answer kept six hours */
+/* The next episode still to air of each followed series, soonest first, from the calendar kept
+   (Home's Upcoming row; calendarEpisodes fills it at start) */
+var UPCOMING_MAX = 20;
+function upcomingItems() {
+  var now = Date.now(),
+    seen = {},
+    out = [];
+  var items = (calendarKept && calendarKept.items) || [];
+  for (var i = 0; i < items.length && out.length < UPCOMING_MAX; i++) {
+    var it = items[i];
+    if (it.released <= now || seen[it.id]) continue;
+    seen[it.id] = 1;
+    out.push({
+      id: it.id,
+      type: 'series',
+      name: it.name,
+      poster: it.poster,
+      background: it.background,
+      videoId: it.videoId,
+      airsAt: it.released
+    });
+  }
+  return out;
+}
 function calendarEpisodes(done) {
   if (calendarKept && Date.now() - calendarKept.at < CALENDAR_KEEP_MS) return done(calendarKept.items);
   var series = followedSeries().slice(0, CALENDAR_SERIES),
@@ -4083,6 +4124,7 @@ function calendarEpisodes(done) {
         return a.released - b.released;
       });
       calendarKept = { at: Date.now(), items: out };
+      lsSet(CALENDAR_KEY, calendarKept);
       done(out);
     });
   }
