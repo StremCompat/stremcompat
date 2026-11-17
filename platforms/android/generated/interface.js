@@ -5151,7 +5151,7 @@ function unloadBoard(b) {
 /* A folder's cover as the local server shrinks it to the tile's width (a pack's covers are often
    large and decoding them whole is what made the tiles slow and blurry); a PNG keeps its alpha. */
 function folderArtUrl(it) {
-  var w = it.shape === 'wide' ? 640 : 360;
+  var w = it.shape === 'wide' ? 420 : 240; /* the 1080p tiles are 412 and 232 wide */
   return /^https?:\/\//i.test(it.poster)
     ? '/app/img?w=' + w + '&u=' + encodeURIComponent(it.poster)
     : it.poster;
