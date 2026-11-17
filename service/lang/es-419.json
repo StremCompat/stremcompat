@@ -536,5 +536,10 @@
   "spoilersAll": "Ocultar imágenes y sinopsis",
   "spoilerHidden": "Sinopsis oculta hasta que veas este episodio.",
   "markSeriesWatched": "Marcar serie como vista",
-  "markSeriesUnwatched": "Marcar serie como no vista"
+  "markSeriesUnwatched": "Marcar serie como no vista",
+  "filterCached": "En caché",
+  "filterHdr": "HDR",
+  "filterAtmos": "Atmos",
+  "filterRemux": "Remux",
+  "filterNoCam": "Sin CAM"
 }

@@ -375,6 +375,54 @@ window.__SC_COMPACT_SOURCES__ = compactSourcePool;
    tell "nothing found" apart from "the addon is down". */
 /* the quality chips over the list: All, then each quality with how many sources it has (a +
    when the list was cut) */
+/* Quick filters after the quality chips, offered when a source has what they look for: cached
+   by a debrid service, HDR or Dolby Vision, Atmos, Remux, and Hide CAM when camera copies came.
+   Their keys start with 'f:' and take the quality chip's place in orderedSources. */
+var QUICK_FILTERS = [
+  [
+    'cached',
+    'filterCached',
+    function (s) {
+      return !!s.cached;
+    }
+  ],
+  [
+    'hdr',
+    'filterHdr',
+    function (s) {
+      return /(dolby[ ._-]?vision|\bdovi\b|\bdv\b|\bhdr)/i.test(streamText(s));
+    }
+  ],
+  [
+    'atmos',
+    'filterAtmos',
+    function (s) {
+      return /\batmos\b/i.test(streamText(s));
+    }
+  ],
+  [
+    'remux',
+    'filterRemux',
+    function (s) {
+      return /\bremux\b/i.test(streamText(s));
+    }
+  ],
+  [
+    'nocam',
+    'filterNoCam',
+    function (s) {
+      return !isCamCopy(s);
+    }
+  ]
+];
+function isCamCopy(s) {
+  return /\b(hd)?cam(rip)?\b|\b(hd)?ts\b|\btelesync\b/i.test(streamText(s));
+}
+function quickFilterTest(key) {
+  for (var i = 0; i < QUICK_FILTERS.length; i++)
+    if ('f:' + QUICK_FILTERS[i][0] === key) return QUICK_FILTERS[i][2];
+  return null;
+}
 function qualityChips(pool, trimmed) {
   var counts = {},
     out = [],
@@ -392,6 +440,17 @@ function qualityChips(pool, trimmed) {
         qualityLabel(key) +
         (key === 'All' ? '' : ' \u00b7 ' + counts[key] + ((trimmed || {})[key] ? '+' : ''))
     });
+  }
+  var playable = pool.filter(function (s) {
+    return !s.stored;
+  });
+  for (var f = 0; f < QUICK_FILTERS.length; f++) {
+    var test = QUICK_FILTERS[f][2],
+      n = playable.filter(test).length;
+    /* Hide CAM only when there is a camera copy to hide */
+    var offered = QUICK_FILTERS[f][0] === 'nocam' ? n < playable.length && n > 0 : n > 0;
+    if (offered)
+      out.push({ key: 'f:' + QUICK_FILTERS[f][0], label: tx(QUICK_FILTERS[f][1]) + ' \u00b7 ' + n });
   }
   return out;
 }
@@ -435,8 +494,12 @@ function langFilterName(key) {
 function orderedSources(pool, quality, langKey, addon) {
   var pref = lsRaw('preferredSourceQuality', 'Auto'),
     langPref = fixedSourceLanguage();
+  /* a quick filter chip stands for 'All' qualities with its own test */
+  var quick = quickFilterTest(quality);
+  if (quick) quality = 'All';
   var flat = pool.filter(function (s) {
     if (s.stored) return quality === 'All' || s.quality === quality;
+    if (quick && !quick(s)) return false;
     return (
       (quality === 'All' || s.quality === quality) &&
       inLangFilter(s, langKey) &&

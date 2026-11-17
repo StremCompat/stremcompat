@@ -536,5 +536,10 @@
   "spoilersAll": "隐藏图片和简介",
   "spoilerHidden": "观看本集前简介已隐藏。",
   "markSeriesWatched": "将剧集标为已看",
-  "markSeriesUnwatched": "将剧集标为未看"
+  "markSeriesUnwatched": "将剧集标为未看",
+  "filterCached": "已缓存",
+  "filterHdr": "HDR",
+  "filterAtmos": "Atmos",
+  "filterRemux": "Remux",
+  "filterNoCam": "排除 CAM"
 }

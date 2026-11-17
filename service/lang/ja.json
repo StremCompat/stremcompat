@@ -536,5 +536,10 @@
   "spoilersAll": "画像とあらすじを隠す",
   "spoilerHidden": "このエピソードを見るまであらすじは非表示です。",
   "markSeriesWatched": "シリーズを視聴済みにする",
-  "markSeriesUnwatched": "シリーズを未視聴にする"
+  "markSeriesUnwatched": "シリーズを未視聴にする",
+  "filterCached": "キャッシュ済み",
+  "filterHdr": "HDR",
+  "filterAtmos": "Atmos",
+  "filterRemux": "Remux",
+  "filterNoCam": "CAMなし"
 }

@@ -536,5 +536,10 @@
   "spoilersAll": "Скрывать кадры и описания",
   "spoilerHidden": "Описание скрыто, пока вы не посмотрите эпизод.",
   "markSeriesWatched": "Отметить сериал просмотренным",
-  "markSeriesUnwatched": "Отметить сериал непросмотренным"
+  "markSeriesUnwatched": "Отметить сериал непросмотренным",
+  "filterCached": "В кэше",
+  "filterHdr": "HDR",
+  "filterAtmos": "Atmos",
+  "filterRemux": "Remux",
+  "filterNoCam": "Без CAM"
 }
