@@ -479,6 +479,7 @@ img {
 
 /* ---------- title page ---------- */
 .detail-top {
+  width: 100%;
   position: relative;
   margin-top: calc(-1 * (var(--safe-t) + 52px));
   aspect-ratio: 3 / 4;
@@ -537,6 +538,7 @@ img {
   margin-right: 4px;
 }
 .detail-actions {
+  max-width: 440px;
   display: flex;
   flex-direction: column;
   gap: 10px;

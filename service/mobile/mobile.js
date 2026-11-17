@@ -455,7 +455,9 @@ function titleView(type, id, name, video) {
       node.onclick = () => openSources(type, id, e.id, model.name + ' · ' + e.title);
       list.appendChild(node);
     });
-    pills.querySelector('.on').scrollIntoView({ inline: 'center', block: 'nearest' });
+    /* the chosen season in the middle of its row, without scrolling the page itself */
+    const on = pills.querySelector('.on');
+    pills.scrollLeft = on.offsetLeft - (pills.clientWidth - on.offsetWidth) / 2;
   }
   async function runAction(a) {
     const vid = a.video || id;
