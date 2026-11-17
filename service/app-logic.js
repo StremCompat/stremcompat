@@ -486,6 +486,12 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    forcedSubsSetting: 'Forced subtitles only',
+    skipIntroSetting: 'Skip intro and recap',
+    skipOnOk: 'With OK',
+    skipByItself: 'By itself',
+    endsAt: 'Ends at {0}',
+    nextCardHint: 'OK to play it now · Back to keep watching',
     cachedTag: 'Cached',
     audioNotPlayable: 'This TV can\'t play this audio. Try another audio track or source.',
     addonsLeft: 'Still answering: {0}',
@@ -1016,6 +1022,12 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    forcedSubsSetting: 'Só legendas forçadas',
+    skipIntroSetting: 'Pular abertura e recapitulação',
+    skipOnOk: 'Com OK',
+    skipByItself: 'Sozinho',
+    endsAt: 'Termina às {0}',
+    nextCardHint: 'OK para assistir agora · Voltar para continuar aqui',
     cachedTag: 'Em cache',
     audioNotPlayable: 'Esta TV não toca este áudio. Tente outra faixa de áudio ou outra fonte.',
     addonsLeft: 'Ainda respondendo: {0}',
@@ -4503,6 +4515,16 @@ function settingsCategories() {
       d: '10'
     },
     {
+      k: 'skipIntro',
+      lb: tx('skipIntroSetting'),
+      opts: [
+        ['button', tx('skipOnOk')],
+        ['auto', tx('skipByItself')],
+        ['off', tx('disabled')]
+      ],
+      d: 'button'
+    },
+    {
       k: 'scrubPreview',
       lb: tx('scrubPreview'),
       opts: [
@@ -4560,6 +4582,15 @@ function settingsCategories() {
     {
       k: 'assStyle',
       lb: tx('assStyle'),
+      opts: [
+        ['false', tx('disabled')],
+        ['true', tx('enabled')]
+      ],
+      d: 'false'
+    },
+    {
+      k: 'forcedSubs',
+      lb: tx('forcedSubsSetting'),
       opts: [
         ['false', tx('disabled')],
         ['true', tx('enabled')]

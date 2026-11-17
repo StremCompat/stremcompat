@@ -521,5 +521,11 @@
   "addonsLeft": "仍在响应：{0}",
   "notOnThisTv": "无法在此电视上播放：{0}",
   "audioNotPlayable": "此电视无法播放此音频。请尝试其他音轨或来源。",
-  "cachedTag": "已缓存"
+  "cachedTag": "已缓存",
+  "endsAt": "{0} 结束",
+  "nextCardHint": "按 OK 立即播放 · 按返回继续观看",
+  "skipIntroSetting": "跳过片头和回顾",
+  "skipOnOk": "按 OK",
+  "skipByItself": "自动",
+  "forcedSubsSetting": "仅强制字幕"
 }

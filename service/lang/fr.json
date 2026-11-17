@@ -521,5 +521,11 @@
   "addonsLeft": "Réponse en attente : {0}",
   "notOnThisTv": "N'a pas été lu sur ce téléviseur : {0}",
   "audioNotPlayable": "Ce téléviseur ne lit pas cet audio. Essayez une autre piste audio ou source.",
-  "cachedTag": "En cache"
+  "cachedTag": "En cache",
+  "endsAt": "Se termine à {0}",
+  "nextCardHint": "OK pour le lancer · Retour pour rester",
+  "skipIntroSetting": "Passer l'intro et le récap",
+  "skipOnOk": "Avec OK",
+  "skipByItself": "Automatique",
+  "forcedSubsSetting": "Sous-titres forcés uniquement"
 }

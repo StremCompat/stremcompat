@@ -41,6 +41,33 @@ function nextPref(id) {
   return nextPrefs[id] || null;
 }
 
+/* a title's own choices, kept under the web player's key (tvtitle_<id>, src/player/subtitles.js) */
+function titlePref(id) {
+  try {
+    return JSON.parse(runtime.storage.getItem('tvtitle_' + id) || 'null') || {};
+  } catch (e) {
+    return {};
+  }
+}
+function titleSubtitle(id, fallback) {
+  var sub = titlePref(id).sub;
+  return sub === 'off' ? '' : sub || fallback;
+}
+
+/* { id, sub }: the subtitle language the viewer chose for this title ('off' for none) */
+function rememberTitle(req, res) {
+  readJsonBody(req, 4096, function (body) {
+    if (!body || !body.id || typeof body.sub !== 'string') return fail(res, 400, 'id and sub are needed');
+    var L = runtime.logic();
+    if (L.setting('noHistory', 'false') !== 'true') {
+      var pref = titlePref(body.id);
+      pref.sub = body.sub.slice(0, 16);
+      runtime.storage.setItem('tvtitle_' + body.id, JSON.stringify(pref));
+    }
+    sendJson(res, { ok: true });
+  });
+}
+
 function answerStream(res, q, ref) {
   var stream = getStreamRef(ref);
   if (!stream) return fail(res, 404, 'gone');
@@ -72,8 +99,15 @@ function answerStream(res, q, ref) {
       binge: L.setting('bingeWatch', 'true') !== 'false' && L.setting('enableNextVideo', 'true') !== 'false',
       resume: resume,
       seekStep: parseInt(L.setting('seekStep', '10'), 10) || 10,
-      /* the subtitles chosen in Settings, or the interface's language until then (web: subtitles.js) */
-      subtitleLanguage: L.setting('subsLang', L.defaultMediaLanguage()),
+      /* Settings: seek previews, pictures of the film while seeking (web: previews.js) */
+      previews: L.setting('scrubPreview', 'false') === 'true',
+      /* Settings: skip intro and recap with OK, by itself, or never */
+      skipIntro: L.setting('skipIntro', 'button'),
+      /* this title's subtitles when chosen before (as the web player keeps them), else those of
+         Settings, or the interface's language until then (web: subtitles.js) */
+      subtitleLanguage: titleSubtitle(q.id, L.setting('subsLang', L.defaultMediaLanguage())),
+      /* Settings: only a forced subtitle track (the foreign lines and the signs) */
+      forcedOnly: L.setting('forcedSubs', 'false') === 'true',
       /* Settings > Subtitles: size, colour, outline and background (web: subtitles.js) */
       subtitleStyle: {
         size: Math.round((38 * (SUBTITLE_SIZES[L.setting('subtitleSize', '2')] || 100)) / 100),
@@ -278,6 +312,7 @@ function learn(req, res) {
 }
 
 module.exports = {
+  rememberTitle: rememberTitle,
   learn: learn,
   nextPref: nextPref,
   play: play,

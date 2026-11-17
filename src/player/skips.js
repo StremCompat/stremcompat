@@ -55,10 +55,16 @@ function activeSkip(t) {
   }
   return null;
 }
+/* Settings > Skip intro and recap: a button OK presses (the default), by itself, or never */
+var SKIP_MODE = lsGet('skipIntro', 'button');
 function checkSkip() {
-  var s = activeSkip(v.currentTime);
+  var s = SKIP_MODE === 'off' ? null : activeSkip(v.currentTime);
   if (s === skipShown) return;
   skipShown = s;
+  if (s && SKIP_MODE === 'auto') {
+    skipNow();
+    return;
+  }
   skipEl.textContent = s ? (s.kind === 'recap' ? P.skipRecap : P.skipIntro) : '';
   skipEl.className = s ? 'show' : '';
 }

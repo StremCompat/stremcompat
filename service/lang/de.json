@@ -521,5 +521,11 @@
   "addonsLeft": "Antworten noch: {0}",
   "notOnThisTv": "Lief auf diesem Fernseher nicht: {0}",
   "audioNotPlayable": "Dieser Fernseher kann diesen Ton nicht abspielen. Versuche eine andere Tonspur oder Quelle.",
-  "cachedTag": "Im Cache"
+  "cachedTag": "Im Cache",
+  "endsAt": "Endet um {0}",
+  "nextCardHint": "OK zum Abspielen · Zurück, um weiterzuschauen",
+  "skipIntroSetting": "Vorspann und Rückblick überspringen",
+  "skipOnOk": "Mit OK",
+  "skipByItself": "Automatisch",
+  "forcedSubsSetting": "Nur erzwungene Untertitel"
 }

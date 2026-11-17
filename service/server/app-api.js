@@ -680,6 +680,7 @@ module.exports = {
     '/app/act': act,
     '/app/migrate': migrate,
     '/app/progress': playback.progress,
-    '/app/learn': playback.learn
+    '/app/learn': playback.learn,
+    '/app/titlepref': playback.rememberTitle
   }
 };

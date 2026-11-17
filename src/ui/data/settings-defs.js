@@ -109,6 +109,16 @@ function settingsCategories() {
       d: '10'
     },
     {
+      k: 'skipIntro',
+      lb: tx('skipIntroSetting'),
+      opts: [
+        ['button', tx('skipOnOk')],
+        ['auto', tx('skipByItself')],
+        ['off', tx('disabled')]
+      ],
+      d: 'button'
+    },
+    {
       k: 'scrubPreview',
       lb: tx('scrubPreview'),
       opts: [
@@ -166,6 +176,15 @@ function settingsCategories() {
     {
       k: 'assStyle',
       lb: tx('assStyle'),
+      opts: [
+        ['false', tx('disabled')],
+        ['true', tx('enabled')]
+      ],
+      d: 'false'
+    },
+    {
+      k: 'forcedSubs',
+      lb: tx('forcedSubsSetting'),
       opts: [
         ['false', tx('disabled')],
         ['true', tx('enabled')]

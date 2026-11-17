@@ -251,6 +251,12 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    forcedSubsSetting: 'Forced subtitles only',
+    skipIntroSetting: 'Skip intro and recap',
+    skipOnOk: 'With OK',
+    skipByItself: 'By itself',
+    endsAt: 'Ends at {0}',
+    nextCardHint: 'OK to play it now · Back to keep watching',
     cachedTag: 'Cached',
     audioNotPlayable: 'This TV can\'t play this audio. Try another audio track or source.',
     addonsLeft: 'Still answering: {0}',
@@ -781,6 +787,12 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    forcedSubsSetting: 'Só legendas forçadas',
+    skipIntroSetting: 'Pular abertura e recapitulação',
+    skipOnOk: 'Com OK',
+    skipByItself: 'Sozinho',
+    endsAt: 'Termina às {0}',
+    nextCardHint: 'OK para assistir agora · Voltar para continuar aqui',
     cachedTag: 'Em cache',
     audioNotPlayable: 'Esta TV não toca este áudio. Tente outra faixa de áudio ou outra fonte.',
     addonsLeft: 'Ainda respondendo: {0}',
@@ -2295,9 +2307,27 @@ var embTracks = null,
   embFirst = false,
   embFailed = false;
 var autoSubDone = false;
+/* Full subtitles before those for the hard of hearing, then forced ones, commentary last; with
+   Settings' forced only, a forced one or none. From the file's marks (kind) or the name. */
+var FORCED_ONLY = lsGet('forcedSubs', 'false') === 'true';
+function subRank(s) {
+  var n = String(s.name || '').toLowerCase();
+  if (s.kind === 'commentary' || /comment/.test(n)) return 3;
+  if (s.kind === 'forced' || /forced|signs/.test(n)) return 2;
+  if (s.kind === 'sdh' || /\bsdh\b|hearing/.test(n)) return 1;
+  return 0;
+}
+function bestOfLanguage(list, lang) {
+  var best = null;
+  for (var i = 0; list && i < list.length; i++) {
+    var s = list[i];
+    if (!sameLanguage(s.lang, lang) || (FORCED_ONLY && subRank(s) !== 2)) continue;
+    if (!best || subRank(s) < subRank(best)) best = s;
+  }
+  return best;
+}
 function subOfLanguage(lang) {
-  for (var i = 0; i < extSubs.length; i++) if (sameLanguage(extSubs[i].lang, lang)) return extSubs[i];
-  return null;
+  return bestOfLanguage(extSubs, lang);
 }
 /* The subtitle chosen for this title: the same one in this episode, or the same addon's in
    that language in another. */
@@ -2323,12 +2353,11 @@ function autoEmb() {
   var want = WANT_EMB;
   WANT_EMB = '';
   if (curSub !== 'off') return;
-  for (var i = 0; embTracks && i < embTracks.length; i++) {
-    if (sameLanguage(embTracks[i].lang, want)) {
-      setEmbSub(embTracks[i].n, embTracks[i].ti);
-      showToast(P.subtitles + ': ' + embTracks[i].name);
-      return;
-    }
+  var track = bestOfLanguage(embTracks, want);
+  if (track) {
+    setEmbSub(track.n, track.ti);
+    showToast(P.subtitles + ': ' + track.name);
+    return;
   }
   autoSub();
 }
@@ -4096,10 +4125,16 @@ function activeSkip(t) {
   }
   return null;
 }
+/* Settings > Skip intro and recap: a button OK presses (the default), by itself, or never */
+var SKIP_MODE = lsGet('skipIntro', 'button');
 function checkSkip() {
-  var s = activeSkip(v.currentTime);
+  var s = SKIP_MODE === 'off' ? null : activeSkip(v.currentTime);
   if (s === skipShown) return;
   skipShown = s;
+  if (s && SKIP_MODE === 'auto') {
+    skipNow();
+    return;
+  }
   skipEl.textContent = s ? (s.kind === 'recap' ? P.skipRecap : P.skipIntro) : '';
   skipEl.className = s ? 'show' : '';
 }

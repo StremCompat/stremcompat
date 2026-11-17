@@ -214,6 +214,18 @@ var IMAGE_CODECS = ['hdmv_pgs_subtitle', 'dvd_subtitle', 'dvb_subtitle', 'xsub',
 
 /* n is FFmpeg's 0:s:n, counting every subtitle track; ti counts only text tracks, as the TV's
    textTracks does. A probe that ran out of time says so, so the player can offer to try again. */
+/* what a track in the file is for, from its marks (FFprobe's disposition) and its title: full
+   subtitles, for the hard of hearing (sdh), only the foreign lines and signs (forced), or a
+   commentary */
+function subtitleKind(stream) {
+  var d = stream.disposition || {},
+    title = String((stream.tags && stream.tags.title) || '').toLowerCase();
+  if (d.comment || /comment/.test(title)) return 'commentary';
+  if (d.forced || /forced|signs/.test(title)) return 'forced';
+  if (d.hearing_impaired || /\bsdh\b|hearing/.test(title)) return 'sdh';
+  return 'full';
+}
+
 function embTracks(u, res) {
   if (!u) return sendJson(res, { tracks: [] });
   probeStreams(u, function (probe) {
@@ -232,7 +244,8 @@ function embTracks(u, res) {
           n: n,
           ti: tracks.length,
           lang: lang,
-          name: tags.title ? name + ' — ' + tags.title : name
+          name: tags.title ? name + ' — ' + tags.title : name,
+          kind: subtitleKind(stream)
         });
       });
     sendJson(res, { tracks: tracks, err: '' });

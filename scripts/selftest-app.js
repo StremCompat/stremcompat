@@ -357,6 +357,15 @@ async function main() {
       '/app/play?type=series&id=tst1&vid=' + encodeURIComponent('tst1:1:1') + '&resume=1'
     );
     assert.strictEqual(again.json.ref, started.ref, 'the last source was not offered again');
+    await request('/app/titlepref', { id: 'tst1', sub: 'fr' });
+    var remembered = await request(
+      '/app/play?type=series&id=tst1&vid=' + encodeURIComponent('tst1:1:1') + '&resume=1'
+    );
+    assert.strictEqual(
+      remembered.json.subtitleLanguage,
+      'fr',
+      'the subtitle chosen for this title was not used again'
+    );
     for (var t = 0; t <= 80000; t += 10000)
       await request('/app/progress', {
         type: 'series',

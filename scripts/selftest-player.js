@@ -875,7 +875,7 @@ assert.strictEqual(pushed, true, 'leaving the player would wait for a push that 
   var listeners = {}, asked = [];
   var el = { className: '', textContent: '', addEventListener: function () {} };
   var ctx = {
-    VID: 'tt1:1:2', P: { skipIntro: 'Skip intro', skipRecap: 'Skip recap' }, mediaInfo: null,
+    VID: 'tt1:1:2', P: { skipIntro: 'Skip intro', skipRecap: 'Skip recap' }, mediaInfo: null, lsGet: function (k, d) { return d; },
     v: { currentTime: 0, duration: 3000, addEventListener: function (n, fn) { (listeners[n] = listeners[n] || []).push(fn); } },
     document: { getElementById: function () { return el; } },
     xhr: function (u, cb) { asked.push(u); cb({ segments: [{ kind: 'recap', start: 0, end: 40 }, { kind: 'outro', start: 2800, end: 2990 }] }); }

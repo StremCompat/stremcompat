@@ -521,5 +521,11 @@
   "addonsLeft": "応答待ち: {0}",
   "notOnThisTv": "このテレビで再生できませんでした: {0}",
   "audioNotPlayable": "このテレビではこの音声を再生できません。別の音声トラックかソースを試してください。",
-  "cachedTag": "キャッシュ済み"
+  "cachedTag": "キャッシュ済み",
+  "endsAt": "{0} に終了",
+  "nextCardHint": "OKで今すぐ再生・戻るでこのまま視聴",
+  "skipIntroSetting": "OPとあらすじをスキップ",
+  "skipOnOk": "OKで",
+  "skipByItself": "自動",
+  "forcedSubsSetting": "強制字幕のみ"
 }

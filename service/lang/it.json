@@ -521,5 +521,11 @@
   "addonsLeft": "In attesa di: {0}",
   "notOnThisTv": "Non riprodotto su questa TV: {0}",
   "audioNotPlayable": "Questa TV non riproduce questo audio. Prova un'altra traccia audio o fonte.",
-  "cachedTag": "In cache"
+  "cachedTag": "In cache",
+  "endsAt": "Finisce alle {0}",
+  "nextCardHint": "OK per guardarlo ora · Indietro per restare",
+  "skipIntroSetting": "Salta sigla e riassunto",
+  "skipOnOk": "Con OK",
+  "skipByItself": "Automatico",
+  "forcedSubsSetting": "Solo sottotitoli forzati"
 }

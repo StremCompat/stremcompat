@@ -140,9 +140,27 @@ var embTracks = null,
   embFirst = false,
   embFailed = false;
 var autoSubDone = false;
+/* Full subtitles before those for the hard of hearing, then forced ones, commentary last; with
+   Settings' forced only, a forced one or none. From the file's marks (kind) or the name. */
+var FORCED_ONLY = lsGet('forcedSubs', 'false') === 'true';
+function subRank(s) {
+  var n = String(s.name || '').toLowerCase();
+  if (s.kind === 'commentary' || /comment/.test(n)) return 3;
+  if (s.kind === 'forced' || /forced|signs/.test(n)) return 2;
+  if (s.kind === 'sdh' || /\bsdh\b|hearing/.test(n)) return 1;
+  return 0;
+}
+function bestOfLanguage(list, lang) {
+  var best = null;
+  for (var i = 0; list && i < list.length; i++) {
+    var s = list[i];
+    if (!sameLanguage(s.lang, lang) || (FORCED_ONLY && subRank(s) !== 2)) continue;
+    if (!best || subRank(s) < subRank(best)) best = s;
+  }
+  return best;
+}
 function subOfLanguage(lang) {
-  for (var i = 0; i < extSubs.length; i++) if (sameLanguage(extSubs[i].lang, lang)) return extSubs[i];
-  return null;
+  return bestOfLanguage(extSubs, lang);
 }
 /* The subtitle chosen for this title: the same one in this episode, or the same addon's in
    that language in another. */
@@ -168,12 +186,11 @@ function autoEmb() {
   var want = WANT_EMB;
   WANT_EMB = '';
   if (curSub !== 'off') return;
-  for (var i = 0; embTracks && i < embTracks.length; i++) {
-    if (sameLanguage(embTracks[i].lang, want)) {
-      setEmbSub(embTracks[i].n, embTracks[i].ti);
-      showToast(P.subtitles + ': ' + embTracks[i].name);
-      return;
-    }
+  var track = bestOfLanguage(embTracks, want);
+  if (track) {
+    setEmbSub(track.n, track.ti);
+    showToast(P.subtitles + ': ' + track.name);
+    return;
   }
   autoSub();
 }
