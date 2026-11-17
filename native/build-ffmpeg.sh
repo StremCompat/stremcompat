@@ -47,6 +47,7 @@ B="$WORK/build-$TARGET"
 mkdir -p "$B"
 
 # Reads through the local proxy over plain HTTP. Decodes a frame for artwork and seek previews,
+# writes pictures for /app/img (JPEG, or PNG when a WebP/GIF may be transparent),
 # and turns text subtitle tracks into SubRip. ffprobe only needs the demuxers and parsers.
 CONFIG="--disable-everything --disable-autodetect --disable-doc --disable-debug --disable-avdevice --disable-postproc \
   --enable-small --enable-zlib --enable-static --disable-shared --enable-ffmpeg --enable-ffprobe --disable-ffplay \
@@ -54,7 +55,7 @@ CONFIG="--disable-everything --disable-autodetect --disable-doc --disable-debug 
   --enable-demuxer=matroska,mov,mpegts,avi,hls,image2,mjpeg,image_jpeg_pipe,image_png_pipe,image_webp_pipe,srt,ass,webvtt,flv,mp3,aac,ac3,eac3,dts \
   --enable-parser=h264,hevc,mpeg4video,mpegvideo,vp9,av1,aac,ac3,dca,mpegaudio,mjpeg,png,vorbis,opus,flac \
   --enable-decoder=h264,hevc,mpeg4,mpeg2video,vp9,mjpeg,png,webp,subrip,srt,ass,ssa,webvtt,mov_text,text \
-  --enable-encoder=mjpeg,subrip,srt \
+  --enable-encoder=mjpeg,png,subrip,srt \
   --enable-muxer=mjpeg,image2pipe,srt,null --enable-filter=scale,format,null \
   --enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,extract_extradata,vp9_superframe_split"
 CROSS="--enable-cross-compile --arch=arm --target-os=linux --cc=$TC/cc --ar=$TC/ar --ranlib=$TC/ranlib --strip=$TC/strip --nm=nm --host-cc=cc --pkg-config=false"
