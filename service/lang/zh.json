@@ -517,5 +517,8 @@
   "discoverMax80": "80（性能较弱的电视）",
   "discoverMax200": "200（标准）",
   "discoverMax500": "500（内存较大的电视）",
-  "pointerLabel": "Magic Remote 指针"
+  "pointerLabel": "Magic Remote 指针",
+  "addonsLeft": "仍在响应：{0}",
+  "notOnThisTv": "无法在此电视上播放：{0}",
+  "audioNotPlayable": "此电视无法播放此音频。请尝试其他音轨或来源。"
 }

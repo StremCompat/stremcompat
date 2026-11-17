@@ -119,20 +119,39 @@ function startService(serviceId, cb) {
   }
 }
 // XHR helpers. Addon GETs and Stremio API POSTs go through the local bridges in local-server.js.
-function xhrGetUrl(u) {
-  return /^https?:\/\//i.test(String(u || '')) ? '/addon?u=' + encodeURIComponent(u) : u;
+/* The TV's browser opens at most six connections to one address, and a stream addon can take 45 s
+   to answer. Requests that may wait that long take a second lane: the same local server under its
+   other loopback name (localhost for 127.0.0.1), so pages and pictures never queue behind them.
+   When that name does not work on a TV, the lane is dropped for the rest of the session. */
+var slowLaneOff = false;
+function slowLane() {
+  if (slowLaneOff || typeof location === 'undefined' || !location.port) return '';
+  var other =
+    location.hostname === '127.0.0.1' ? 'localhost' : location.hostname === 'localhost' ? '127.0.0.1' : '';
+  return other ? location.protocol + '//' + other + ':' + location.port : '';
+}
+function xhrGetUrl(u, lane) {
+  return /^https?:\/\//i.test(String(u || '')) ? (lane || '') + '/addon?u=' + encodeURIComponent(u) : u;
 }
 /* cb(json, failure, status): failure is null on success, otherwise 'timeout', 'offline'
    (the local service did not answer), 'unavailable' (HTTP error, e.g. the addon
-   bridge's 502) or 'invalid' (the body was not JSON); status is the HTTP status. */
-function xhrJson(u, cb, tmo) {
-  var done = false;
+   bridge's 502) or 'invalid' (the body was not JSON); status is the HTTP status. slow sends it by
+   the second lane (slowLane). */
+function xhrJson(u, cb, tmo, slow) {
+  var done = false,
+    lane = slow ? slowLane() : '';
   try {
     var x = new XMLHttpRequest();
-    x.open('GET', xhrGetUrl(u), true);
+    x.open('GET', xhrGetUrl(u, lane), true);
     x.onreadystatechange = function () {
       if (x.readyState === 4 && !done) {
         done = true;
+        /* the other name did not reach the server: the usual way, from now on */
+        if (lane && !x.status) {
+          slowLaneOff = true;
+          xhrJson(u, cb, tmo);
+          return;
+        }
         var j = null,
           failure = null;
         if (!x.status) failure = 'offline';
@@ -467,6 +486,9 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    audioNotPlayable: 'This TV can\'t play this audio. Try another audio track or source.',
+    addonsLeft: 'Still answering: {0}',
+    notOnThisTv: 'Didn\'t play on this TV: {0}',
     folderAddonMissing: 'Install the {0} addon in Nuvio to see this list.',
     folderLists: '{0} lists',
     folderExplore: 'OK to explore',
@@ -993,6 +1015,9 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    audioNotPlayable: 'Esta TV não toca este áudio. Tente outra faixa de áudio ou outra fonte.',
+    addonsLeft: 'Ainda respondendo: {0}',
+    notOnThisTv: 'Não tocou nesta TV: {0}',
     folderAddonMissing: 'Instale o addon {0} no Nuvio para ver esta lista.',
     folderLists: '{0} listas',
     folderExplore: 'OK para explorar',
@@ -2894,14 +2919,14 @@ function langRank(s, pref) {
 /* What to play without choosing from the list, whose order already puts compatibility and seeders
    first: in the language asked for when there is one, the first without a warning in the quality
    asked for, or else in any known quality, and a low or unknown quality only when nothing better
-   has none. */
+   has none. A format this TV already failed to play is never picked. */
 function bestSource(items, quality, language) {
   var playable = items.filter(function (s) {
     return !s.stored && !(s.compatRank > 0) && !(s.compatLabels || []).length;
   });
   if (!playable.length)
     playable = items.filter(function (s) {
-      return !s.stored && s.compatRank < 4;
+      return !s.stored && s.compatRank < 4 && !(s.unsupported || []).length;
     });
   /* the language asked for first, then multi-audio, keeping the list's order within each */
   if (language && language !== 'Auto')
@@ -2924,6 +2949,49 @@ function bestSource(items, quality, language) {
   return asked[0] || known[0] || playable[0] || null;
 }
 window.__SC_BEST_SOURCE__ = bestSource;
+/* Best from the title page plays once every addon answered, or this long after the search began
+   when a source is already there, so one slow addon does not hold it up */
+var BEST_WAIT_MS = 10000;
+
+/* ---- the formats this TV failed to play ----
+   The native player says when the TV could not decode a source's audio; the audio formats that
+   source named (DTS, TrueHD, E-AC-3) are kept (learnUnsupported), and sources with them go down
+   the list with a warning and are never picked by Best. */
+function unsupportedFormats() {
+  return lsJson('unsupportedFormats') || [];
+}
+function markUnsupported(item, known) {
+  item.unsupported = (item.compatLabels || []).filter(function (l) {
+    return known.indexOf(l) >= 0;
+  });
+  if (item.unsupported.length) item.compatRank = Math.max(item.compatRank || 0, 3);
+}
+/* the warning line of a source: what this TV failed to play, or what may not play */
+function compatText(s) {
+  if (s.unsupported && s.unsupported.length) return tx('notOnThisTv', s.unsupported.join(' · '));
+  return s.compatLabels && s.compatLabels.length ? tx('compatibilityCheck', s.compatLabels.join(' · ')) : '';
+}
+/* The addon tabs over the list: All, then each addon with how many sources it has, in name order
+   so they do not move as answers arrive; offered when more than one addon has sources. */
+function addonChoices(pool) {
+  var counts = {},
+    names = [];
+  for (var n = 0; n < pool.length; n++) {
+    if (pool[n].stored) continue;
+    var k = pool[n].addon || '';
+    if (!counts[k]) names.push(k);
+    counts[k] = (counts[k] || 0) + 1;
+  }
+  if (names.length < 2) return [];
+  names.sort(function (a, b) {
+    return a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0;
+  });
+  return [{ key: 'All', label: tx('all') }].concat(
+    names.map(function (k) {
+      return { key: k, label: (k || 'Addon') + ' ' + counts[k] };
+    })
+  );
+}
 function streamSourceKey(s) {
   if (s.stored) return 'stored';
   var u = String(s.url || '').replace(/#.*$/, '');
@@ -3096,12 +3164,18 @@ function langFilterName(key) {
 }
 /* The list as it is shown: the chosen quality and language, the last source first, then the
    preferred language, then the preferred quality; and the one likely the best choice, named
-   only when there is a choice (the same source the Best source button starts), else -1. */
-function orderedSources(pool, quality, langKey) {
+   only when there is a choice (the same source the Best source button starts), else -1. addon
+   keeps one addon's sources ('All' or none: every addon's). */
+function orderedSources(pool, quality, langKey, addon) {
   var pref = lsRaw('preferredSourceQuality', 'Auto'),
     langPref = fixedSourceLanguage();
   var flat = pool.filter(function (s) {
-    return (quality === 'All' || s.quality === quality) && (s.stored || inLangFilter(s, langKey));
+    if (s.stored) return quality === 'All' || s.quality === quality;
+    return (
+      (quality === 'All' || s.quality === quality) &&
+      inLangFilter(s, langKey) &&
+      (!addon || addon === 'All' || s.addon === addon)
+    );
   });
   flat.sort(function (a, b) {
     if (!a.stored !== !b.stored) return a.stored ? -1 : 1;
@@ -3127,15 +3201,21 @@ function sourceHeading(s) {
 function sourceText(s) {
   return String(s.title || s.name || '').replace(/\n/g, '  ');
 }
-function fetchStreams(type, vid, onPart, onDone) {
+/* onLeft(names), when given, hears which addons are still to answer each time one does */
+function fetchStreams(type, vid, onPart, onDone, onLeft) {
   var list = streamAddons(type);
   var pending = list.length;
   var total = 0;
   var failed = [];
+  var known = unsupportedFormats();
+  var waiting = list.map(function (ad) {
+    return ad.name;
+  });
   if (!pending) {
     onDone(0, failed);
     return;
   }
+  if (onLeft) onLeft(waiting.slice());
   for (var i = 0; i < list.length; i++)
     (function (ad, idx) {
       /* an addon that fails at once (a server error from a busy host, or no answer) is asked once
@@ -3153,14 +3233,19 @@ function fetchStreams(type, vid, onPart, onDone) {
             var out = [];
             for (var k = 0; k < st.length; k++) {
               var item = sourceItem(st[k], ad.name, ad.base);
-              if (item) out.push(item);
+              if (!item) continue;
+              markUnsupported(item, known);
+              out.push(item);
             }
             total += out.length;
+            waiting.splice(waiting.indexOf(ad.name), 1);
+            if (onLeft) onLeft(waiting.slice());
             if (out.length) onPart(out, idx, ad.name);
             pending--;
             if (pending <= 0) onDone(total, failed);
           },
-          45000
+          45000,
+          true
         ); /* slow debrid addons can take 20-30s; phone/PC wait too — 15s was dropping them */
       }
       ask(false);
@@ -4553,12 +4638,35 @@ function storeSetting(def, value) {
   lsRawSet(def.k, value);
   if (def.k === 'bingeWatch') lsRawSet('enableNextVideo', value);
 }
+/* ---------- what only the native server uses (the web interface has its own ways) ---------- */
+/* the source Best plays from a whole search, in the quality and language preferred in Settings */
+function bestOf(pool) {
+  return bestSource(
+    orderedSources(pool, 'All', 'All').items,
+    lsRaw('preferredSourceQuality', 'Auto'),
+    preferredSourceLanguage()
+  );
+}
+/* labels: the compatibility labels of the source that failed; returns the formats newly kept */
+var AUDIO_FORMATS = ['TrueHD', 'DTS', 'E-AC-3'];
+function learnUnsupported(labels, what) {
+  var known = unsupportedFormats(),
+    added = (labels || []).filter(function (l) {
+      return what === 'audio' && AUDIO_FORMATS.indexOf(l) >= 0 && known.indexOf(l) < 0;
+    });
+  if (added.length) lsSet('unsupportedFormats', known.concat(added));
+  return added;
+}
+
 /* what the server may call (server/app-api.js); nothing else is reachable from outside */
 window.__logic = {
+  addonChoices: addonChoices,
   addons: addons,
   addonsFor: addonsFor,
+  BEST_WAIT_MS: BEST_WAIT_MS,
   allLib: allLib,
   authKey: authKey,
+  bestOf: bestOf,
   bestSource: bestSource,
   bgOf: bgOf,
   bgSmall: bgSmall,
@@ -4568,6 +4676,7 @@ window.__logic = {
   clearContinueWatching: clearContinueWatching,
   clearRecentSearches: clearRecentSearches,
   compactSourcePool: compactSourcePool,
+  compatText: compatText,
   completeSignIn: completeSignIn,
   cwItems: cwItems,
   cwCard: cwCard,
@@ -4604,6 +4713,7 @@ window.__logic = {
   isSwitch: isSwitch,
   knownArtwork: knownArtwork,
   langFilterName: langFilterName,
+  learnUnsupported: learnUnsupported,
   languageChoices: languageChoices,
   itemWatched: itemWatched,
   libGridItems: libGridItems,

@@ -244,6 +244,10 @@ body.series-episode #dSeasons{margin-top:24px}
 .stchip{display:inline-block;padding:12px 28px;margin-right:12px;border-radius:28px;font-size:25px;font-weight:600;background:rgba(255,255,255,.10);color:rgba(255,255,255,.8)}
 .stchip.cur{background:rgba(255,255,255,.22);color:#fff}
 .stchip.f{background:#fff;color:#0c0b11}
+#stAddons{display:none;position:relative;white-space:nowrap;overflow:hidden;margin:2px 0 10px}
+.sttab{display:inline-block;padding:8px 12px 7px;margin-right:10px;border-radius:8px;font-size:22px;font-weight:600;color:rgba(255,255,255,.6);border-bottom:3px solid transparent}
+.sttab.cur{color:#fff;border-bottom-color:rgba(255,255,255,.8);border-radius:8px 8px 0 0}
+.sttab.f{background:#fff;color:#0c0b11;border-bottom-color:#fff;border-radius:8px}
 #stLang{display:none;position:absolute;top:36px;right:54px;padding:7px 18px;border-radius:20px;font-size:20px;font-weight:600;color:rgba(255,255,255,.72);box-shadow:inset 0 0 0 2px rgba(255,255,255,.16);cursor:pointer}
 #stLang.cur{color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,.8)}
 #stLang.f{background:#fff;color:#0c0b11;box-shadow:none}
@@ -524,6 +528,7 @@ body.series-episode #dSeasons{margin-top:24px}
   #streams h3{font-size:30px}
   #stSub{font-size:20px;margin-bottom:10px}
   .stchip{padding:9px 20px;margin-right:8px;font-size:19px}
+  .sttab{padding:6px 9px 5px;margin-right:6px;font-size:17px}
   #stBest{margin-left:14px;padding:5px 13px 5px 9px;font-size:16px;vertical-align:4px}
   #stBest svg{width:16px;height:16px;margin-right:4px}
   #stLang{top:24px;right:20px;padding:5px 13px;font-size:16px}
@@ -966,7 +971,7 @@ body.lite *{-webkit-transition:none!important;transition:none!important;-webkit-
   <div id="simWrap"><div id="simTitle"></div><div id="simClip"><div id="simGrid"></div></div></div>
 </div>
 
-<div id="streams"><h3 id="streamsTitle">Sources</h3><div id="stBest"></div><div id="stLang"></div><div id="stSub"></div><div id="stChips"></div><div id="stClip"><div id="stInner"></div></div></div>
+<div id="streams"><h3 id="streamsTitle">Sources</h3><div id="stBest"></div><div id="stLang"></div><div id="stSub"></div><div id="stChips"></div><div id="stAddons"></div><div id="stClip"><div id="stInner"></div></div></div>
 <div id="cwm"><div id="cwmTitle"></div><div id="cwmSub"></div><div id="cwmItems"></div></div>
 <div id="serverPanel"><div id="srvBox"><div id="srvTitle"></div><div id="srvValue"></div><div id="srvKeys"></div><div id="srvStatus"></div></div></div>
 <div id="pfScreen">

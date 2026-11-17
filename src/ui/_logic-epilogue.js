@@ -1,9 +1,32 @@
+/* ---------- what only the native server uses (the web interface has its own ways) ---------- */
+/* the source Best plays from a whole search, in the quality and language preferred in Settings */
+function bestOf(pool) {
+  return bestSource(
+    orderedSources(pool, 'All', 'All').items,
+    lsRaw('preferredSourceQuality', 'Auto'),
+    preferredSourceLanguage()
+  );
+}
+/* labels: the compatibility labels of the source that failed; returns the formats newly kept */
+var AUDIO_FORMATS = ['TrueHD', 'DTS', 'E-AC-3'];
+function learnUnsupported(labels, what) {
+  var known = unsupportedFormats(),
+    added = (labels || []).filter(function (l) {
+      return what === 'audio' && AUDIO_FORMATS.indexOf(l) >= 0 && known.indexOf(l) < 0;
+    });
+  if (added.length) lsSet('unsupportedFormats', known.concat(added));
+  return added;
+}
+
 /* what the server may call (server/app-api.js); nothing else is reachable from outside */
 window.__logic = {
+  addonChoices: addonChoices,
   addons: addons,
   addonsFor: addonsFor,
+  BEST_WAIT_MS: BEST_WAIT_MS,
   allLib: allLib,
   authKey: authKey,
+  bestOf: bestOf,
   bestSource: bestSource,
   bgOf: bgOf,
   bgSmall: bgSmall,
@@ -13,6 +36,7 @@ window.__logic = {
   clearContinueWatching: clearContinueWatching,
   clearRecentSearches: clearRecentSearches,
   compactSourcePool: compactSourcePool,
+  compatText: compatText,
   completeSignIn: completeSignIn,
   cwItems: cwItems,
   cwCard: cwCard,
@@ -49,6 +73,7 @@ window.__logic = {
   isSwitch: isSwitch,
   knownArtwork: knownArtwork,
   langFilterName: langFilterName,
+  learnUnsupported: learnUnsupported,
   languageChoices: languageChoices,
   itemWatched: itemWatched,
   libGridItems: libGridItems,

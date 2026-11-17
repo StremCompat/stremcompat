@@ -196,6 +196,7 @@ function startSearch(type, vid) {
     version: 0,
     done: false,
     failed: [],
+    left: [],
     waiters: [],
     at: Date.now(),
     seq: 0
@@ -223,16 +224,26 @@ function startSearch(type, vid) {
       s.done = true;
       s.failed = failed || [];
       changed();
+    },
+    function (left) {
+      s.left = left;
+      changed();
     }
   );
+  /* the moment Best may play without the slowest addons wakes whoever waits */
+  setTimeout(function () {
+    if (!s.done) changed();
+  }, L.BEST_WAIT_MS);
   return s;
 }
 
-/* the list as the sources screen shows it: chips, the language filter, the sources in order */
-function sourceList(s, quality, lang, pref) {
+/* the list as the sources screen shows it: chips, the language filter, the addon tabs, the
+   sources in order, and the one Best plays with the addons still to answer */
+function sourceList(s, quality, lang, addon, pref) {
   var L = logic(),
     langs = L.languageChoices(s.items),
-    list = L.orderedSources(s.items, quality, lang),
+    list = L.orderedSources(s.items, quality, lang, addon),
+    best = L.bestOf(s.items),
     /* for the next episode: the source like the one just played (matchingNextSource) */
     match = pref ? L.matchingNextSource(s.items, pref) : null;
   return {
@@ -240,7 +251,12 @@ function sourceList(s, quality, lang, pref) {
     version: s.version,
     done: s.done,
     failed: s.failed.length ? L.tx('addonsNoAnswer', s.failed.join(', ')) : '',
+    left: s.done || !s.left.length ? '' : L.tx('addonsLeft', s.left.join(', ')),
+    best: best ? best._seq : 0,
+    /* Best from the title page may play before the slowest addon answered (BEST_WAIT_MS) */
+    bestNow: s.done || (!!best && Date.now() - s.at >= L.BEST_WAIT_MS),
     chips: L.qualityChips(s.items, s.trimmed),
+    addons: L.addonChoices(s.items),
     langs: langs.keys.map(function (key) {
       return { key: key, label: L.langFilterName(key), count: langs.counts[key] || 0 };
     }),
@@ -251,10 +267,7 @@ function sourceList(s, quality, lang, pref) {
         heading: L.sourceHeading(it),
         text: L.sourceText(it),
         tags: it.stored ? [] : L.sourceTags(it),
-        compat:
-          it.compatLabels && it.compatLabels.length
-            ? L.tx('compatibilityCheck', it.compatLabels.join(' · '))
-            : ''
+        compat: L.compatText(it)
       };
     })
   };
@@ -278,7 +291,13 @@ function streams(req, res, q) {
   function answer() {
     sendJson(
       res,
-      sourceList(s, q.quality || 'All', q.lang || 'All', q.next && q.id ? playback.nextPref(q.id) : null)
+      sourceList(
+        s,
+        q.quality || 'All',
+        q.lang || 'All',
+        q.addon || 'All',
+        q.next && q.id ? playback.nextPref(q.id) : null
+      )
     );
   }
   if (s.version > have || s.done) return answer();
@@ -544,7 +563,11 @@ function folder(req, res, q) {
   if (!f) return fail(res, 404, 'unknown folder');
   var v = L.folderView(f),
     tabs = v.sources.map(function (s) {
-      return { title: s.title, unavailable: !!s.unavailable, message: s.missing ? L.tx('folderAddonMissing', s.title) : '' };
+      return {
+        title: s.title,
+        unavailable: !!s.unavailable,
+        message: s.missing ? L.tx('folderAddonMissing', s.title) : ''
+      };
     });
   if (v.all) tabs.unshift({ title: L.tx('folderAll'), all: true });
   sendJson(res, { title: v.title, cover: v.cover, rows: v.rows, tabs: tabs });
@@ -656,6 +679,7 @@ module.exports = {
   postRoutes: {
     '/app/act': act,
     '/app/migrate': migrate,
-    '/app/progress': playback.progress
+    '/app/progress': playback.progress,
+    '/app/learn': playback.learn
   }
 };

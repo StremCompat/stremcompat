@@ -135,14 +135,14 @@ function langRank(s, pref) {
 /* What to play without choosing from the list, whose order already puts compatibility and seeders
    first: in the language asked for when there is one, the first without a warning in the quality
    asked for, or else in any known quality, and a low or unknown quality only when nothing better
-   has none. */
+   has none. A format this TV already failed to play is never picked. */
 function bestSource(items, quality, language) {
   var playable = items.filter(function (s) {
     return !s.stored && !(s.compatRank > 0) && !(s.compatLabels || []).length;
   });
   if (!playable.length)
     playable = items.filter(function (s) {
-      return !s.stored && s.compatRank < 4;
+      return !s.stored && s.compatRank < 4 && !(s.unsupported || []).length;
     });
   /* the language asked for first, then multi-audio, keeping the list's order within each */
   if (language && language !== 'Auto')
@@ -165,6 +165,49 @@ function bestSource(items, quality, language) {
   return asked[0] || known[0] || playable[0] || null;
 }
 window.__SC_BEST_SOURCE__ = bestSource;
+/* Best from the title page plays once every addon answered, or this long after the search began
+   when a source is already there, so one slow addon does not hold it up */
+var BEST_WAIT_MS = 10000;
+
+/* ---- the formats this TV failed to play ----
+   The native player says when the TV could not decode a source's audio; the audio formats that
+   source named (DTS, TrueHD, E-AC-3) are kept (learnUnsupported), and sources with them go down
+   the list with a warning and are never picked by Best. */
+function unsupportedFormats() {
+  return lsJson('unsupportedFormats') || [];
+}
+function markUnsupported(item, known) {
+  item.unsupported = (item.compatLabels || []).filter(function (l) {
+    return known.indexOf(l) >= 0;
+  });
+  if (item.unsupported.length) item.compatRank = Math.max(item.compatRank || 0, 3);
+}
+/* the warning line of a source: what this TV failed to play, or what may not play */
+function compatText(s) {
+  if (s.unsupported && s.unsupported.length) return tx('notOnThisTv', s.unsupported.join(' · '));
+  return s.compatLabels && s.compatLabels.length ? tx('compatibilityCheck', s.compatLabels.join(' · ')) : '';
+}
+/* The addon tabs over the list: All, then each addon with how many sources it has, in name order
+   so they do not move as answers arrive; offered when more than one addon has sources. */
+function addonChoices(pool) {
+  var counts = {},
+    names = [];
+  for (var n = 0; n < pool.length; n++) {
+    if (pool[n].stored) continue;
+    var k = pool[n].addon || '';
+    if (!counts[k]) names.push(k);
+    counts[k] = (counts[k] || 0) + 1;
+  }
+  if (names.length < 2) return [];
+  names.sort(function (a, b) {
+    return a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0;
+  });
+  return [{ key: 'All', label: tx('all') }].concat(
+    names.map(function (k) {
+      return { key: k, label: (k || 'Addon') + ' ' + counts[k] };
+    })
+  );
+}
 function streamSourceKey(s) {
   if (s.stored) return 'stored';
   var u = String(s.url || '').replace(/#.*$/, '');
@@ -337,12 +380,18 @@ function langFilterName(key) {
 }
 /* The list as it is shown: the chosen quality and language, the last source first, then the
    preferred language, then the preferred quality; and the one likely the best choice, named
-   only when there is a choice (the same source the Best source button starts), else -1. */
-function orderedSources(pool, quality, langKey) {
+   only when there is a choice (the same source the Best source button starts), else -1. addon
+   keeps one addon's sources ('All' or none: every addon's). */
+function orderedSources(pool, quality, langKey, addon) {
   var pref = lsRaw('preferredSourceQuality', 'Auto'),
     langPref = fixedSourceLanguage();
   var flat = pool.filter(function (s) {
-    return (quality === 'All' || s.quality === quality) && (s.stored || inLangFilter(s, langKey));
+    if (s.stored) return quality === 'All' || s.quality === quality;
+    return (
+      (quality === 'All' || s.quality === quality) &&
+      inLangFilter(s, langKey) &&
+      (!addon || addon === 'All' || s.addon === addon)
+    );
   });
   flat.sort(function (a, b) {
     if (!a.stored !== !b.stored) return a.stored ? -1 : 1;
@@ -368,15 +417,21 @@ function sourceHeading(s) {
 function sourceText(s) {
   return String(s.title || s.name || '').replace(/\n/g, '  ');
 }
-function fetchStreams(type, vid, onPart, onDone) {
+/* onLeft(names), when given, hears which addons are still to answer each time one does */
+function fetchStreams(type, vid, onPart, onDone, onLeft) {
   var list = streamAddons(type);
   var pending = list.length;
   var total = 0;
   var failed = [];
+  var known = unsupportedFormats();
+  var waiting = list.map(function (ad) {
+    return ad.name;
+  });
   if (!pending) {
     onDone(0, failed);
     return;
   }
+  if (onLeft) onLeft(waiting.slice());
   for (var i = 0; i < list.length; i++)
     (function (ad, idx) {
       /* an addon that fails at once (a server error from a busy host, or no answer) is asked once
@@ -394,14 +449,19 @@ function fetchStreams(type, vid, onPart, onDone) {
             var out = [];
             for (var k = 0; k < st.length; k++) {
               var item = sourceItem(st[k], ad.name, ad.base);
-              if (item) out.push(item);
+              if (!item) continue;
+              markUnsupported(item, known);
+              out.push(item);
             }
             total += out.length;
+            waiting.splice(waiting.indexOf(ad.name), 1);
+            if (onLeft) onLeft(waiting.slice());
             if (out.length) onPart(out, idx, ad.name);
             pending--;
             if (pending <= 0) onDone(total, failed);
           },
-          45000
+          45000,
+          true
         ); /* slow debrid addons can take 20-30s; phone/PC wait too — 15s was dropping them */
       }
       ask(false);

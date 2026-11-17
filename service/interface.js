@@ -176,20 +176,39 @@ function bodyRemove(name) {
     .replace(/^\s+|\s+$/g, '');
 }
 // XHR helpers. Addon GETs and Stremio API POSTs go through the local bridges in local-server.js.
-function xhrGetUrl(u) {
-  return /^https?:\/\//i.test(String(u || '')) ? '/addon?u=' + encodeURIComponent(u) : u;
+/* The TV's browser opens at most six connections to one address, and a stream addon can take 45 s
+   to answer. Requests that may wait that long take a second lane: the same local server under its
+   other loopback name (localhost for 127.0.0.1), so pages and pictures never queue behind them.
+   When that name does not work on a TV, the lane is dropped for the rest of the session. */
+var slowLaneOff = false;
+function slowLane() {
+  if (slowLaneOff || typeof location === 'undefined' || !location.port) return '';
+  var other =
+    location.hostname === '127.0.0.1' ? 'localhost' : location.hostname === 'localhost' ? '127.0.0.1' : '';
+  return other ? location.protocol + '//' + other + ':' + location.port : '';
+}
+function xhrGetUrl(u, lane) {
+  return /^https?:\/\//i.test(String(u || '')) ? (lane || '') + '/addon?u=' + encodeURIComponent(u) : u;
 }
 /* cb(json, failure, status): failure is null on success, otherwise 'timeout', 'offline'
    (the local service did not answer), 'unavailable' (HTTP error, e.g. the addon
-   bridge's 502) or 'invalid' (the body was not JSON); status is the HTTP status. */
-function xhrJson(u, cb, tmo) {
-  var done = false;
+   bridge's 502) or 'invalid' (the body was not JSON); status is the HTTP status. slow sends it by
+   the second lane (slowLane). */
+function xhrJson(u, cb, tmo, slow) {
+  var done = false,
+    lane = slow ? slowLane() : '';
   try {
     var x = new XMLHttpRequest();
-    x.open('GET', xhrGetUrl(u), true);
+    x.open('GET', xhrGetUrl(u, lane), true);
     x.onreadystatechange = function () {
       if (x.readyState === 4 && !done) {
         done = true;
+        /* the other name did not reach the server: the usual way, from now on */
+        if (lane && !x.status) {
+          slowLaneOff = true;
+          xhrJson(u, cb, tmo);
+          return;
+        }
         var j = null,
           failure = null;
         if (!x.status) failure = 'offline';
@@ -524,6 +543,9 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    audioNotPlayable: 'This TV can\'t play this audio. Try another audio track or source.',
+    addonsLeft: 'Still answering: {0}',
+    notOnThisTv: 'Didn\'t play on this TV: {0}',
     folderAddonMissing: 'Install the {0} addon in Nuvio to see this list.',
     folderLists: '{0} lists',
     folderExplore: 'OK to explore',
@@ -1050,6 +1072,9 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    audioNotPlayable: 'Esta TV não toca este áudio. Tente outra faixa de áudio ou outra fonte.',
+    addonsLeft: 'Ainda respondendo: {0}',
+    notOnThisTv: 'Não tocou nesta TV: {0}',
     folderAddonMissing: 'Instale o addon {0} no Nuvio para ver esta lista.',
     folderLists: '{0} listas',
     folderExplore: 'OK para explorar',
@@ -3245,14 +3270,14 @@ function langRank(s, pref) {
 /* What to play without choosing from the list, whose order already puts compatibility and seeders
    first: in the language asked for when there is one, the first without a warning in the quality
    asked for, or else in any known quality, and a low or unknown quality only when nothing better
-   has none. */
+   has none. A format this TV already failed to play is never picked. */
 function bestSource(items, quality, language) {
   var playable = items.filter(function (s) {
     return !s.stored && !(s.compatRank > 0) && !(s.compatLabels || []).length;
   });
   if (!playable.length)
     playable = items.filter(function (s) {
-      return !s.stored && s.compatRank < 4;
+      return !s.stored && s.compatRank < 4 && !(s.unsupported || []).length;
     });
   /* the language asked for first, then multi-audio, keeping the list's order within each */
   if (language && language !== 'Auto')
@@ -3275,6 +3300,49 @@ function bestSource(items, quality, language) {
   return asked[0] || known[0] || playable[0] || null;
 }
 window.__SC_BEST_SOURCE__ = bestSource;
+/* Best from the title page plays once every addon answered, or this long after the search began
+   when a source is already there, so one slow addon does not hold it up */
+var BEST_WAIT_MS = 10000;
+
+/* ---- the formats this TV failed to play ----
+   The native player says when the TV could not decode a source's audio; the audio formats that
+   source named (DTS, TrueHD, E-AC-3) are kept (learnUnsupported), and sources with them go down
+   the list with a warning and are never picked by Best. */
+function unsupportedFormats() {
+  return lsJson('unsupportedFormats') || [];
+}
+function markUnsupported(item, known) {
+  item.unsupported = (item.compatLabels || []).filter(function (l) {
+    return known.indexOf(l) >= 0;
+  });
+  if (item.unsupported.length) item.compatRank = Math.max(item.compatRank || 0, 3);
+}
+/* the warning line of a source: what this TV failed to play, or what may not play */
+function compatText(s) {
+  if (s.unsupported && s.unsupported.length) return tx('notOnThisTv', s.unsupported.join(' · '));
+  return s.compatLabels && s.compatLabels.length ? tx('compatibilityCheck', s.compatLabels.join(' · ')) : '';
+}
+/* The addon tabs over the list: All, then each addon with how many sources it has, in name order
+   so they do not move as answers arrive; offered when more than one addon has sources. */
+function addonChoices(pool) {
+  var counts = {},
+    names = [];
+  for (var n = 0; n < pool.length; n++) {
+    if (pool[n].stored) continue;
+    var k = pool[n].addon || '';
+    if (!counts[k]) names.push(k);
+    counts[k] = (counts[k] || 0) + 1;
+  }
+  if (names.length < 2) return [];
+  names.sort(function (a, b) {
+    return a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0;
+  });
+  return [{ key: 'All', label: tx('all') }].concat(
+    names.map(function (k) {
+      return { key: k, label: (k || 'Addon') + ' ' + counts[k] };
+    })
+  );
+}
 function streamSourceKey(s) {
   if (s.stored) return 'stored';
   var u = String(s.url || '').replace(/#.*$/, '');
@@ -3447,12 +3515,18 @@ function langFilterName(key) {
 }
 /* The list as it is shown: the chosen quality and language, the last source first, then the
    preferred language, then the preferred quality; and the one likely the best choice, named
-   only when there is a choice (the same source the Best source button starts), else -1. */
-function orderedSources(pool, quality, langKey) {
+   only when there is a choice (the same source the Best source button starts), else -1. addon
+   keeps one addon's sources ('All' or none: every addon's). */
+function orderedSources(pool, quality, langKey, addon) {
   var pref = lsRaw('preferredSourceQuality', 'Auto'),
     langPref = fixedSourceLanguage();
   var flat = pool.filter(function (s) {
-    return (quality === 'All' || s.quality === quality) && (s.stored || inLangFilter(s, langKey));
+    if (s.stored) return quality === 'All' || s.quality === quality;
+    return (
+      (quality === 'All' || s.quality === quality) &&
+      inLangFilter(s, langKey) &&
+      (!addon || addon === 'All' || s.addon === addon)
+    );
   });
   flat.sort(function (a, b) {
     if (!a.stored !== !b.stored) return a.stored ? -1 : 1;
@@ -3478,15 +3552,21 @@ function sourceHeading(s) {
 function sourceText(s) {
   return String(s.title || s.name || '').replace(/\n/g, '  ');
 }
-function fetchStreams(type, vid, onPart, onDone) {
+/* onLeft(names), when given, hears which addons are still to answer each time one does */
+function fetchStreams(type, vid, onPart, onDone, onLeft) {
   var list = streamAddons(type);
   var pending = list.length;
   var total = 0;
   var failed = [];
+  var known = unsupportedFormats();
+  var waiting = list.map(function (ad) {
+    return ad.name;
+  });
   if (!pending) {
     onDone(0, failed);
     return;
   }
+  if (onLeft) onLeft(waiting.slice());
   for (var i = 0; i < list.length; i++)
     (function (ad, idx) {
       /* an addon that fails at once (a server error from a busy host, or no answer) is asked once
@@ -3504,14 +3584,19 @@ function fetchStreams(type, vid, onPart, onDone) {
             var out = [];
             for (var k = 0; k < st.length; k++) {
               var item = sourceItem(st[k], ad.name, ad.base);
-              if (item) out.push(item);
+              if (!item) continue;
+              markUnsupported(item, known);
+              out.push(item);
             }
             total += out.length;
+            waiting.splice(waiting.indexOf(ad.name), 1);
+            if (onLeft) onLeft(waiting.slice());
             if (out.length) onPart(out, idx, ad.name);
             pending--;
             if (pending <= 0) onDone(total, failed);
           },
-          45000
+          45000,
+          true
         ); /* slow debrid addons can take 20-30s; phone/PC wait too — 15s was dropping them */
       }
       ask(false);
@@ -8596,17 +8681,26 @@ var streamsUI = {
   chipIdx: 0,
   chips: [],
   chipEls: [],
+  /* the addon tabs: their keys (the addon names, 'All' first) and elements */
+  addonFilter: 'All',
+  addons: [],
+  addonIdx: 0,
+  addonEls: [],
   failed: [],
+  left: [],
   title: '',
   flushT: null,
+  bestT: null,
   /* back: where the player returns to, when it is not the title page (a live channel) */
   show: function (type, id, vid, title, bestQuality, bestLanguage, back) {
     var request = ++this.requestSeq;
     this.back = back || '';
     this.open = true;
     this.failed = [];
+    this.left = [];
     this.title = title || '';
     this.cancelFlush();
+    this.cancelBest();
     this.items = [];
     this.idx = 0;
     this.moved = false;
@@ -8627,12 +8721,26 @@ var streamsUI = {
     this.chipIdx = 0;
     this.chips = [];
     this.chipEls = [];
-    /* Best source from the title page goes straight to the film; the list only appears if
-       nothing can be chosen */
+    this.addonFilter = 'All';
+    this.addons = [];
+    this.addonIdx = 0;
+    this.addonEls = [];
+    /* Best source from the title page goes straight to the film, without waiting more than
+       BEST_WAIT_MS for the slowest addons; the list only appears if nothing can be chosen */
     this.searching = !!bestQuality;
     if (bestQuality) toast(tx('findingSources'));
     else this.reveal();
+    var self = this;
+    if (bestQuality)
+      this.bestT = setTimeout(function () {
+        self.bestT = null;
+        /* played: the search's later answers are no longer this screen's */
+        if (self.requestSeq === request && self.searching && self.startBest(bestQuality, bestLanguage))
+          self.requestSeq++;
+      }, BEST_WAIT_MS);
     $('stChips').innerHTML = '';
+    $('stAddons').innerHTML = '';
+    $('stAddons').style.display = 'none';
     $('stLang').style.display = 'none';
     $('stBest').style.display = 'none';
     $('stBest').innerHTML = ICON.bolt + esc(tx('playBest'));
@@ -8641,7 +8749,6 @@ var streamsUI = {
       (vid && vid.indexOf(':') > 0 ? '  ·  T' + vid.split(':')[1] + ' E' + vid.split(':')[2] : '');
     $('stInner').innerHTML = '<div class="stmsg">' + tx('findingSources') + '</div>';
     var q = resumeSearch(id, vid);
-    var self = this;
     if (q) {
       this.push(
         [
@@ -8668,6 +8775,7 @@ var streamsUI = {
       },
       function (total, failed) {
         if (!self.open || self.requestSeq !== request) return;
+        self.cancelBest();
         self.failed = failed || [];
         if (!self.pool.length) {
           self.reveal();
@@ -8702,6 +8810,11 @@ var streamsUI = {
           var backHash = 'beta#detail/' + self.type + '/' + self.id + '/' + self.vid;
           playUrl(matched, self.type, self.id, self.vid, backHash);
         }
+      },
+      function (left) {
+        if (!self.open || self.requestSeq !== request) return;
+        self.left = left;
+        if (self.items.length) self.flushSoon();
       }
     );
   },
@@ -8737,10 +8850,10 @@ var streamsUI = {
     this.compact();
     /* Every answering addon used to rebuild the whole list while the viewer was moving
        through it. The first answer is drawn at once; later ones are drawn together. */
-    if (!this.items.length) {
-      this.flush();
-      return;
-    }
+    if (!this.items.length) this.flush();
+    else this.flushSoon();
+  },
+  flushSoon: function () {
     var self = this;
     if (!this.flushT)
       this.flushT = setTimeout(function () {
@@ -8751,6 +8864,10 @@ var streamsUI = {
   cancelFlush: function () {
     if (this.flushT) clearTimeout(this.flushT);
     this.flushT = null;
+  },
+  cancelBest: function () {
+    if (this.bestT) clearTimeout(this.bestT);
+    this.bestT = null;
   },
   flush: function () {
     this.cancelFlush();
@@ -8792,7 +8909,28 @@ var streamsUI = {
     this.chipIdx = k;
     $('stBest').style.display = 'inline-block';
     this.renderLangs(allItems);
+    this.renderAddons(allItems);
     this.paintChips();
+  },
+  /* one tab per addon under the quality chips, when more than one addon has sources */
+  renderAddons: function (allItems) {
+    var host = $('stAddons'),
+      tabs = addonChoices(allItems);
+    host.innerHTML = '';
+    this.addons = [];
+    this.addonEls = [];
+    for (var i = 0; i < tabs.length; i++) {
+      var t = document.createElement('div');
+      t.className = 'sttab';
+      t.textContent = tabs[i].label;
+      host.appendChild(t);
+      this.addons.push(tabs[i].key);
+      this.addonEls.push(t);
+    }
+    if (this.addons.indexOf(this.addonFilter) < 0) this.addonFilter = 'All';
+    this.addonIdx = Math.max(0, this.addons.indexOf(this.addonFilter));
+    if (!this.addons.length && this.zone === 'addons') this.zone = 'chips';
+    host.style.display = this.addons.length ? 'block' : 'none';
   },
   /* The language selector stays small in the corner: it appears only when the sources
      come in two or more languages, and OK steps through them. */
@@ -8871,7 +9009,17 @@ var streamsUI = {
       this.chipEls[i].className =
         'stchip' + (cur ? ' cur' : '') + (this.zone === 'chips' && i === this.chipIdx ? ' f' : '');
     }
-    this.revealChip(this.zone === 'chips' ? this.chipIdx : this.chips.indexOf(this.filter));
+    for (var a = 0; a < this.addonEls.length; a++)
+      this.addonEls[a].className =
+        'sttab' +
+        (this.addons[a] === this.addonFilter ? ' cur' : '') +
+        (this.zone === 'addons' && a === this.addonIdx ? ' f' : '');
+    this.revealChip(
+      $('stChips'),
+      this.chipEls,
+      this.zone === 'chips' ? this.chipIdx : this.chips.indexOf(this.filter)
+    );
+    this.revealChip($('stAddons'), this.addonEls, this.addonIdx);
     $('stBest').className = this.zone === 'best' ? 'f' : '';
     var lang = $('stLang');
     lang.textContent = langFilterName(this.langFilter) + '  \u203a';
@@ -8880,9 +9028,8 @@ var streamsUI = {
   /* When the chips do not fit (All, 4K, 1080p, 720p, SD, Other), the row scrolls so the
      focused one, or the active filter, is fully visible; the first chip keeps the row at
      the start. */
-  revealChip: function (i) {
-    var host = $('stChips'),
-      el = this.chipEls[i];
+  revealChip: function (host, els, i) {
+    var el = els[i];
     if (!el) return;
     var left = el.offsetLeft,
       right = left + el.offsetWidth,
@@ -8894,7 +9041,7 @@ var streamsUI = {
   },
   rebuild: function () {
     var sel = this.moved ? this.items[this.idx] : null,
-      list = orderedSources(this.all(), this.filter, this.langFilter),
+      list = orderedSources(this.all(), this.filter, this.langFilter, this.addonFilter),
       flat = list.items,
       rec = list.recommended;
     var host = $('stInner');
@@ -8927,10 +9074,11 @@ var streamsUI = {
         }
         d.appendChild(tg);
       }
-      if (s.compatLabels && s.compatLabels.length) {
+      var warning = compatText(s);
+      if (warning) {
         var c = document.createElement('div');
         c.className = 'compat';
-        c.textContent = tx('compatibilityCheck', s.compatLabels.join(' · '));
+        c.textContent = warning;
         d.appendChild(c);
       }
       var b = document.createElement('div');
@@ -8942,10 +9090,13 @@ var streamsUI = {
       this.els.push(d);
     }
     if (!this.items.length) host.innerHTML = '<div class="stmsg">' + tx('noSourcesQuality') + '</div>';
-    if (this.failed.length) {
+    var notes = [];
+    if (this.left.length) notes.push(tx('addonsLeft', this.left.join(', ')));
+    if (this.failed.length) notes.push(tx('addonsNoAnswer', this.failed.join(', ')));
+    for (var n = 0; n < notes.length; n++) {
       var note = document.createElement('div');
       note.className = 'stmsg';
-      note.textContent = tx('addonsNoAnswer', this.failed.join(', '));
+      note.textContent = notes[n];
       host.appendChild(note);
     }
     /* addons answer at different times: the focus stays on top until the viewer moves it, and
@@ -8966,6 +9117,7 @@ var streamsUI = {
   close: function () {
     this.open = false;
     this.cancelFlush();
+    this.cancelBest();
     this.requestSeq++;
     $('streams').style.display = 'none';
     bodyRemove('streamsopen');
@@ -9013,14 +9165,26 @@ var streamsUI = {
       if (k === 39) this.chipIdx = Math.min(this.chipEls.length - 1, this.chipIdx + 1);
       else if (k === 37) this.chipIdx = Math.max(0, this.chipIdx - 1);
       else if (k === 40 || k === 13) {
-        if (this.items.length) {
-          this.zone = 'list';
+        if (this.addons.length || this.items.length) {
+          this.zone = this.addons.length ? 'addons' : 'list';
           this.paint();
         }
         return true;
       } else return true;
       this.filter = this.chips[this.chipIdx];
       this.refilter();
+      return true;
+    }
+    if (this.zone === 'addons') {
+      if (k === 38) this.zone = 'chips';
+      else if ((k === 40 || k === 13) && this.items.length) this.zone = 'list';
+      else if (k === 39 || k === 37) {
+        this.addonIdx = Math.max(0, Math.min(this.addonEls.length - 1, this.addonIdx + (k === 39 ? 1 : -1)));
+        this.addonFilter = this.addons[this.addonIdx];
+        this.refilter();
+        return true;
+      }
+      this.paint();
       return true;
     }
     if (k === 40) {
@@ -9034,7 +9198,7 @@ var streamsUI = {
         this.moved = true;
         this.paint();
       } else {
-        this.zone = 'chips';
+        this.zone = this.addons.length ? 'addons' : 'chips';
         this.paint();
       }
     } else if (k === 13) {

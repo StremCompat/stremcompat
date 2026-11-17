@@ -517,5 +517,8 @@
   "discoverMax80": "80 (저사양 TV)",
   "discoverMax200": "200 (기본)",
   "discoverMax500": "500 (메모리가 큰 TV)",
-  "pointerLabel": "매직 리모컨 포인터"
+  "pointerLabel": "매직 리모컨 포인터",
+  "addonsLeft": "응답 대기 중: {0}",
+  "notOnThisTv": "이 TV에서 재생되지 않음: {0}",
+  "audioNotPlayable": "이 TV에서 이 오디오를 재생할 수 없습니다. 다른 오디오 트랙이나 소스를 시도하세요."
 }

@@ -517,5 +517,8 @@
   "discoverMax80": "80 (schwächere TVs)",
   "discoverMax200": "200 (Standard)",
   "discoverMax500": "500 (TVs mit mehr Speicher)",
-  "pointerLabel": "Magic-Remote-Zeiger"
+  "pointerLabel": "Magic-Remote-Zeiger",
+  "addonsLeft": "Antworten noch: {0}",
+  "notOnThisTv": "Lief auf diesem Fernseher nicht: {0}",
+  "audioNotPlayable": "Dieser Fernseher kann diesen Ton nicht abspielen. Versuche eine andere Tonspur oder Quelle."
 }

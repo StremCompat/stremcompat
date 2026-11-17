@@ -517,5 +517,8 @@
   "discoverMax80": "80 (TV meno potenti)",
   "discoverMax200": "200 (standard)",
   "discoverMax500": "500 (TV con più memoria)",
-  "pointerLabel": "Puntatore del Magic Remote"
+  "pointerLabel": "Puntatore del Magic Remote",
+  "addonsLeft": "In attesa di: {0}",
+  "notOnThisTv": "Non riprodotto su questa TV: {0}",
+  "audioNotPlayable": "Questa TV non riproduce questo audio. Prova un'altra traccia audio o fonte."
 }

@@ -517,5 +517,8 @@
   "discoverMax80": "80 (слабые ТВ)",
   "discoverMax200": "200 (стандарт)",
   "discoverMax500": "500 (ТВ с большей памятью)",
-  "pointerLabel": "Указатель Magic Remote"
+  "pointerLabel": "Указатель Magic Remote",
+  "addonsLeft": "Ещё отвечают: {0}",
+  "notOnThisTv": "Не воспроизвелось на этом телевизоре: {0}",
+  "audioNotPlayable": "Этот телевизор не воспроизводит этот звук. Попробуйте другую дорожку или источник."
 }

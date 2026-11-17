@@ -1,18 +1,37 @@
 // XHR helpers. Addon GETs and Stremio API POSTs go through the local bridges in local-server.js.
-function xhrGetUrl(u) {
-  return /^https?:\/\//i.test(String(u || '')) ? '/addon?u=' + encodeURIComponent(u) : u;
+/* The TV's browser opens at most six connections to one address, and a stream addon can take 45 s
+   to answer. Requests that may wait that long take a second lane: the same local server under its
+   other loopback name (localhost for 127.0.0.1), so pages and pictures never queue behind them.
+   When that name does not work on a TV, the lane is dropped for the rest of the session. */
+var slowLaneOff = false;
+function slowLane() {
+  if (slowLaneOff || typeof location === 'undefined' || !location.port) return '';
+  var other =
+    location.hostname === '127.0.0.1' ? 'localhost' : location.hostname === 'localhost' ? '127.0.0.1' : '';
+  return other ? location.protocol + '//' + other + ':' + location.port : '';
+}
+function xhrGetUrl(u, lane) {
+  return /^https?:\/\//i.test(String(u || '')) ? (lane || '') + '/addon?u=' + encodeURIComponent(u) : u;
 }
 /* cb(json, failure, status): failure is null on success, otherwise 'timeout', 'offline'
    (the local service did not answer), 'unavailable' (HTTP error, e.g. the addon
-   bridge's 502) or 'invalid' (the body was not JSON); status is the HTTP status. */
-function xhrJson(u, cb, tmo) {
-  var done = false;
+   bridge's 502) or 'invalid' (the body was not JSON); status is the HTTP status. slow sends it by
+   the second lane (slowLane). */
+function xhrJson(u, cb, tmo, slow) {
+  var done = false,
+    lane = slow ? slowLane() : '';
   try {
     var x = new XMLHttpRequest();
-    x.open('GET', xhrGetUrl(u), true);
+    x.open('GET', xhrGetUrl(u, lane), true);
     x.onreadystatechange = function () {
       if (x.readyState === 4 && !done) {
         done = true;
+        /* the other name did not reach the server: the usual way, from now on */
+        if (lane && !x.status) {
+          slowLaneOff = true;
+          xhrJson(u, cb, tmo);
+          return;
+        }
         var j = null,
           failure = null;
         if (!x.status) failure = 'offline';

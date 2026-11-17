@@ -34,6 +34,8 @@ function writeItem(L, item) {
 /* ---------- starting a source ---------- */
 /* per title, what the next episode's source should look like (web: nextSourcePref) */
 var nextPrefs = {};
+/* the source playing now, for what the player says it could not play (/app/learn) */
+var playing = null;
 
 function nextPref(id) {
   return nextPrefs[id] || null;
@@ -52,6 +54,7 @@ function answerStream(res, q, ref) {
       (!s.duration || s.timeOffset < s.duration - 30000)
         ? s.timeOffset
         : 0;
+  playing = stream;
   playerContext(stream, { type: q.type, id: q.id, vid: q.vid, ref: ref }, function (context) {
     var info = playerConstants(stream, context);
     nextPrefs[q.id] = {
@@ -264,7 +267,18 @@ function progress(req, res) {
   });
 }
 
+/* the player could not decode this source's audio ({what: "audio"}): its audio formats are kept
+   as not playable on this TV, and the sources lists warn of them from then on */
+function learn(req, res) {
+  readJsonBody(req, 4096, function (body) {
+    var labels = playing && playing.compat ? String(playing.compat).split(',') : [];
+    var added = body && playing ? runtime.logic().learnUnsupported(labels, body.what) : [];
+    sendJson(res, { ok: true, learned: added });
+  });
+}
+
 module.exports = {
+  learn: learn,
   nextPref: nextPref,
   play: play,
   progress: progress

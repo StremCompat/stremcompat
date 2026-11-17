@@ -21,17 +21,26 @@ var streamsUI = {
   chipIdx: 0,
   chips: [],
   chipEls: [],
+  /* the addon tabs: their keys (the addon names, 'All' first) and elements */
+  addonFilter: 'All',
+  addons: [],
+  addonIdx: 0,
+  addonEls: [],
   failed: [],
+  left: [],
   title: '',
   flushT: null,
+  bestT: null,
   /* back: where the player returns to, when it is not the title page (a live channel) */
   show: function (type, id, vid, title, bestQuality, bestLanguage, back) {
     var request = ++this.requestSeq;
     this.back = back || '';
     this.open = true;
     this.failed = [];
+    this.left = [];
     this.title = title || '';
     this.cancelFlush();
+    this.cancelBest();
     this.items = [];
     this.idx = 0;
     this.moved = false;
@@ -52,12 +61,26 @@ var streamsUI = {
     this.chipIdx = 0;
     this.chips = [];
     this.chipEls = [];
-    /* Best source from the title page goes straight to the film; the list only appears if
-       nothing can be chosen */
+    this.addonFilter = 'All';
+    this.addons = [];
+    this.addonIdx = 0;
+    this.addonEls = [];
+    /* Best source from the title page goes straight to the film, without waiting more than
+       BEST_WAIT_MS for the slowest addons; the list only appears if nothing can be chosen */
     this.searching = !!bestQuality;
     if (bestQuality) toast(tx('findingSources'));
     else this.reveal();
+    var self = this;
+    if (bestQuality)
+      this.bestT = setTimeout(function () {
+        self.bestT = null;
+        /* played: the search's later answers are no longer this screen's */
+        if (self.requestSeq === request && self.searching && self.startBest(bestQuality, bestLanguage))
+          self.requestSeq++;
+      }, BEST_WAIT_MS);
     $('stChips').innerHTML = '';
+    $('stAddons').innerHTML = '';
+    $('stAddons').style.display = 'none';
     $('stLang').style.display = 'none';
     $('stBest').style.display = 'none';
     $('stBest').innerHTML = ICON.bolt + esc(tx('playBest'));
@@ -66,7 +89,6 @@ var streamsUI = {
       (vid && vid.indexOf(':') > 0 ? '  ·  T' + vid.split(':')[1] + ' E' + vid.split(':')[2] : '');
     $('stInner').innerHTML = '<div class="stmsg">' + tx('findingSources') + '</div>';
     var q = resumeSearch(id, vid);
-    var self = this;
     if (q) {
       this.push(
         [
@@ -93,6 +115,7 @@ var streamsUI = {
       },
       function (total, failed) {
         if (!self.open || self.requestSeq !== request) return;
+        self.cancelBest();
         self.failed = failed || [];
         if (!self.pool.length) {
           self.reveal();
@@ -127,6 +150,11 @@ var streamsUI = {
           var backHash = 'beta#detail/' + self.type + '/' + self.id + '/' + self.vid;
           playUrl(matched, self.type, self.id, self.vid, backHash);
         }
+      },
+      function (left) {
+        if (!self.open || self.requestSeq !== request) return;
+        self.left = left;
+        if (self.items.length) self.flushSoon();
       }
     );
   },
@@ -162,10 +190,10 @@ var streamsUI = {
     this.compact();
     /* Every answering addon used to rebuild the whole list while the viewer was moving
        through it. The first answer is drawn at once; later ones are drawn together. */
-    if (!this.items.length) {
-      this.flush();
-      return;
-    }
+    if (!this.items.length) this.flush();
+    else this.flushSoon();
+  },
+  flushSoon: function () {
     var self = this;
     if (!this.flushT)
       this.flushT = setTimeout(function () {
@@ -176,6 +204,10 @@ var streamsUI = {
   cancelFlush: function () {
     if (this.flushT) clearTimeout(this.flushT);
     this.flushT = null;
+  },
+  cancelBest: function () {
+    if (this.bestT) clearTimeout(this.bestT);
+    this.bestT = null;
   },
   flush: function () {
     this.cancelFlush();
@@ -217,7 +249,28 @@ var streamsUI = {
     this.chipIdx = k;
     $('stBest').style.display = 'inline-block';
     this.renderLangs(allItems);
+    this.renderAddons(allItems);
     this.paintChips();
+  },
+  /* one tab per addon under the quality chips, when more than one addon has sources */
+  renderAddons: function (allItems) {
+    var host = $('stAddons'),
+      tabs = addonChoices(allItems);
+    host.innerHTML = '';
+    this.addons = [];
+    this.addonEls = [];
+    for (var i = 0; i < tabs.length; i++) {
+      var t = document.createElement('div');
+      t.className = 'sttab';
+      t.textContent = tabs[i].label;
+      host.appendChild(t);
+      this.addons.push(tabs[i].key);
+      this.addonEls.push(t);
+    }
+    if (this.addons.indexOf(this.addonFilter) < 0) this.addonFilter = 'All';
+    this.addonIdx = Math.max(0, this.addons.indexOf(this.addonFilter));
+    if (!this.addons.length && this.zone === 'addons') this.zone = 'chips';
+    host.style.display = this.addons.length ? 'block' : 'none';
   },
   /* The language selector stays small in the corner: it appears only when the sources
      come in two or more languages, and OK steps through them. */
@@ -296,7 +349,17 @@ var streamsUI = {
       this.chipEls[i].className =
         'stchip' + (cur ? ' cur' : '') + (this.zone === 'chips' && i === this.chipIdx ? ' f' : '');
     }
-    this.revealChip(this.zone === 'chips' ? this.chipIdx : this.chips.indexOf(this.filter));
+    for (var a = 0; a < this.addonEls.length; a++)
+      this.addonEls[a].className =
+        'sttab' +
+        (this.addons[a] === this.addonFilter ? ' cur' : '') +
+        (this.zone === 'addons' && a === this.addonIdx ? ' f' : '');
+    this.revealChip(
+      $('stChips'),
+      this.chipEls,
+      this.zone === 'chips' ? this.chipIdx : this.chips.indexOf(this.filter)
+    );
+    this.revealChip($('stAddons'), this.addonEls, this.addonIdx);
     $('stBest').className = this.zone === 'best' ? 'f' : '';
     var lang = $('stLang');
     lang.textContent = langFilterName(this.langFilter) + '  \u203a';
@@ -305,9 +368,8 @@ var streamsUI = {
   /* When the chips do not fit (All, 4K, 1080p, 720p, SD, Other), the row scrolls so the
      focused one, or the active filter, is fully visible; the first chip keeps the row at
      the start. */
-  revealChip: function (i) {
-    var host = $('stChips'),
-      el = this.chipEls[i];
+  revealChip: function (host, els, i) {
+    var el = els[i];
     if (!el) return;
     var left = el.offsetLeft,
       right = left + el.offsetWidth,
@@ -319,7 +381,7 @@ var streamsUI = {
   },
   rebuild: function () {
     var sel = this.moved ? this.items[this.idx] : null,
-      list = orderedSources(this.all(), this.filter, this.langFilter),
+      list = orderedSources(this.all(), this.filter, this.langFilter, this.addonFilter),
       flat = list.items,
       rec = list.recommended;
     var host = $('stInner');
@@ -352,10 +414,11 @@ var streamsUI = {
         }
         d.appendChild(tg);
       }
-      if (s.compatLabels && s.compatLabels.length) {
+      var warning = compatText(s);
+      if (warning) {
         var c = document.createElement('div');
         c.className = 'compat';
-        c.textContent = tx('compatibilityCheck', s.compatLabels.join(' · '));
+        c.textContent = warning;
         d.appendChild(c);
       }
       var b = document.createElement('div');
@@ -367,10 +430,13 @@ var streamsUI = {
       this.els.push(d);
     }
     if (!this.items.length) host.innerHTML = '<div class="stmsg">' + tx('noSourcesQuality') + '</div>';
-    if (this.failed.length) {
+    var notes = [];
+    if (this.left.length) notes.push(tx('addonsLeft', this.left.join(', ')));
+    if (this.failed.length) notes.push(tx('addonsNoAnswer', this.failed.join(', ')));
+    for (var n = 0; n < notes.length; n++) {
       var note = document.createElement('div');
       note.className = 'stmsg';
-      note.textContent = tx('addonsNoAnswer', this.failed.join(', '));
+      note.textContent = notes[n];
       host.appendChild(note);
     }
     /* addons answer at different times: the focus stays on top until the viewer moves it, and
@@ -391,6 +457,7 @@ var streamsUI = {
   close: function () {
     this.open = false;
     this.cancelFlush();
+    this.cancelBest();
     this.requestSeq++;
     $('streams').style.display = 'none';
     bodyRemove('streamsopen');
@@ -438,14 +505,26 @@ var streamsUI = {
       if (k === 39) this.chipIdx = Math.min(this.chipEls.length - 1, this.chipIdx + 1);
       else if (k === 37) this.chipIdx = Math.max(0, this.chipIdx - 1);
       else if (k === 40 || k === 13) {
-        if (this.items.length) {
-          this.zone = 'list';
+        if (this.addons.length || this.items.length) {
+          this.zone = this.addons.length ? 'addons' : 'list';
           this.paint();
         }
         return true;
       } else return true;
       this.filter = this.chips[this.chipIdx];
       this.refilter();
+      return true;
+    }
+    if (this.zone === 'addons') {
+      if (k === 38) this.zone = 'chips';
+      else if ((k === 40 || k === 13) && this.items.length) this.zone = 'list';
+      else if (k === 39 || k === 37) {
+        this.addonIdx = Math.max(0, Math.min(this.addonEls.length - 1, this.addonIdx + (k === 39 ? 1 : -1)));
+        this.addonFilter = this.addons[this.addonIdx];
+        this.refilter();
+        return true;
+      }
+      this.paint();
       return true;
     }
     if (k === 40) {
@@ -459,7 +538,7 @@ var streamsUI = {
         this.moved = true;
         this.paint();
       } else {
-        this.zone = 'chips';
+        this.zone = this.addons.length ? 'addons' : 'chips';
         this.paint();
       }
     } else if (k === 13) {

@@ -176,7 +176,7 @@ assert.strictEqual(subtitlePrefs({ enableDefaultAudioTrack: 'true' }).aud, 'por'
     langRank: function () { return 0; }, preferredSourceLanguage: function () { return 'Auto'; }, fixedSourceLanguage: function () { return 'Auto'; }, inLangFilter: function () { return true; }, sourceLanguageLabel: function (c) { return c; }, langGroups: function () { return []; }, sourceTags: function () { return []; },
     setF: function () {}, bestSource: function () { return null; }, sourceOrder: function (a, b) { return b.seeds - a.seeds; }, window: {},
     orderedSources: function (pool) { return { items: pool.slice().sort(function (a, b) { return b.seeds - a.seeds; }), recommended: -1 }; },
-    sourceHeading: function () { return ''; }, sourceText: function () { return ''; }
+    sourceHeading: function () { return ''; }, sourceText: function () { return ''; }, compatText: function () { return ''; }
   };
   vm.runInNewContext(src('ui/views/streams.js') + ';this.list=streamsUI;', ctx);
   var list = ctx.list, slow = { seeds: 1 }, fast = { seeds: 5 }, faster = { seeds: 9 };
@@ -206,6 +206,17 @@ assert.strictEqual(subtitlePrefs({ enableDefaultAudioTrack: 'true' }).aud, 'por'
   top.zone = 'best';
   top.key(40);
   assert.strictEqual(top.zone, 'chips', 'Down from Best source did not return to the filters');
+  /* the addon tabs, between the quality chips and the list */
+  var tabs = Object.assign(Object.create(list), { open: true, zone: 'chips', items: [slow], els: [1], addons: ['All', 'A', 'B'], addonEls: [1, 2, 3], addonIdx: 0, addonFilter: 'All', refilter: function () {} });
+  tabs.key(40);
+  assert.strictEqual(tabs.zone, 'addons', 'Down from the quality chips did not reach the addon tabs');
+  tabs.key(39);
+  assert.strictEqual(tabs.addonFilter, 'A', 'Right on the addon tabs did not choose the next addon');
+  tabs.key(40);
+  assert.strictEqual(tabs.zone, 'list', 'Down from the addon tabs did not reach the list');
+  tabs.idx = 0;
+  tabs.key(38);
+  assert.strictEqual(tabs.zone, 'addons', 'Up from the top of the list did not return to the addon tabs');
   list.moved = true;
   list.idx = 1;
   shown = [slow, fast, faster, { seeds: 7 }];

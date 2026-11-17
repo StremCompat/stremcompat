@@ -517,5 +517,8 @@
   "discoverMax80": "80（性能の低いテレビ）",
   "discoverMax200": "200（標準）",
   "discoverMax500": "500（メモリの多いテレビ）",
-  "pointerLabel": "マジックリモコンのポインター"
+  "pointerLabel": "マジックリモコンのポインター",
+  "addonsLeft": "応答待ち: {0}",
+  "notOnThisTv": "このテレビで再生できませんでした: {0}",
+  "audioNotPlayable": "このテレビではこの音声を再生できません。別の音声トラックかソースを試してください。"
 }
