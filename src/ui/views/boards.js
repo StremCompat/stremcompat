@@ -280,7 +280,7 @@ var disc = {
     return Math.max(3, Math.floor((gridWidth - 14) / step));
   },
   gridRowH: function () {
-    return (document.documentElement.clientHeight || 1080) <= 800 ? 288 : 420;
+    return ((document.documentElement.clientHeight || 1080) <= 800 ? 288 : 420) + titleUnderExtra(this.items[0]);
   },
   renderGrid: function () {
     var host = $('discGrid'),

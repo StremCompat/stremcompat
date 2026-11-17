@@ -125,7 +125,7 @@ var folderPage = {
     setF(this.els, !off && this.zone === 'grid' ? this.idx : -1);
     var small = (document.documentElement.clientHeight || 1080) <= 800,
       step = small ? 192 : 288,
-      rowH = small ? 288 : 420;
+      rowH = (small ? 288 : 420) + titleUnderExtra((this.tabs[this.tabIdx] || { items: [] }).items[0]);
     this.cols = Math.max(3, Math.floor((($('fdGridClip').clientWidth || contentWidth()) - 14) / step));
     var row = Math.floor(this.idx / this.cols);
     /* only the rows near the focus load their posters */

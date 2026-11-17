@@ -4,6 +4,7 @@
 #simClip{position:absolute;top:104px;left:-14px;right:0;bottom:0;overflow:hidden;padding-left:14px}
 #simGrid{padding:16px 0 0 14px;transition:transform .18s cubic-bezier(.2,.8,.2,1)}
 #simGrid .card{margin-bottom:26px}
+#simGrid .card.tunder{margin-bottom:62px}
 
 /* ---------- idle trailer layer (top area only; #bgshade vignettes it into black) ---------- */
 #bgv{position:fixed;top:0;left:0;width:100%;height:74%;object-fit:cover;opacity:0;transition:opacity 1.2s ease}
@@ -26,6 +27,7 @@
 #discGridClip{position:absolute;top:142px;left:-7px;right:0;bottom:0;overflow:hidden;padding:18px 7px 7px}
 #discGrid{transition:transform .18s cubic-bezier(.2,.8,.2,1)}
 #discGrid .card{margin-bottom:24px}
+#discGrid .card.tunder{margin-bottom:60px}
 
 /* ---------- search ---------- */
 #sWrap{position:absolute;top:58px;left:176px;right:48px;bottom:0}
@@ -82,6 +84,7 @@
 #fdGridClip{position:absolute;top:150px;left:-7px;right:0;bottom:0;overflow:hidden;padding:18px 7px 7px}
 #fdGrid{transition:transform .18s cubic-bezier(.2,.8,.2,1)}
 #fdGrid .card{margin-bottom:24px}
+#fdGrid .card.tunder{margin-bottom:60px}
 /* ---------- channels (channels.js) ---------- */
 #tvWrap{position:absolute;top:58px;left:176px;right:48px;bottom:30px}
 #tvTitle{font-size:50px;font-weight:800}

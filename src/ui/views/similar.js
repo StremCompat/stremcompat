@@ -52,7 +52,7 @@ var similar = {
   },
   paint: function () {
     setF(this.els, topNav.active ? -1 : this.idx);
-    var rowH = this.els[0] ? this.els[0].offsetHeight + 26 : 470;
+    var rowH = this.els[0] ? this.els[0].offsetHeight + 26 + titleUnderExtra(this.items[0]) : 470;
     var row = Math.floor(this.idx / this.cols);
     for (var i = 0; i < this.els.length; i++) {
       var imgs = this.els[i].getElementsByTagName('img'),
