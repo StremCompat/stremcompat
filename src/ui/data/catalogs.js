@@ -328,6 +328,28 @@ function homeDefs() {
 /* The rows Home starts with, from this TV's library: Continue Watching, then the new episodes
    of followed series and the titles added to the library, which otherwise only appear in the
    Library section. wide rows show landscape cards. */
+/* What the screensaver shows: the backdrops of what the viewer is watching, waits for and keeps */
+var SAVER_MAX = 30;
+function screensaverItems() {
+  var out = [],
+    seen = {};
+  function add(it) {
+    var id = it && (it.id || it._id),
+      background = id && bgOf(it);
+    if (!background || seen[id] || out.length >= SAVER_MAX) return;
+    seen[id] = 1;
+    out.push({ id: id, name: it.name || '', background: background });
+  }
+  cwItems().forEach(add);
+  newEpisodeItems().forEach(add);
+  upcomingItems().forEach(add);
+  libGridItems().forEach(add);
+  return out;
+}
+/* Settings > Screensaver: minutes without a key before it shows, 0 never */
+function screensaverMinutes() {
+  return parseInt(lsRaw('screensaver', '5'), 10) || 0;
+}
 function homeLibraryRows() {
   var rows = [],
     cw = cwItems(),

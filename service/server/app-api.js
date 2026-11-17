@@ -134,6 +134,12 @@ function home(req, res) {
   sendJson(res, { rows: rows });
 }
 
+/* ---------- the screensaver: its minutes (Settings) and, unless items=0, its pictures ---------- */
+function screensaver(req, res, q) {
+  var L = logic();
+  sendJson(res, { minutes: L.screensaverMinutes(), items: q.items === '0' ? [] : L.screensaverItems() });
+}
+
 /* ---------- the Library: the films and the series added to it (web: loadLibraryRows) ---------- */
 function library(req, res) {
   var L = logic(),
@@ -679,6 +685,7 @@ module.exports = {
     '/app/library': library,
     '/app/meta': meta,
     '/app/search': search,
+    '/app/screensaver': screensaver,
     '/app/similar': similar,
     '/app/discover': discover,
     '/app/play': function (req, res, q) {

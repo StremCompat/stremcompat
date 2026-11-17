@@ -54,6 +54,7 @@
   "input/pointer.js",
   "features/idle-trailer.js",
   "features/spotlight.js",
+  "features/screensaver.js",
   "input/keys.js",
   "core/lifecycle.js",
   "boot.js",

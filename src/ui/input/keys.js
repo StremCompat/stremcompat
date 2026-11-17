@@ -65,6 +65,13 @@ on(
     var k = e.keyCode;
     idleTouch();
     noteKey();
+    /* a key while the screensaver shows only ends it */
+    if (saverOn()) {
+      e.preventDefault();
+      e.stopPropagation();
+      hideSaver();
+      return;
+    }
     var a = document.activeElement;
     if (a === $('sBox') || a === $('lgEmail') || a === $('lgPass') || a === $('pfEdName') || a === $('txBox'))
       return; /* typing: inputs manage themselves */

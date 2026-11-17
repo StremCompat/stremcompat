@@ -249,6 +249,17 @@ function settingsCategories() {
       d: 'normal'
     },
     {
+      k: 'screensaver',
+      lb: tx('screensaverSetting'),
+      opts: [
+        ['0', tx('disabled')],
+        ['5', tx('minutesN', 5)],
+        ['10', tx('minutesN', 10)],
+        ['20', tx('minutesN', 20)]
+      ],
+      d: '5'
+    },
+    {
       k: 'spoilers',
       lb: tx('spoilersSetting'),
       opts: [

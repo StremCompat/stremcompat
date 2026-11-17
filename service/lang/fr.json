@@ -541,5 +541,7 @@
   "filterHdr": "HDR",
   "filterAtmos": "Atmos",
   "filterRemux": "Remux",
-  "filterNoCam": "Sans CAM"
+  "filterNoCam": "Sans CAM",
+  "screensaverSetting": "Économiseur d'écran",
+  "minutesN": "{0} minutes"
 }

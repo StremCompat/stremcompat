@@ -541,5 +541,7 @@
   "filterHdr": "HDR",
   "filterAtmos": "Atmos",
   "filterRemux": "Remux",
-  "filterNoCam": "排除 CAM"
+  "filterNoCam": "排除 CAM",
+  "screensaverSetting": "屏幕保护",
+  "minutesN": "{0} 分钟"
 }

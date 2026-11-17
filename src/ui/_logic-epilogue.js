@@ -75,6 +75,8 @@ window.__logic = {
   knownArtwork: knownArtwork,
   langFilterName: langFilterName,
   spoilerMode: spoilerMode,
+  screensaverItems: screensaverItems,
+  screensaverMinutes: screensaverMinutes,
   learnUnsupported: learnUnsupported,
   languageChoices: languageChoices,
   itemWatched: itemWatched,

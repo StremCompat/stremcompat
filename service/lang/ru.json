@@ -541,5 +541,7 @@
   "filterHdr": "HDR",
   "filterAtmos": "Atmos",
   "filterRemux": "Remux",
-  "filterNoCam": "Без CAM"
+  "filterNoCam": "Без CAM",
+  "screensaverSetting": "Заставка",
+  "minutesN": "{0} минут"
 }

@@ -543,6 +543,8 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    screensaverSetting: 'Screensaver',
+    minutesN: '{0} minutes',
     filterCached: 'Cached',
     filterHdr: 'HDR',
     filterAtmos: 'Atmos',
@@ -1093,6 +1095,8 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    screensaverSetting: 'Proteção de tela',
+    minutesN: '{0} minutos',
     filterCached: 'Em cache',
     filterHdr: 'HDR',
     filterAtmos: 'Atmos',
@@ -3087,6 +3091,28 @@ function homeDefs() {
 /* The rows Home starts with, from this TV's library: Continue Watching, then the new episodes
    of followed series and the titles added to the library, which otherwise only appear in the
    Library section. wide rows show landscape cards. */
+/* What the screensaver shows: the backdrops of what the viewer is watching, waits for and keeps */
+var SAVER_MAX = 30;
+function screensaverItems() {
+  var out = [],
+    seen = {};
+  function add(it) {
+    var id = it && (it.id || it._id),
+      background = id && bgOf(it);
+    if (!background || seen[id] || out.length >= SAVER_MAX) return;
+    seen[id] = 1;
+    out.push({ id: id, name: it.name || '', background: background });
+  }
+  cwItems().forEach(add);
+  newEpisodeItems().forEach(add);
+  upcomingItems().forEach(add);
+  libGridItems().forEach(add);
+  return out;
+}
+/* Settings > Screensaver: minutes without a key before it shows, 0 never */
+function screensaverMinutes() {
+  return parseInt(lsRaw('screensaver', '5'), 10) || 0;
+}
 function homeLibraryRows() {
   var rows = [],
     cw = cwItems(),
@@ -6560,6 +6586,17 @@ function settingsCategories() {
         ['large', tx('textLarge')]
       ],
       d: 'normal'
+    },
+    {
+      k: 'screensaver',
+      lb: tx('screensaverSetting'),
+      opts: [
+        ['0', tx('disabled')],
+        ['5', tx('minutesN', 5)],
+        ['10', tx('minutesN', 10)],
+        ['20', tx('minutesN', 20)]
+      ],
+      d: '5'
     },
     {
       k: 'spoilers',
@@ -12358,6 +12395,61 @@ setInterval(function () {
 on($('heroBtn'), 'click', function () {
   if (featuredShown()) featuredKey(13);
 });
+// The screensaver: after some minutes without a key on the menus (Settings), the backdrops of what
+// the viewer watches drift slowly behind their names and a clock, which also keeps an OLED panel
+// from holding still pictures. Any key brings the app back, and only does that (input/keys.js).
+var saver = { el: null, items: [], at: 0, layer: 0, timer: null };
+var SAVER_SLIDE_MS = 12000;
+function saverOn() {
+  return !!saver.el;
+}
+function saverClock() {
+  var d = new Date(),
+    m = d.getMinutes();
+  return d.getHours() + ':' + (m < 10 ? '0' : '') + m;
+}
+function nextSaverSlide() {
+  var it = saver.items[saver.at++ % saver.items.length],
+    layers = saver.el.getElementsByClassName('svl'),
+    show = layers[saver.layer],
+    hide = layers[1 - saver.layer];
+  saver.layer = 1 - saver.layer;
+  show.className = 'svl';
+  show.style.backgroundImage = 'url("' + it.background + '")';
+  /* on the next frame, so the drift starts from the beginning */
+  setTimeout(function () {
+    show.className = 'svl on';
+    hide.className = 'svl';
+  }, 50);
+  $('svName').textContent = it.name;
+  $('svClock').textContent = saverClock();
+}
+function showSaver() {
+  var items = screensaverItems();
+  if (!items.length) return;
+  var el = document.createElement('div');
+  el.id = 'saver';
+  el.innerHTML =
+    '<div class="svl"></div><div class="svl"></div><div class="svs"></div><div id="svName"></div><div id="svClock"></div>';
+  document.body.appendChild(el);
+  saver.el = el;
+  saver.items = items;
+  saver.at = Math.floor(Math.random() * items.length);
+  nextSaverSlide();
+  saver.timer = setInterval(nextSaverSlide, SAVER_SLIDE_MS);
+}
+function hideSaver() {
+  clearInterval(saver.timer);
+  if (saver.el && saver.el.parentNode) saver.el.parentNode.removeChild(saver.el);
+  saver.el = null;
+}
+setInterval(function () {
+  var minutes = screensaverMinutes();
+  if (saver.el || !minutes || Date.now() - lastIn < minutes * 60000) return;
+  if ($('boot').style.display !== 'none') return;
+  stopIdleTrailer();
+  showSaver();
+}, 15000);
 // Remote key dispatch, long-press OK and the Back button.
 function currentFocusedItem() {
   if (topNav.active) return null;
@@ -12425,6 +12517,13 @@ on(
     var k = e.keyCode;
     idleTouch();
     noteKey();
+    /* a key while the screensaver shows only ends it */
+    if (saverOn()) {
+      e.preventDefault();
+      e.stopPropagation();
+      hideSaver();
+      return;
+    }
     var a = document.activeElement;
     if (a === $('sBox') || a === $('lgEmail') || a === $('lgPass') || a === $('pfEdName') || a === $('txBox'))
       return; /* typing: inputs manage themselves */
