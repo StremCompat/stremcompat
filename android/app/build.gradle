@@ -1,5 +1,6 @@
-// The Android TV apps, side by side with their own IDs: web (the pages in a WebView) and native
-// (LG-C over SDL2), both above ExoPlayer and with the local server on an embedded Node.
+// The Android apps, side by side with their own IDs: for TVs web (the pages in a WebView) and native
+// (LG-C over SDL2), and for phones the phone interface (service/mobile) in a WebView; all above
+// ExoPlayer and with the local server on an embedded Node.
 // scripts/package-android.js stages what the app carries into ../../.build/android-tv-app:
 //   assets/service  the local server and the pages, as for LG (build-stage.js, profile android-tv)
 //   jniLibs/<abi>   libnode.so (nodejs-mobile) and the FFmpeg, FFprobe and torrent programs
@@ -58,6 +59,13 @@ android {
                 cmake { arguments "-DLGC_DIR=${lgc.path.replace(File.separator, '/')}", "-DAPP_VERSION=${nativeVersion}", "-DSC_PORT=${profile.port + 1}" }
             }
         }
+        phone {
+            dimension 'ui'
+            applicationIdSuffix '.phone'
+            buildConfigField 'int', 'SERVER_PORT', "${profile.port + 2}"
+            buildConfigField 'int', 'HANDOVER_PORT', '0'
+            resValue 'string', 'app_name', 'StremCompat'
+        }
     }
 
     signingConfigs {
@@ -102,4 +110,6 @@ dependencies {
     def media3 = '1.5.1'
     implementation "androidx.media3:media3-exoplayer:${media3}"
     implementation "androidx.media3:media3-exoplayer-hls:${media3}"
+    /* the phone's player screen has ExoPlayer's touch controls */
+    phoneImplementation "androidx.media3:media3-ui:${media3}"
 }

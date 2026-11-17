@@ -26,6 +26,12 @@ module.exports = [
     rules: correctness
   },
   {
+    // The phone interface: current WebViews (Android 7+, iOS 14+).
+    files: ['service/mobile/**/*.js'],
+    languageOptions: { ecmaVersion: 2020, sourceType: 'script', globals: globals.browser },
+    rules: correctness
+  },
+  {
     // Bootstrap for the TV's system Node.js 0.12.
     files: ['service/launch.js', 'service/profile.js'],
     languageOptions: { ecmaVersion: 5, sourceType: 'commonjs', globals: globals.node },

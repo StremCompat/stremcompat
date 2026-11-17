@@ -37,6 +37,7 @@ var SUPPORT_URL = 'https://buymeacoffee.com/Alexesmm';
 var { diagnostics, netcheck, recordEvent, speedTest } = require('./diag');
 var { cachedAddonJson } = require('./addon-cache');
 var appApi = require('./app-api');
+var { isMobilePath, mobileFile } = require('./mobile');
 var appLogin = require('./app-login');
 var appSettings = require('./app-settings');
 var appChannels = require('./app-channels');
@@ -430,6 +431,7 @@ function handleRequest(req, res) {
   var pathname = req.url.split('?')[0];
   var route = ROUTES[pathname] || (req.method === 'POST' && POST_ONLY[pathname]);
   if (route) return route(req, res, parsed.query, pathname);
+  if (isMobilePath(pathname)) return mobileFile(req, res, pathname);
   if (LANGUAGE_FILE.test(pathname)) return languageFile(req, res, parsed.query, pathname);
   var font = fontFile(pathname);
   if (!font) return notFound(res);

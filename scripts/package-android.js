@@ -138,11 +138,14 @@ async function nodeMobile() {
     { cwd: android, env: env }
   );
 
-  /* two apps with their own IDs: the web one and the native one */
-  var nativeVersion = JSON.parse(fs.readFileSync(path.join(root, 'profiles', 'lg-native.json'), 'utf8')).version;
+  /* three apps with their own IDs: the web and native ones for TVs, and the phone one */
+  var nativeVersion = JSON.parse(
+    fs.readFileSync(path.join(root, 'profiles', 'lg-native.json'), 'utf8')
+  ).version;
   [
     ['web', 'StremCompat-v' + profile.version + '-AndroidTV'],
-    ['native', 'StremCompat-Native-v' + nativeVersion + '-AndroidTV']
+    ['native', 'StremCompat-Native-v' + nativeVersion + '-AndroidTV'],
+    ['phone', 'StremCompat-Phone-v' + profile.version + '-beta-Android']
   ].forEach(function (flavor) {
     var apk = path.join(
       android,
