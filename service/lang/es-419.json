@@ -534,5 +534,7 @@
   "spoilersShow": "Mostrar todo",
   "spoilersPictures": "Difuminar imágenes no vistas",
   "spoilersAll": "Ocultar imágenes y sinopsis",
-  "spoilerHidden": "Sinopsis oculta hasta que veas este episodio."
+  "spoilerHidden": "Sinopsis oculta hasta que veas este episodio.",
+  "markSeriesWatched": "Marcar serie como vista",
+  "markSeriesUnwatched": "Marcar serie como no vista"
 }

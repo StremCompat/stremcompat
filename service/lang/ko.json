@@ -534,5 +534,7 @@
   "spoilersShow": "모두 표시",
   "spoilersPictures": "안 본 이미지 흐리게",
   "spoilersAll": "이미지와 줄거리 숨기기",
-  "spoilerHidden": "이 에피소드를 볼 때까지 줄거리가 숨겨집니다."
+  "spoilerHidden": "이 에피소드를 볼 때까지 줄거리가 숨겨집니다.",
+  "markSeriesWatched": "시리즈를 본 것으로 표시",
+  "markSeriesUnwatched": "시리즈를 안 본 것으로 표시"
 }

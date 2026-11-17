@@ -519,6 +519,8 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    markSeriesWatched: 'Mark series as watched',
+    markSeriesUnwatched: 'Mark series as unwatched',
     spoilersSetting: 'Spoilers',
     spoilersShow: 'Show everything',
     spoilersPictures: 'Blur unwatched pictures',
@@ -1062,6 +1064,8 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    markSeriesWatched: 'Marcar série como assistida',
+    markSeriesUnwatched: 'Marcar série como não assistida',
     spoilersSetting: 'Spoilers',
     spoilersShow: 'Mostrar tudo',
     spoilersPictures: 'Desfocar imagens não vistas',
@@ -6089,6 +6093,21 @@ function setItemWatched(it, watched, cb) {
 }
 /* A whole season at once: its episodes one after another, since each episode's bit is
    written over the field the previous one left. */
+/* The regular episodes of a series in order up to vid, vid included (marking one watched marks the
+   ones before it too, as the official apps' "watched up to here"); all of them when vid is empty.
+   A special (season 0) is only itself. */
+function episodesUpTo(meta, vid) {
+  var seasons = buildEpisodeModel((meta && meta.videos) || []).seasons,
+    out = [];
+  for (var s = 0; s < seasons.length; s++) {
+    if (!(seasons[s].n > 0)) continue;
+    for (var e = 0; e < seasons[s].eps.length; e++) {
+      out.push(seasons[s].eps[e].id);
+      if (vid && seasons[s].eps[e].id === vid) return out;
+    }
+  }
+  return vid ? [vid] : out;
+}
 function setEpisodesWatched(it, vids, watched, cb) {
   var i = 0;
   (function next() {
@@ -6720,35 +6739,39 @@ var cwMenu = {
       this.paint();
       return;
     }
-    /* one episode of a series page: only its watched state */
+    /* one episode of a series page: only its watched state; watched takes the earlier ones along */
     if (it.episode) {
       var epDone = !!it.watched;
       add(epDone ? ICON.close : ICON.check, tx(epDone ? 'markUnwatched' : 'markWatched'), function () {
         self.close();
-        detail.watchedMap[it.videoId] = epDone ? 0 : 1;
+        var vids = epDone ? [it.videoId] : episodesUpTo(detail.meta, it.videoId);
+        for (var vi = 0; vi < vids.length; vi++) detail.watchedMap[vids[vi]] = epDone ? 0 : 1;
         detail.markWatched();
-        setItemWatched(it, !epDone);
+        if (epDone) setItemWatched(it, false);
+        else setEpisodesWatched(it, vids, true);
         toast(tx(epDone ? 'markedUnwatched' : 'markedWatched'));
       });
       $('cwm').style.display = 'block';
       this.paint();
       return;
     }
+    /* Play and the library first, what dismisses last */
     add(ICON.play, it.cw ? tx('continueLabel') : tx('watch'), function () {
       self.close();
       openItem(it);
     });
+    add(
+      libHas(it.id) ? ICON.check : ICON.plus,
+      libHas(it.id) ? tx('removeLibrary') : tx('addLibrary'),
+      function () {
+        libToggle(it);
+        self.close();
+        refreshCurBoard();
+      }
+    );
     add(ICON.info, tx('details'), function () {
       self.close();
       goScr('detail', { type: it.type, id: it.id, vid: it.videoId || null });
-    });
-    add(ICON.similar, tx('similarTitles'), function () {
-      self.close();
-      goScr('sim', { type: it.type, id: it.id, name: it.name });
-    });
-    add(ICON.trailer, tx('trailer'), function () {
-      self.close();
-      trailerFor(it.type, it.id, 'beta');
     });
     if (it.cw)
       add(ICON.check, tx('markWatched'), function () {
@@ -6767,6 +6790,32 @@ var cwMenu = {
         toast(tx(done ? 'markedUnwatched' : 'markedWatched'));
       });
     }
+    /* a whole series at once */
+    if (it.type === 'series') {
+      var showDone = itemWatched(it);
+      add(
+        showDone ? ICON.close : ICON.check,
+        tx(showDone ? 'markSeriesUnwatched' : 'markSeriesWatched'),
+        function () {
+          self.close();
+          getMeta('series', it.id, function (m) {
+            setEpisodesWatched(it, episodesUpTo(m, ''), !showDone, function () {
+              setItemWatched(it, !showDone);
+              refreshCurBoard();
+              toast(tx(showDone ? 'markedUnwatched' : 'markedWatched'));
+            });
+          });
+        }
+      );
+    }
+    add(ICON.similar, tx('similarTitles'), function () {
+      self.close();
+      goScr('sim', { type: it.type, id: it.id, name: it.name });
+    });
+    add(ICON.trailer, tx('trailer'), function () {
+      self.close();
+      trailerFor(it.type, it.id, 'beta');
+    });
     if (it.cw)
       add(ICON.close, tx('removeFromCw'), function () {
         removeFromCw(it);
@@ -6781,15 +6830,6 @@ var cwMenu = {
         buildHomeRows(true);
         toast(tx('newEpisodesHidden'));
       });
-    add(
-      libHas(it.id) ? ICON.check : ICON.plus,
-      libHas(it.id) ? tx('removeLibrary') : tx('addLibrary'),
-      function () {
-        libToggle(it);
-        self.close();
-        refreshCurBoard();
-      }
-    );
     $('cwm').style.display = 'block';
     this.paint();
   },

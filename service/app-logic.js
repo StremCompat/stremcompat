@@ -486,6 +486,8 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    markSeriesWatched: 'Mark series as watched',
+    markSeriesUnwatched: 'Mark series as unwatched',
     spoilersSetting: 'Spoilers',
     spoilersShow: 'Show everything',
     spoilersPictures: 'Blur unwatched pictures',
@@ -1029,6 +1031,8 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    markSeriesWatched: 'Marcar série como assistida',
+    markSeriesUnwatched: 'Marcar série como não assistida',
     spoilersSetting: 'Spoilers',
     spoilersShow: 'Mostrar tudo',
     spoilersPictures: 'Desfocar imagens não vistas',
@@ -4355,6 +4359,21 @@ function setItemWatched(it, watched, cb) {
 }
 /* A whole season at once: its episodes one after another, since each episode's bit is
    written over the field the previous one left. */
+/* The regular episodes of a series in order up to vid, vid included (marking one watched marks the
+   ones before it too, as the official apps' "watched up to here"); all of them when vid is empty.
+   A special (season 0) is only itself. */
+function episodesUpTo(meta, vid) {
+  var seasons = buildEpisodeModel((meta && meta.videos) || []).seasons,
+    out = [];
+  for (var s = 0; s < seasons.length; s++) {
+    if (!(seasons[s].n > 0)) continue;
+    for (var e = 0; e < seasons[s].eps.length; e++) {
+      out.push(seasons[s].eps[e].id);
+      if (vid && seasons[s].eps[e].id === vid) return out;
+    }
+  }
+  return vid ? [vid] : out;
+}
 function setEpisodesWatched(it, vids, watched, cb) {
   var i = 0;
   (function next() {
@@ -4893,6 +4912,7 @@ window.__logic = {
   discoverPageUrl: discoverPageUrl,
   discoverTypes: discoverTypes,
   enrichEpisodeMetadata: enrichEpisodeMetadata,
+  episodesUpTo: episodesUpTo,
   episodeBadge: episodeBadge,
   episodeDay: episodeDay,
   episodeFallback: episodeFallback,

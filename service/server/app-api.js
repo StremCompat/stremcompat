@@ -536,8 +536,24 @@ function act(req, res) {
         L.libToggle(it);
         return answer();
       case 'watched':
+        /* an episode marked watched takes the ones before it along */
+        if (it.type === 'series' && it.videoId && it.videoId !== it.id && done)
+          return L.getMeta('series', it.id, function (m) {
+            L.setEpisodesWatched(it, L.episodesUpTo(m, it.videoId), true, function () {
+              answer(L.tx('markedWatched'));
+            });
+          });
         return L.setItemWatched(it, done, function () {
           answer(L.tx(done ? 'markedWatched' : 'markedUnwatched'));
+        });
+      case 'show':
+        /* a whole series at once */
+        return L.getMeta('series', it.id, function (m) {
+          L.setEpisodesWatched(it, L.episodesUpTo(m, ''), done, function () {
+            L.setItemWatched({ id: it.id, type: it.type, name: it.name }, done, function () {
+              answer(L.tx(done ? 'markedWatched' : 'markedUnwatched'));
+            });
+          });
         });
       case 'season':
         return L.setEpisodesWatched(it, body.vids || [], done, function () {

@@ -49,6 +49,7 @@ window.__logic = {
   discoverPageUrl: discoverPageUrl,
   discoverTypes: discoverTypes,
   enrichEpisodeMetadata: enrichEpisodeMetadata,
+  episodesUpTo: episodesUpTo,
   episodeBadge: episodeBadge,
   episodeDay: episodeDay,
   episodeFallback: episodeFallback,

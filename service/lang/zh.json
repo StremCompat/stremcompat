@@ -534,5 +534,7 @@
   "spoilersShow": "全部显示",
   "spoilersPictures": "模糊未看的图片",
   "spoilersAll": "隐藏图片和简介",
-  "spoilerHidden": "观看本集前简介已隐藏。"
+  "spoilerHidden": "观看本集前简介已隐藏。",
+  "markSeriesWatched": "将剧集标为已看",
+  "markSeriesUnwatched": "将剧集标为未看"
 }

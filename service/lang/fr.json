@@ -534,5 +534,7 @@
   "spoilersShow": "Tout afficher",
   "spoilersPictures": "Flouter les images non vues",
   "spoilersAll": "Masquer images et résumés",
-  "spoilerHidden": "Résumé masqué jusqu'à ce que vous voyiez cet épisode."
+  "spoilerHidden": "Résumé masqué jusqu'à ce que vous voyiez cet épisode.",
+  "markSeriesWatched": "Marquer la série comme vue",
+  "markSeriesUnwatched": "Marquer la série comme non vue"
 }

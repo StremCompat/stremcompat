@@ -534,5 +534,7 @@
   "spoilersShow": "すべて表示",
   "spoilersPictures": "未視聴の画像をぼかす",
   "spoilersAll": "画像とあらすじを隠す",
-  "spoilerHidden": "このエピソードを見るまであらすじは非表示です。"
+  "spoilerHidden": "このエピソードを見るまであらすじは非表示です。",
+  "markSeriesWatched": "シリーズを視聴済みにする",
+  "markSeriesUnwatched": "シリーズを未視聴にする"
 }

@@ -142,35 +142,39 @@ var cwMenu = {
       this.paint();
       return;
     }
-    /* one episode of a series page: only its watched state */
+    /* one episode of a series page: only its watched state; watched takes the earlier ones along */
     if (it.episode) {
       var epDone = !!it.watched;
       add(epDone ? ICON.close : ICON.check, tx(epDone ? 'markUnwatched' : 'markWatched'), function () {
         self.close();
-        detail.watchedMap[it.videoId] = epDone ? 0 : 1;
+        var vids = epDone ? [it.videoId] : episodesUpTo(detail.meta, it.videoId);
+        for (var vi = 0; vi < vids.length; vi++) detail.watchedMap[vids[vi]] = epDone ? 0 : 1;
         detail.markWatched();
-        setItemWatched(it, !epDone);
+        if (epDone) setItemWatched(it, false);
+        else setEpisodesWatched(it, vids, true);
         toast(tx(epDone ? 'markedUnwatched' : 'markedWatched'));
       });
       $('cwm').style.display = 'block';
       this.paint();
       return;
     }
+    /* Play and the library first, what dismisses last */
     add(ICON.play, it.cw ? tx('continueLabel') : tx('watch'), function () {
       self.close();
       openItem(it);
     });
+    add(
+      libHas(it.id) ? ICON.check : ICON.plus,
+      libHas(it.id) ? tx('removeLibrary') : tx('addLibrary'),
+      function () {
+        libToggle(it);
+        self.close();
+        refreshCurBoard();
+      }
+    );
     add(ICON.info, tx('details'), function () {
       self.close();
       goScr('detail', { type: it.type, id: it.id, vid: it.videoId || null });
-    });
-    add(ICON.similar, tx('similarTitles'), function () {
-      self.close();
-      goScr('sim', { type: it.type, id: it.id, name: it.name });
-    });
-    add(ICON.trailer, tx('trailer'), function () {
-      self.close();
-      trailerFor(it.type, it.id, 'beta');
     });
     if (it.cw)
       add(ICON.check, tx('markWatched'), function () {
@@ -189,6 +193,32 @@ var cwMenu = {
         toast(tx(done ? 'markedUnwatched' : 'markedWatched'));
       });
     }
+    /* a whole series at once */
+    if (it.type === 'series') {
+      var showDone = itemWatched(it);
+      add(
+        showDone ? ICON.close : ICON.check,
+        tx(showDone ? 'markSeriesUnwatched' : 'markSeriesWatched'),
+        function () {
+          self.close();
+          getMeta('series', it.id, function (m) {
+            setEpisodesWatched(it, episodesUpTo(m, ''), !showDone, function () {
+              setItemWatched(it, !showDone);
+              refreshCurBoard();
+              toast(tx(showDone ? 'markedUnwatched' : 'markedWatched'));
+            });
+          });
+        }
+      );
+    }
+    add(ICON.similar, tx('similarTitles'), function () {
+      self.close();
+      goScr('sim', { type: it.type, id: it.id, name: it.name });
+    });
+    add(ICON.trailer, tx('trailer'), function () {
+      self.close();
+      trailerFor(it.type, it.id, 'beta');
+    });
     if (it.cw)
       add(ICON.close, tx('removeFromCw'), function () {
         removeFromCw(it);
@@ -203,15 +233,6 @@ var cwMenu = {
         buildHomeRows(true);
         toast(tx('newEpisodesHidden'));
       });
-    add(
-      libHas(it.id) ? ICON.check : ICON.plus,
-      libHas(it.id) ? tx('removeLibrary') : tx('addLibrary'),
-      function () {
-        libToggle(it);
-        self.close();
-        refreshCurBoard();
-      }
-    );
     $('cwm').style.display = 'block';
     this.paint();
   },

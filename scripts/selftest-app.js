@@ -575,6 +575,18 @@ async function main() {
       })[0];
     assert.strictEqual(step.chosen, '30', 'a Settings value was not kept');
 
+    /* an episode marked watched takes the earlier ones along */
+    await request('/app/act', {
+      action: 'watched',
+      watched: true,
+      item: { id: 'tst1', type: 'series', name: 'Test Show', videoId: 'tst1:1:2' }
+    });
+    var marks = (await request('/app/title?type=series&id=tst1')).json.title.series.seasons[0].episodes.map(
+      function (e) {
+        return e.watched;
+      }
+    );
+    assert.deepStrictEqual(marks, [true, true], 'the episode before the one marked watched was not marked');
     var poster = await request('/app/img?u=' + encodeURIComponent(meta.poster));
     assert.ok(poster.status === 200 && poster.text.length > 0, 'a JPEG did not pass through /app/img');
     var nothing = await request('/app/img?u=' + encodeURIComponent('file:///etc/passwd'));

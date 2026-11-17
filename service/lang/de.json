@@ -534,5 +534,7 @@
   "spoilersShow": "Alles zeigen",
   "spoilersPictures": "Bilder ungesehener Folgen verwischen",
   "spoilersAll": "Bilder und Inhalte verbergen",
-  "spoilerHidden": "Inhalt verborgen, bis du diese Folge gesehen hast."
+  "spoilerHidden": "Inhalt verborgen, bis du diese Folge gesehen hast.",
+  "markSeriesWatched": "Serie als gesehen markieren",
+  "markSeriesUnwatched": "Serie als ungesehen markieren"
 }
