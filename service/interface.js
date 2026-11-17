@@ -3758,20 +3758,20 @@ window.__SC_MATCH_NEXT_SOURCE__ = matchingNextSource;
 /* ================= focus/visual helpers ================= */
 function setF(list, idx) {
   for (var i = 0; i < list.length; i++)
-    list[i].className = list[i].className.replace(/ ?\bf\b/, '') + (i === idx ? ' f' : '');
+    list[i].className = list[i].className.replace(/(^| )f(?= |$)/, '') + (i === idx ? ' f' : '');
 }
 function setFRow(row, idx) {
   /* O(1): touch only the card losing focus + the one gaining it */
   if (row._f != null && row.cardEls[row._f])
-    row.cardEls[row._f].className = row.cardEls[row._f].className.replace(/ ?\bf\b/, '');
+    row.cardEls[row._f].className = row.cardEls[row._f].className.replace(/(^| )f(?= |$)/, '');
   if (idx >= 0 && row.cardEls[idx])
-    row.cardEls[idx].className = row.cardEls[idx].className.replace(/ ?\bf\b/, '') + ' f';
+    row.cardEls[idx].className = row.cardEls[idx].className.replace(/(^| )f(?= |$)/, '') + ' f';
   row._f = idx >= 0 ? idx : null;
 }
 function setF1(list, oldIdx, newIdx) {
   /* O(1) repaint for held scrolling */
-  if (list[oldIdx]) list[oldIdx].className = list[oldIdx].className.replace(/ ?\bf\b/, '');
-  if (list[newIdx]) list[newIdx].className = list[newIdx].className.replace(/ ?\bf\b/, '') + ' f';
+  if (list[oldIdx]) list[oldIdx].className = list[oldIdx].className.replace(/(^| )f(?= |$)/, '');
+  if (list[newIdx]) list[newIdx].className = list[newIdx].className.replace(/(^| )f(?= |$)/, '') + ' f';
 }
 var accel = { dir: 0, cnt: 0, last: 0, snapT: null };
 function hstep(dir, cardsEl) {
