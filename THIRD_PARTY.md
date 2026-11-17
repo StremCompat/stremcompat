@@ -16,7 +16,7 @@ StremCompat adds a separately implemented low-memory television UI, account and 
 
 ## Programs in the package
 
-Built from source by `native/build-ffmpeg.sh` and `native/build-engine.sh`, as static ARM executables. The result is published as the `runtime-v3.0.0` archive, which `scripts/fetch-runtime.ps1` checks against its SHA-256. License texts ship in `service/licenses/`.
+Built from source by `native/build-ffmpeg.sh` and `native/build-engine.sh`, as static ARM executables. The result is published as the `runtime-v3.1.0` archive, which `scripts/fetch-runtime.ps1` checks against its SHA-256. License texts ship in `service/licenses/`.
 
 - FFmpeg and FFprobe 7.1.1, LGPL build: [FFmpeg legal information](https://ffmpeg.org/legal.html). Exact source and options: `service/licenses/ffmpeg-build-info.txt`
 - `sc-engine`: `native/engine/sc-engine.cpp` over [Nuvio Engine](https://github.com/NuvioMedia/nuvio-engine) (GPL-3.0-or-later) at a pinned commit, with [libtorrent](https://github.com/arvidn/libtorrent) and Boost

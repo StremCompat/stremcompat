@@ -2,7 +2,7 @@
 
 // Builds the runtime archive the packages are made from: the programs native/build-ffmpeg.sh and
 // native/build-engine.sh produce, as gathered by native/collect.sh. A maintainer tool: the result
-// is published as the runtime-v3.0.0 prerelease, so a build does not need the cross compiler.
+// is published as the runtime-v3.1.0 prerelease, so a build does not need the cross compiler.
 //
 // Usage: node scripts/make-runtime-archive.js <folder with the programs> <output.tar.gz>
 

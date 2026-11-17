@@ -140,15 +140,13 @@ function convertNext() {
   }, CONVERT_TIMEOUT_MS);
   try {
     fs.writeFileSync(file, job.input);
-    worker = spawn(FFMPEG, [
-      '-nostdin',
-      '-i',
-      file,
-      '-frames:v',
-      '1',
-      '-vf',
-      "scale='min(" + job.width + ",iw)':-2"
-    ].concat(job.png ? ['-c:v', 'png', '-f', 'image2pipe'] : ['-q:v', '4', '-f', 'mjpeg'], ['pipe:1']));
+    worker = spawn(
+      FFMPEG,
+      ['-nostdin', '-i', file, '-frames:v', '1', '-vf', "scale='min(" + job.width + ",iw)':-2"].concat(
+        job.png ? ['-c:v', 'png', '-f', 'image2pipe'] : ['-q:v', '4', '-f', 'mjpeg'],
+        ['pipe:1']
+      )
+    );
     lowerPriority(worker, NICE.INTERACTIVE);
   } catch (e) {
     return end(null);
@@ -212,13 +210,19 @@ function fetchAndSend(address, width, done, res) {
          its transparency is kept; only pictures that have none become JPEG */
       var png = plain === 'image/png' || canBeClear(body);
       convert(body, width || CONVERT_MAX_WIDTH, png, function (made) {
-        if (made) done(png ? 'image/png' : 'image/jpeg', made);
-        /* without FFmpeg (Samsung) a JPEG or PNG still passes as it is */ else if (plain)
-          done(plain, body);
-        else {
-          remember(address);
-          missing(res);
-        }
+        if (made) return done(png ? 'image/png' : 'image/jpeg', made);
+        /* an FFmpeg built without the PNG encoder (runtime 3.0 and older): a JPEG, without the
+           transparency, is better than no picture */
+        if (png && plain !== 'image/png')
+          return convert(body, width || CONVERT_MAX_WIDTH, false, function (jpeg) {
+            if (jpeg) return done('image/jpeg', jpeg);
+            remember(address);
+            missing(res);
+          });
+        /* without FFmpeg (Samsung) a JPEG or PNG still passes as it is */
+        if (plain) return done(plain, body);
+        remember(address);
+        missing(res);
       });
     },
     0,

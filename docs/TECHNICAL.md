@@ -172,11 +172,11 @@ npm run runtime
 npm run package
 ```
 
-The runtime preparation downloads the pinned archive from the `runtime-v3.0.0` build-dependency prerelease and verifies its SHA-256. Runtime binaries are not committed to this repository. To build them instead, on Linux or WSL:
+The runtime preparation downloads the pinned archive from the `runtime-v3.1.0` build-dependency prerelease and verifies its SHA-256. Runtime binaries are not committed to this repository. To build them instead, on Linux or WSL:
 
 ```bash
 native/build-ffmpeg.sh && native/build-engine.sh && native/collect.sh <folder>
-node scripts/make-runtime-archive.js <folder> .cache/stremcompat-runtime-3.0.0.tar.gz
+node scripts/make-runtime-archive.js <folder> .cache/stremcompat-runtime-3.1.0.tar.gz
 ```
 
 The scripts fetch their pinned compiler and tools into `~/stremcompat-build`, without installing anything on the system.
