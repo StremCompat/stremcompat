@@ -529,5 +529,10 @@
   "skipByItself": "Automatisch",
   "forcedSubsSetting": "Nur erzwungene Untertitel",
   "upcomingRow": "Kommende Folgen",
-  "upcomingTag": "S{0} F{1} · {2}"
+  "upcomingTag": "S{0} F{1} · {2}",
+  "spoilersSetting": "Spoiler",
+  "spoilersShow": "Alles zeigen",
+  "spoilersPictures": "Bilder ungesehener Folgen verwischen",
+  "spoilersAll": "Bilder und Inhalte verbergen",
+  "spoilerHidden": "Inhalt verborgen, bis du diese Folge gesehen hast."
 }

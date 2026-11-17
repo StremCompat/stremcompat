@@ -249,6 +249,16 @@ function settingsCategories() {
       d: 'normal'
     },
     {
+      k: 'spoilers',
+      lb: tx('spoilersSetting'),
+      opts: [
+        ['off', tx('spoilersShow')],
+        ['pictures', tx('spoilersPictures')],
+        ['all', tx('spoilersAll')]
+      ],
+      d: 'off'
+    },
+    {
       k: 'episodeDates',
       lb: tx('episodeAirDates'),
       opts: [

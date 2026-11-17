@@ -45,6 +45,9 @@ detail.markWatched = function () {
     el.className = el.className.replace(/ ?\bw\b/, '') + (on ? ' w' : '');
     var th = el.getElementsByClassName('th')[0];
     if (th) {
+      /* an episode not watched yet keeps its picture blurred (Settings > Spoilers) */
+      th.className =
+        th.className.replace(/ ?\bspoil\b/, '') + (!on && spoilerMode() !== 'off' ? ' spoil' : '');
       var ex = th.getElementsByClassName('wbadge')[0];
       if (on && !ex) {
         var wb = document.createElement('div');

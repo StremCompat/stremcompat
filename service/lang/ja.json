@@ -529,5 +529,10 @@
   "skipByItself": "自動",
   "forcedSubsSetting": "強制字幕のみ",
   "upcomingRow": "今後のエピソード",
-  "upcomingTag": "S{0} E{1} · {2}"
+  "upcomingTag": "S{0} E{1} · {2}",
+  "spoilersSetting": "ネタバレ",
+  "spoilersShow": "すべて表示",
+  "spoilersPictures": "未視聴の画像をぼかす",
+  "spoilersAll": "画像とあらすじを隠す",
+  "spoilerHidden": "このエピソードを見るまであらすじは非表示です。"
 }

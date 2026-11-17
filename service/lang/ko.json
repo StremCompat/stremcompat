@@ -529,5 +529,10 @@
   "skipByItself": "자동",
   "forcedSubsSetting": "강제 자막만",
   "upcomingRow": "공개 예정 에피소드",
-  "upcomingTag": "S{0} E{1} · {2}"
+  "upcomingTag": "S{0} E{1} · {2}",
+  "spoilersSetting": "스포일러",
+  "spoilersShow": "모두 표시",
+  "spoilersPictures": "안 본 이미지 흐리게",
+  "spoilersAll": "이미지와 줄거리 숨기기",
+  "spoilerHidden": "이 에피소드를 볼 때까지 줄거리가 숨겨집니다."
 }

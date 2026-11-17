@@ -403,8 +403,13 @@ var detail = {
       $('dBtns').style.display = 'none';
       $('dDesc').style.display = '';
       $('dMeta').textContent = cv ? episodeMetaLine(cv) : '';
-      $('dDesc').textContent = (cv && (cv.overview || cv.description)) || '';
-      if (cv) setBg(episodeImage(cv, this.meta) || episodeFallback(this.meta, false));
+      var hidden = cv && !this.watchedMap[cv.id] && spoilerMode() !== 'off';
+      $('dDesc').textContent =
+        hidden && spoilerMode() === 'all'
+          ? tx('spoilerHidden')
+          : (cv && (cv.overview || cv.description)) || '';
+      if (cv && !hidden) setBg(episodeImage(cv, this.meta) || episodeFallback(this.meta, false));
+      else if (cv) setBg(episodeFallback(this.meta, false));
       else if (this.meta) setBg(this.meta.background || '');
     } else {
       bodyRemove('series-episode');

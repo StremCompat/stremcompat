@@ -19,7 +19,7 @@ function watchedMap(L, lib, videos) {
   return map;
 }
 
-function episodeOf(L, v, m, st, watched, now, showDates) {
+function episodeOf(L, v, m, st, watched, now, showDates, spoilers) {
   var own = L.episodeImage(v, m),
     name = v.name || v.title || '',
     inSeason = L.tx('episode', v._stremSeasonEpisode),
@@ -27,7 +27,8 @@ function episodeOf(L, v, m, st, watched, now, showDates) {
   function label(base) {
     return !name || name.toLowerCase() === base.toLowerCase() ? base : base + '  ·  ' + name;
   }
-  var aired = showDates ? L.releasedTime(v) : 0,
+  var hide = spoilers !== 'off' && !watched[v.id],
+    aired = showDates ? L.releasedTime(v) : 0,
     inProgress = v.id === st.video_id && st.duration > 0 && st.timeOffset > 60000;
   return {
     id: v.id,
@@ -35,7 +36,9 @@ function episodeOf(L, v, m, st, watched, now, showDates) {
     titleOverall: label(overall),
     absolute: v._stremAbsolute || 0,
     line: L.episodeMetaLine(v),
-    description: v.overview || v.description || '',
+    /* Settings > Spoilers: an episode not watched yet keeps its synopsis, and its picture (blur), hidden */
+    description: hide && spoilers === 'all' ? L.tx('spoilerHidden') : v.overview || v.description || '',
+    blur: hide,
     thumbnail: own || L.episodeFallback(m, true),
     ownThumbnail: !!own,
     badge: L.episodeBadge(v, now),
@@ -50,13 +53,20 @@ function seriesModel(L, id, m, lib) {
     watched = watchedMap(L, lib, m.videos || []),
     st = (lib && lib.state) || {},
     now = Date.now(),
-    showDates = L.setting('episodeDates', 'true') !== 'false';
+    showDates = L.setting('episodeDates', 'true') !== 'false',
+    spoilers = L.spoilerMode();
   var seasons = model.seasons.map(function (se) {
     return {
       n: se.n,
       label: se.n === 0 ? L.tx('specials') : L.tx('season', se.n),
+      /* every episode of it watched: a mark beside its name */
+      watched:
+        se.eps.length > 0 &&
+        se.eps.every(function (v) {
+          return !!watched[v.id];
+        }),
       episodes: se.eps.map(function (v) {
-        return episodeOf(L, v, m, st, watched, now, showDates);
+        return episodeOf(L, v, m, st, watched, now, showDates, spoilers);
       })
     };
   });

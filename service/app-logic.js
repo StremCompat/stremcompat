@@ -486,6 +486,11 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    spoilersSetting: 'Spoilers',
+    spoilersShow: 'Show everything',
+    spoilersPictures: 'Blur unwatched pictures',
+    spoilersAll: 'Hide pictures and synopses',
+    spoilerHidden: 'Synopsis hidden until you watch this episode.',
     upcomingRow: 'Upcoming episodes',
     upcomingTag: 'S{0} E{1} · {2}',
     forcedSubsSetting: 'Forced subtitles only',
@@ -1024,6 +1029,11 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    spoilersSetting: 'Spoilers',
+    spoilersShow: 'Mostrar tudo',
+    spoilersPictures: 'Desfocar imagens não vistas',
+    spoilersAll: 'Ocultar imagens e sinopses',
+    spoilerHidden: 'Sinopse oculta até você assistir a este episódio.',
     upcomingRow: 'Próximos episódios',
     upcomingTag: 'T{0} E{1} · {2}',
     forcedSubsSetting: 'Só legendas forçadas',
@@ -4418,6 +4428,11 @@ function firstUnwatched(seasons, watchedMap) {
   if (latest) return latest;
   return seasons[0] && seasons[0].eps[0] ? seasons[0].eps[0].id : null;
 }
+/* Settings > Spoilers: what of an episode not watched yet stays hidden: nothing ('off'), its
+   picture ('pictures'), or its picture and synopsis ('all') */
+function spoilerMode() {
+  return lsRaw('spoilers', 'off');
+}
 /* an air date in the viewer's language, "10 Mar 2008" */
 function episodeDay(at) {
   try {
@@ -4697,6 +4712,16 @@ function settingsCategories() {
       d: 'normal'
     },
     {
+      k: 'spoilers',
+      lb: tx('spoilersSetting'),
+      opts: [
+        ['off', tx('spoilersShow')],
+        ['pictures', tx('spoilersPictures')],
+        ['all', tx('spoilersAll')]
+      ],
+      d: 'off'
+    },
+    {
       k: 'episodeDates',
       lb: tx('episodeAirDates'),
       opts: [
@@ -4892,6 +4917,7 @@ window.__logic = {
   isSwitch: isSwitch,
   knownArtwork: knownArtwork,
   langFilterName: langFilterName,
+  spoilerMode: spoilerMode,
   learnUnsupported: learnUnsupported,
   languageChoices: languageChoices,
   itemWatched: itemWatched,

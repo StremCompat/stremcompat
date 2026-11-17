@@ -50,6 +50,11 @@ function firstUnwatched(seasons, watchedMap) {
   if (latest) return latest;
   return seasons[0] && seasons[0].eps[0] ? seasons[0].eps[0].id : null;
 }
+/* Settings > Spoilers: what of an episode not watched yet stays hidden: nothing ('off'), its
+   picture ('pictures'), or its picture and synopsis ('all') */
+function spoilerMode() {
+  return lsRaw('spoilers', 'off');
+}
 /* an air date in the viewer's language, "10 Mar 2008" */
 function episodeDay(at) {
   try {

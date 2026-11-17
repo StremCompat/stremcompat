@@ -529,5 +529,10 @@
   "skipByItself": "Automatique",
   "forcedSubsSetting": "Sous-titres forcés uniquement",
   "upcomingRow": "Épisodes à venir",
-  "upcomingTag": "S{0} É{1} · {2}"
+  "upcomingTag": "S{0} É{1} · {2}",
+  "spoilersSetting": "Spoilers",
+  "spoilersShow": "Tout afficher",
+  "spoilersPictures": "Flouter les images non vues",
+  "spoilersAll": "Masquer images et résumés",
+  "spoilerHidden": "Résumé masqué jusqu'à ce que vous voyiez cet épisode."
 }

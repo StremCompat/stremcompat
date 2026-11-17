@@ -529,5 +529,10 @@
   "skipByItself": "自动",
   "forcedSubsSetting": "仅强制字幕",
   "upcomingRow": "即将播出",
-  "upcomingTag": "S{0} E{1} · {2}"
+  "upcomingTag": "S{0} E{1} · {2}",
+  "spoilersSetting": "剧透",
+  "spoilersShow": "全部显示",
+  "spoilersPictures": "模糊未看的图片",
+  "spoilersAll": "隐藏图片和简介",
+  "spoilerHidden": "观看本集前简介已隐藏。"
 }

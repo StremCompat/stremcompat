@@ -467,6 +467,11 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    spoilersSetting: 'Spoilers',
+    spoilersShow: 'Show everything',
+    spoilersPictures: 'Blur unwatched pictures',
+    spoilersAll: 'Hide pictures and synopses',
+    spoilerHidden: 'Synopsis hidden until you watch this episode.',
     upcomingRow: 'Upcoming episodes',
     upcomingTag: 'S{0} E{1} · {2}',
     forcedSubsSetting: 'Forced subtitles only',
@@ -1005,6 +1010,11 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    spoilersSetting: 'Spoilers',
+    spoilersShow: 'Mostrar tudo',
+    spoilersPictures: 'Desfocar imagens não vistas',
+    spoilersAll: 'Ocultar imagens e sinopses',
+    spoilerHidden: 'Sinopse oculta até você assistir a este episódio.',
     upcomingRow: 'Próximos episódios',
     upcomingTag: 'T{0} E{1} · {2}',
     forcedSubsSetting: 'Só legendas forçadas',
@@ -6100,6 +6110,11 @@ function firstUnwatched(seasons, watchedMap) {
   if (latest) return latest;
   return seasons[0] && seasons[0].eps[0] ? seasons[0].eps[0].id : null;
 }
+/* Settings > Spoilers: what of an episode not watched yet stays hidden: nothing ('off'), its
+   picture ('pictures'), or its picture and synopsis ('all') */
+function spoilerMode() {
+  return lsRaw('spoilers', 'off');
+}
 /* an air date in the viewer's language, "10 Mar 2008" */
 function episodeDay(at) {
   try {
@@ -6377,6 +6392,16 @@ function settingsCategories() {
         ['large', tx('textLarge')]
       ],
       d: 'normal'
+    },
+    {
+      k: 'spoilers',
+      lb: tx('spoilersSetting'),
+      opts: [
+        ['off', tx('spoilersShow')],
+        ['pictures', tx('spoilersPictures')],
+        ['all', tx('spoilersAll')]
+      ],
+      d: 'off'
     },
     {
       k: 'episodeDates',
@@ -7595,8 +7620,13 @@ var detail = {
       $('dBtns').style.display = 'none';
       $('dDesc').style.display = '';
       $('dMeta').textContent = cv ? episodeMetaLine(cv) : '';
-      $('dDesc').textContent = (cv && (cv.overview || cv.description)) || '';
-      if (cv) setBg(episodeImage(cv, this.meta) || episodeFallback(this.meta, false));
+      var hidden = cv && !this.watchedMap[cv.id] && spoilerMode() !== 'off';
+      $('dDesc').textContent =
+        hidden && spoilerMode() === 'all'
+          ? tx('spoilerHidden')
+          : (cv && (cv.overview || cv.description)) || '';
+      if (cv && !hidden) setBg(episodeImage(cv, this.meta) || episodeFallback(this.meta, false));
+      else if (cv) setBg(episodeFallback(this.meta, false));
       else if (this.meta) setBg(this.meta.background || '');
     } else {
       bodyRemove('series-episode');
@@ -7725,6 +7755,9 @@ detail.markWatched = function () {
     el.className = el.className.replace(/ ?\bw\b/, '') + (on ? ' w' : '');
     var th = el.getElementsByClassName('th')[0];
     if (th) {
+      /* an episode not watched yet keeps its picture blurred (Settings > Spoilers) */
+      th.className =
+        th.className.replace(/ ?\bspoil\b/, '') + (!on && spoilerMode() !== 'off' ? ' spoil' : '');
       var ex = th.getElementsByClassName('wbadge')[0];
       if (on && !ex) {
         var wb = document.createElement('div');

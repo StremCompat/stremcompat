@@ -73,6 +73,7 @@ window.__logic = {
   isSwitch: isSwitch,
   knownArtwork: knownArtwork,
   langFilterName: langFilterName,
+  spoilerMode: spoilerMode,
   learnUnsupported: learnUnsupported,
   languageChoices: languageChoices,
   itemWatched: itemWatched,

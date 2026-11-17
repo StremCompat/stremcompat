@@ -529,5 +529,10 @@
   "skipByItself": "Автоматически",
   "forcedSubsSetting": "Только форсированные субтитры",
   "upcomingRow": "Скоро выйдут",
-  "upcomingTag": "С{0} Э{1} · {2}"
+  "upcomingTag": "С{0} Э{1} · {2}",
+  "spoilersSetting": "Спойлеры",
+  "spoilersShow": "Показывать всё",
+  "spoilersPictures": "Размывать кадры непросмотренных",
+  "spoilersAll": "Скрывать кадры и описания",
+  "spoilerHidden": "Описание скрыто, пока вы не посмотрите эпизод."
 }
