@@ -24,21 +24,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - run: npm test
-      - run: npm run package
-      - name: Name the 1920x1080 package
-        shell: pwsh
-        run: |
-          $version = (Get-Content app/appinfo.json -Raw | ConvertFrom-Json).version
-          Move-Item -LiteralPath "dist/io.github.alexesmm.legacytv_${version}_all.ipk" -Destination "dist/StremCompat-${{ github.ref_name }}-1080p.ipk"
-      - run: npm run package:720
-      - name: Name the 1280x720 package
-        shell: pwsh
-        run: |
-          $version = (Get-Content app/appinfo.json -Raw | ConvertFrom-Json).version
-          Move-Item -LiteralPath "dist/io.github.alexesmm.legacytv_${version}_all.ipk" -Destination "dist/StremCompat-${{ github.ref_name }}-720p.ipk"
-      - run: node scripts/make-homebrew-repo.js dist/StremCompat-${{ github.ref_name }}-1080p.ipk homebrew-repo
+      - run: npm run package:all
+      - run: node scripts/make-homebrew-repo.js dist/StremCompat-${{ github.ref_name }}-1080p.ipk homebrew-repo https://stremcompat.github.io/webos lg-armv7-1080
         if: startsWith(github.ref, 'refs/tags/')
-      - run: node scripts/make-homebrew-repo.js dist/StremCompat-${{ github.ref_name }}-720p.ipk homebrew-repo/720 https://stremcompat.github.io/webos/720
+      - run: node scripts/make-homebrew-repo.js dist/StremCompat-${{ github.ref_name }}-720p.ipk homebrew-repo/720 https://stremcompat.github.io/webos/720 lg-armv7
         if: startsWith(github.ref, 'refs/tags/')
       - uses: actions/upload-artifact@v4
         with:

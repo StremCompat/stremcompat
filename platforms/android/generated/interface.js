@@ -3013,9 +3013,6 @@ function boardCatalogs() {
   }
   return out;
 }
-function homeCatalogs() {
-  return arrangeRows(boardCatalogs()).slice(0, TV_PROFILE.catalogRowsCap || 16);
-}
 /* ---------- the Home rows as the viewer arranged them (Settings > Organize catalogs) ---------- */
 /* { order: [row keys], hidden: [row keys] }; rows not named keep their place after the others */
 function homeLayout() {
@@ -3059,10 +3056,10 @@ function saveHomeLayout(rows) {
 /* HOME rows = YOUR addon catalogs (in order); Cinemeta defaults if none configured */
 function homeDefs() {
   var cols = collectionTileDefs(),
-    cats = homeCatalogs();
-  /* with Nuvio Collections, Home mixes them with the catalogs as Nuvio's apps do */
-  if (cols.length) return nuvioHomeOrder(cols, cats);
-  if (!cats.length)
+    available = boardCatalogs(),
+    cats = arrangeRows(available),
+    limit = TV_PROFILE.catalogRowsCap || 16;
+  if (!cats.length && (!cols.length || !available.length))
     cats = [
       {
         title: tx('popularMovies'),
@@ -3080,6 +3077,14 @@ function homeDefs() {
         key: 'cin_s_ir'
       }
     ];
+  if (cols.length) {
+    /* Apply Nuvio's order and exclusions before counting catalogs. Collections have their own rows. */
+    var count = 0;
+    return nuvioHomeOrder(cols, cats).filter(function (row) {
+      return row.tiles || count++ < limit;
+    });
+  }
+  cats = cats.slice(0, limit);
   /* an addon's own "popular" catalog ranks its first ten too */
   for (var i = 0; i < cats.length; i++)
     if (/\/catalog\/[^\/]+\/top\.json$/.test(cats[i].url || '')) {
@@ -5765,7 +5770,8 @@ function loadCatalogRows(board, defs, includeCW, keepFocus) {
     (function (def, di) {
       /* a Collections row: folder tiles, already known, nothing to fetch */
       if (def.tiles) {
-        var tileRow = buildRow(def.title, def.tiles, false, false, di < 3);
+        /* Board virtualization starts cover downloads after the catalog requests are queued. */
+        var tileRow = buildRow(def.title, def.tiles, false, false);
         board.rows.push(tileRow);
         reveal(tileRow, 120 + di * 80);
         waiting--;

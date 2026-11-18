@@ -1,6 +1,7 @@
 *.ipk
 service/server.js
 service/bin/
+service/.imgcache/
 .cache/
 .build/
 dist/

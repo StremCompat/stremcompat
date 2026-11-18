@@ -1,6 +1,6 @@
 {
   "name": "stremcompat",
-  "version": "4.4.1",
+  "version": "4.4.2",
   "private": true,
   "license": "GPL-3.0-only",
   "description": "StremCompat: Stremio and Nuvio on older LG, Samsung and Android TVs",
@@ -16,7 +16,7 @@
     "runtime": "powershell -ExecutionPolicy Bypass -File ./scripts/fetch-runtime.ps1",
     "build": "powershell -ExecutionPolicy Bypass -File ./scripts/build.ps1 -Profile lg-armv7 -SkipPackage",
     "package": "powershell -ExecutionPolicy Bypass -File ./scripts/build.ps1 -Profile lg-armv7-1080",
-    "package:all": "npm run package && npm run package:720",
+    "package:all": "npm run package -- -NameByResolution && npm run package:720 -- -NameByResolution",
     "test": "node ./scripts/selftest-frontend.js && node ./scripts/selftest-player.js && node ./scripts/selftest-runtime.js && node ./scripts/selftest-app.js && node ./scripts/selftest-tizen.js",
     "test:chrome38": "node ./scripts/selftest-chromium38.js",
     "test:visual:layouts": "powershell -ExecutionPolicy Bypass -File ./scripts/visualtest-layouts.ps1",

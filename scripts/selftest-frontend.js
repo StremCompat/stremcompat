@@ -543,10 +543,15 @@ assert.strictEqual(matchNext([{ addon:'Torrentio',quality:'1080p',title:'x.rar',
    collections and catalogs in the order Nuvio keeps */
 (function nuvioCollections() {
   var addon = { transportUrl: 'https://a.example/manifest.json', manifest: { id: 'a', catalogs: [{ type: 'movie', id: 'top', name: 'Top' }, { type: 'anime', id: 'mal.top', name: 'Top anime' }] } };
+  var homeOrder = [{ key: 'a:movie:top', enabled: true, order: 0, title: 'My top' }, { key: 'collection_c1', enabled: true, order: 1 }];
+  var hidden = [];
   var ctx = {
-    window: {}, TV_PROFILE: {}, tx: function (k) { return k; }, addonBase: function () { return 'https://a.example'; }, addonQuery: function () { return ''; },
+    window: {}, CIN: 'https://cin.example', TV_PROFILE: {}, tx: function (k) { return k; }, addonBase: function () { return 'https://a.example'; }, addonQuery: function () { return ''; },
     remoteAddons: function () { return [addon]; },
-    lsJson: function (k) { return k === 'nuvioHome' ? { items: [{ key: 'a:movie:top', enabled: true, order: 0, title: 'My top' }, { key: 'collection_c1', enabled: true, order: 1 }] } : null; },
+    lsJson: function (k) {
+      if (k === 'nuvioHome') return { items: homeOrder };
+      return k === 'homeLayout' ? { hidden: hidden } : null;
+    },
     nuvioCollections: function () {
       return [
         { id: 'c1', title: 'Later', folders: [{ id: 'f1', title: 'Films', tileShape: 'landscape', sources: [{ provider: 'addon', addonId: 'a', type: 'movie', catalogId: 'top', genre: 'None' }] }] },
@@ -570,9 +575,17 @@ assert.strictEqual(matchNext([{ addon:'Torrentio',quality:'1080p',title:'x.rar',
   assert.strictEqual(rows[1].tiles[0].shape + rows[0].tiles[0].glyph, 'wideKI', 'a tile lost its shape or its letters');
   var home = ctx.nuvioHomeOrder(rows, [{ title: 'Top', key: 'k', nkey: 'a:movie:top' }]);
   assert.strictEqual(home.map(function (h) { return h.title; }).join(), 'Pinned,My top,Later,Pack', "Home is not in Nuvio's order");
+  ctx.TV_PROFILE.catalogRowsCap = 1;
+  homeOrder[0].enabled = false;
+  homeOrder.push({ key: 'a:anime:mal.top', enabled: true, order: 2 });
+  assert.strictEqual(ctx.homeDefs().map(function (r) { return r.title; }).join(), 'Pinned,Later,Top anime · anime,Pack', 'a disabled catalog consumed the Home catalog limit');
   var kids = ctx.folderRowDefs(rows[0].tiles[0].folder)[0], films = ctx.folderRowDefs(rows[1].tiles[0].folder)[0];
   assert.strictEqual(kids.url, 'https://a.example/catalog/movie/top/genre=Animation.json', 'a folder genre was not asked of the addon');
   assert.strictEqual(films.url, 'https://a.example/catalog/movie/top.json', 'Nuvio\'s None was taken as a genre');
+  hidden = ctx.boardCatalogs().map(function (r) { return r.key; });
+  assert.ok(ctx.homeDefs().every(function (r) { return r.tiles; }), 'fallback catalogs replaced catalogs explicitly hidden in Home settings');
+  ctx.remoteAddons = function () { return []; };
+  assert.ok(ctx.homeDefs().some(function (r) { return r.key === 'cin_m_top'; }), 'collections hid the fallback catalogs when no addon catalogs were available');
 })();
 firstRun.context.__SC_SET_UI_LANGUAGE__('pt-BR');
 assert.strictEqual(firstRun.context.__SC_UI_LANGUAGE__(), 'pt-BR');

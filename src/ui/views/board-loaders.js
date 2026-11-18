@@ -64,7 +64,8 @@ function loadCatalogRows(board, defs, includeCW, keepFocus) {
     (function (def, di) {
       /* a Collections row: folder tiles, already known, nothing to fetch */
       if (def.tiles) {
-        var tileRow = buildRow(def.title, def.tiles, false, false, di < 3);
+        /* Board virtualization starts cover downloads after the catalog requests are queued. */
+        var tileRow = buildRow(def.title, def.tiles, false, false);
         board.rows.push(tileRow);
         reveal(tileRow, 120 + di * 80);
         waiting--;

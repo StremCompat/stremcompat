@@ -52,6 +52,7 @@ fs.cpSync(path.join(root, 'service'), stageService, {
     return (
       !/\.log$/i.test(source) &&
       path.basename(source) !== 'profile.json' &&
+      source !== path.join(root, 'service', '.imgcache') &&
       source !== path.join(root, 'service', 'server.js')
     );
   }

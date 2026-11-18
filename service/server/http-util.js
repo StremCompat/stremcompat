@@ -11,8 +11,9 @@ var FILE_LIMIT = 8 * 1024 * 1024;
 var ADDON_LIMIT = 4 * 1024 * 1024;
 /* Connections to the same host are kept open and used again: every new HTTPS connection costs a TLS
    handshake, which takes hundreds of milliseconds on a TV's processor, and Home asks the same
-   addons for many catalogs in a row. */
-var AGENT_SETTINGS = { keepAlive: true, maxSockets: 6, maxFreeSockets: 4 };
+   addons for many catalogs in a row. No cap on how many at once: with one (4.4.0 had 6 a host),
+   Home's catalogs waited in line behind collection covers and episode lists. */
+var AGENT_SETTINGS = { keepAlive: true, maxFreeSockets: 4 };
 var agents = { 'http:': new http.Agent(AGENT_SETTINGS), 'https:': new https.Agent(AGENT_SETTINGS) };
 
 function unpackGzip(buf) {

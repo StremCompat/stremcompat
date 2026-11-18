@@ -1,6 +1,7 @@
 param(
     [string]$Profile = 'lg-armv7',
-    [switch]$SkipPackage
+    [switch]$SkipPackage,
+    [switch]$NameByResolution
 )
 
 $ErrorActionPreference = 'Stop'
@@ -50,6 +51,13 @@ if (-not $ipk) { throw 'ares-package completed without creating an IPK.' }
 if ($LASTEXITCODE -ne 0) { throw 'Failed to set executable modes in IPK.' }
 & node.exe (Join-Path $PSScriptRoot 'verify-ipk.js') $ipk.FullName $profileFile
 if ($LASTEXITCODE -ne 0) { throw 'Packaged IPK validation failed.' }
+
+if ($NameByResolution) {
+    $height = ($config.graphicsResolution -split 'x')[-1]
+    $namedPath = Join-Path $distDir "StremCompat-v$($config.version)-${height}p.ipk"
+    Move-Item -LiteralPath $ipk.FullName -Destination $namedPath -Force
+    $ipk = Get-Item -LiteralPath $namedPath
+}
 
 $sha = [System.Security.Cryptography.SHA256]::Create()
 $stream = [System.IO.File]::OpenRead($ipk.FullName)
