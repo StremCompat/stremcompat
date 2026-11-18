@@ -1242,11 +1242,19 @@ html[data-platform='android'] .spinner {
   color: #fff;
   font-size: 0.875rem;
   font-weight: 600;
-  transition: transform 0.3s;
+  transition:
+    transform 0.3s,
+    opacity 0.3s,
+    visibility 0.3s;
   pointer-events: none;
+  /* out of sight until the connection drops: pushed up alone, it showed under the status bar */
+  opacity: 0;
+  visibility: hidden;
 }
 html.offline #offline {
   transform: translate(-50%, 0);
+  opacity: 1;
+  visibility: visible;
 }
 
 /* ---------- grouped lists (Settings) ---------- */
