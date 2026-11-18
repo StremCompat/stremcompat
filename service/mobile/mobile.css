@@ -1,7 +1,15 @@
 /* StremCompat on a phone, in two looks from one page: iOS (the system font, large titles, a
-   floating glass tab bar, grouped lists, the system blue) and Android (Plus Jakarta Sans when the
-   phone has it, a violet accent the viewer can change, a floating pill bar, ripples, dialogs).
+   floating glass tab bar, grouped lists, the system blue) and Android (Plus Jakarta Sans, which comes
+   with it, a violet accent the viewer can change, a floating pill bar, ripples, dialogs).
    Text sizes are in rem so the phone's text size setting scales them. */
+
+/* the Android look's typeface (Latin; other scripts fall back to the system's) */
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('fonts/plus-jakarta-sans.woff2') format('woff2');
+  font-weight: 200 800;
+  font-display: swap;
+}
 
 /* ---------- tokens ---------- */
 :root {

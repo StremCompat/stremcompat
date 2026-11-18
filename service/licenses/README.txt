@@ -22,6 +22,9 @@ Torrent engine (bin/sc-engine)
 Inter typeface
   License: fonts/OFL.txt in this package.
 
+Plus Jakarta Sans typeface (the phone interface's Android look, mobile/fonts)
+  By Tokotype. License: LICENSE.plus-jakarta-sans-ofl.txt (SIL Open Font License 1.1).
+
 The local server runs on the Node.js that comes with the television, which is not part of this
 package. Stremio's streaming server is not included and is not downloaded by this application;
 an address for one on another computer can be set in Settings.
