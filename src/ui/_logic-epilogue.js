@@ -101,6 +101,7 @@ window.__logic = {
   nuvioCollections: nuvioCollections,
   orderedSources: orderedSources,
   posterOf: posterOf,
+  logoOf: logoOf,
   pullLib: pullLib,
   pruneCaches: pruneCaches,
   pushLib: pushLib,

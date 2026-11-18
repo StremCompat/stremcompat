@@ -9,21 +9,25 @@
     <meta name="theme-color" content="#000000" />
     <meta name="color-scheme" content="dark" />
     <title>StremCompat</title>
+    <link rel="icon" href="/logo.png" />
     <link rel="stylesheet" href="mobile.css" />
   </head>
   <body>
     <main id="views"></main>
     <nav id="tabs" role="tablist"></nav>
+    <div id="offline" role="status"></div>
     <div id="sheetShade"></div>
     <section id="sheet" aria-modal="true">
       <div class="grabber"></div>
       <div id="sheetBody"></div>
     </section>
-    <div id="toast" role="status"></div>
+    <div id="dialogShade"></div>
+    <section id="dialog" role="dialog" aria-modal="true"></section>
+    <div id="toast" role="status" aria-live="polite"></div>
     <div id="player">
       <video id="video" playsinline controls></video
       ><button id="playerClose" aria-label="Close">&#x2715;</button>
     </div>
-    <script src="mobile.js"></script>
+    <script type="module" src="js/app.js"></script>
   </body>
 </html>

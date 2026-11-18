@@ -608,13 +608,26 @@ async function main() {
         }),
       'the phone Settings offer Ask'
     );
-    var page = (
+    var seeAll = (
       await request(
         '/app/catalog/page?type=series&skip=0&url=' +
           encodeURIComponent(addonBase + '/catalog/series/popular.json')
       )
     ).json;
-    assert.ok(page.items.length === 1 && page.more, 'See all did not answer the catalog page');
+    assert.ok(seeAll.items.length === 1 && seeAll.more, 'See all did not answer the catalog page');
+    /* the phone interface's modules are served, and nothing outside its folder */
+    var phoneModule = await request('/m/js/core.js');
+    assert.ok(
+      phoneModule.status === 200 && /export const/.test(phoneModule.text),
+      'the phone modules are not served'
+    );
+    for (var away of [
+      '/m/../package.json',
+      '/m/..%2Fserver%2Fmobile.js',
+      '/m/js/..%5C..%5Cserver.js',
+      '/m/notes.txt'
+    ])
+      assert.strictEqual((await request(away)).status, 404, 'the phone folder let out ' + away);
 
     /* an episode marked watched takes the earlier ones along */
     await request('/app/act', {

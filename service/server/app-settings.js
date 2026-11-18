@@ -81,6 +81,13 @@ function phoneCategories(L) {
         return TV_ONLY.indexOf(d.k) < 0;
       })
       .map(function (d) {
+        /* a phone has no OK button: the skip waits for a button on the screen */
+        if (d.k === 'skipIntro')
+          return Object.assign({}, d, {
+            opts: d.opts.map(function (o) {
+              return o[0] === 'button' ? [o[0], L.tx('skipWithButton')] : o;
+            })
+          });
         if (NO_ASK.indexOf(d.k) < 0) return d;
         var copy = Object.assign({}, d, {
           opts: d.opts.filter(function (o) {

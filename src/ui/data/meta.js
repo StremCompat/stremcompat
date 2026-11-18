@@ -181,6 +181,5 @@ function prewarmNeighbors(row) {
   var it = row.items[row.col];
   if (!it) return;
   prewarm(bgMid(it));
-  if (!TV_PROFILE.lowMemory && isImdb(it.id))
-    prewarm('https://images.metahub.space/logo/medium/' + it.id + '/img');
+  if (!TV_PROFILE.lowMemory && isImdb(it.id)) prewarm(logoOf(it));
 }

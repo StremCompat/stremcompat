@@ -34,6 +34,10 @@ function episodeOf(L, v, m, st, watched, now, showDates, spoilers) {
     id: v.id,
     title: label(inSeason),
     titleOverall: label(overall),
+    /* the phone writes "3. Its name" and its own line under it */
+    number: v._stremSeasonEpisode || 0,
+    name: name,
+    runtime: v.runtime || '',
     absolute: v._stremAbsolute || 0,
     line: L.episodeMetaLine(v),
     /* Settings > Spoilers: an episode not watched yet keeps its synopsis, and its picture (blur), hidden */
@@ -114,6 +118,7 @@ function titleModel(type, id, m) {
     type: type,
     name: m.name || '',
     logo: m.logo || '',
+    poster: m.poster || '',
     background: m.background || L.bgOf({ id: id, poster: m.poster }),
     runtime: m.runtime || '',
     year: m.releaseInfo || m.year || '',
@@ -123,6 +128,7 @@ function titleModel(type, id, m) {
     facts: L.titleFacts(m, people === m.cast),
     awards: m.awards || '',
     description: m.description || '',
+    watched: !!L.itemWatched({ id: id, type: type }),
     actions: acts.list,
     /* a new film opens its sources at once; one in progress waits on its buttons */
     openSources: type !== 'series' && !acts.resumed,

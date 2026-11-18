@@ -21,6 +21,11 @@ function simpleMode() {
 function isImdb(id) {
   return String(id || '').indexOf('tt') === 0;
 }
+/* a title's logo: its own, or the one Stremio's picture service keeps for an IMDb title */
+function logoOf(it) {
+  if (it.logo) return it.logo;
+  return isImdb(it.id) ? 'https://images.metahub.space/logo/medium/' + it.id + '/img' : '';
+}
 function posterOf(it) {
   if (it.poster) return it.poster;
   return isImdb(it.id) ? 'https://images.metahub.space/poster/small/' + it.id + '/img' : '';

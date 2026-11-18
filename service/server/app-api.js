@@ -92,6 +92,7 @@ function decorate(items, wide) {
     var it = items[i];
     it.art = wide ? L.bgSmall(it) : L.posterOf(it);
     it.backdrop = L.bgOf(it);
+    it.logo = L.logoOf(it);
     it.inLibrary = !!L.libHas(it.id);
     it.upcoming = !!it.airsAt;
     if (wide) it.subtitle = L.cwSubtitle(it);

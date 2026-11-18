@@ -17,7 +17,19 @@ var browserCorrectness = Object.assign({}, correctness, { 'no-redeclare': 'off' 
 
 module.exports = [
   {
-    ignores: ['node_modules/**', '.build/**', '.cache/**', 'dist/**', 'service/server.js', 'service/bin/**', 'src/ui/**', 'src/player/**', 'src/shared/**', 'src/platform/**', 'platforms/tizen/spike/**']
+    ignores: [
+      'node_modules/**',
+      '.build/**',
+      '.cache/**',
+      'dist/**',
+      'service/server.js',
+      'service/bin/**',
+      'src/ui/**',
+      'src/player/**',
+      'src/shared/**',
+      'src/platform/**',
+      'platforms/tizen/spike/**'
+    ]
   },
   {
     // local server and its modules.
@@ -26,9 +38,9 @@ module.exports = [
     rules: correctness
   },
   {
-    // The phone interface: current WebViews (Android 7+, iOS 14+).
+    // The phone interface: ES modules for current WebViews (Android 7+, iOS 14+).
     files: ['service/mobile/**/*.js'],
-    languageOptions: { ecmaVersion: 2020, sourceType: 'script', globals: globals.browser },
+    languageOptions: { ecmaVersion: 2020, sourceType: 'module', globals: globals.browser },
     rules: correctness
   },
   {
@@ -55,12 +67,34 @@ module.exports = [
       sourceType: 'script',
       parserOptions: { ecmaFeatures: { globalReturn: true } },
       globals: Object.assign({}, globals.browser, {
-        PalmServiceBridge: 'readonly', tizen: 'readonly',
-        URL: 'readonly', ADDON: 'readonly', ADDONBASE: 'readonly', QUALITY: 'readonly', TITLE: 'readonly', TYPE: 'readonly',
-        ID: 'readonly', VID: 'readonly', LOGO: 'readonly', BG: 'readonly', POSTER: 'readonly',
-        SEASON: 'readonly', EPISODE: 'readonly', EPTITLE: 'readonly', NEXTVID: 'readonly', NEXTHREF: 'readonly', BACK: 'readonly',
-        NEXTTITLE: 'readonly', NEXTTHUMB: 'readonly', SNAME: 'readonly', CERT: 'readonly',
-        COMPAT: 'readonly', BINGE: 'readonly', SERVICE_ID: 'readonly', APP_PORT: 'readonly', LIVE: 'readonly'
+        PalmServiceBridge: 'readonly',
+        tizen: 'readonly',
+        URL: 'readonly',
+        ADDON: 'readonly',
+        ADDONBASE: 'readonly',
+        QUALITY: 'readonly',
+        TITLE: 'readonly',
+        TYPE: 'readonly',
+        ID: 'readonly',
+        VID: 'readonly',
+        LOGO: 'readonly',
+        BG: 'readonly',
+        POSTER: 'readonly',
+        SEASON: 'readonly',
+        EPISODE: 'readonly',
+        EPTITLE: 'readonly',
+        NEXTVID: 'readonly',
+        NEXTHREF: 'readonly',
+        BACK: 'readonly',
+        NEXTTITLE: 'readonly',
+        NEXTTHUMB: 'readonly',
+        SNAME: 'readonly',
+        CERT: 'readonly',
+        COMPAT: 'readonly',
+        BINGE: 'readonly',
+        SERVICE_ID: 'readonly',
+        APP_PORT: 'readonly',
+        LIVE: 'readonly'
       })
     },
     rules: browserCorrectness
@@ -68,13 +102,21 @@ module.exports = [
   {
     // The Tizen launcher, inline in index.html.
     files: ['platforms/tizen/boot.js'],
-    languageOptions: { ecmaVersion: 5, sourceType: 'script', globals: Object.assign({}, globals.browser, { tizen: 'readonly' }) },
+    languageOptions: {
+      ecmaVersion: 5,
+      sourceType: 'script',
+      globals: Object.assign({}, globals.browser, { tizen: 'readonly' })
+    },
     rules: browserCorrectness
   },
   {
     // The Tizen service, on the TV's Node 4.4.3.
     files: ['platforms/tizen/service/*.js'],
-    languageOptions: { ecmaVersion: 5, sourceType: 'commonjs', globals: Object.assign({}, globals.node, { tizen: 'readonly' }) },
+    languageOptions: {
+      ecmaVersion: 5,
+      sourceType: 'commonjs',
+      globals: Object.assign({}, globals.node, { tizen: 'readonly' })
+    },
     rules: correctness
   },
   {

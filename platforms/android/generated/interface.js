@@ -467,6 +467,26 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    skipWithButton: 'With a button',
+    retry: 'Try again',
+    nothingHere: 'Nothing here yet',
+    moreText: 'More',
+    titleUnavailable: 'This title couldn\'t be loaded',
+    watchedShort: 'Watched',
+    episodesTitle: 'Episodes',
+    searchInSources: 'Search in sources',
+    copyLink: 'Copy link',
+    linkCopied: 'Link copied',
+    openInOtherApp: 'Open in another app',
+    loadingText: 'Loading…',
+    sortBy: 'Sort',
+    sortRecent: 'Recently added',
+    sortAZ: 'Name (A–Z)',
+    upcomingShort: 'Upcoming',
+    emptyLibraryPhone: 'Press and hold any title and choose Add to Library.',
+    phoneLoginHint: 'Sign in to see your library and addons.',
+    continueInBrowser: 'Continue in the browser',
+    browserApproveHint: 'Approve on the page that opens, then come back',
     phoneGroup: 'Phone',
     accentColor: 'Accent color',
     accent_violet: 'Violet',
@@ -1034,6 +1054,26 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    skipWithButton: 'Com um botão',
+    retry: 'Tentar de novo',
+    nothingHere: 'Nada aqui ainda',
+    moreText: 'Mais',
+    titleUnavailable: 'Não foi possível abrir este título',
+    watchedShort: 'Assistido',
+    episodesTitle: 'Episódios',
+    searchInSources: 'Buscar nas fontes',
+    copyLink: 'Copiar link',
+    linkCopied: 'Link copiado',
+    openInOtherApp: 'Abrir em outro app',
+    loadingText: 'Carregando…',
+    sortBy: 'Ordenar',
+    sortRecent: 'Adicionados recentemente',
+    sortAZ: 'Nome (A–Z)',
+    upcomingShort: 'Em breve',
+    emptyLibraryPhone: 'Toque e segure em um título e escolha Adicionar à Biblioteca.',
+    phoneLoginHint: 'Entre para ver sua biblioteca e seus addons.',
+    continueInBrowser: 'Continuar no navegador',
+    browserApproveHint: 'Aprove na página que abrir e volte aqui',
     phoneGroup: 'Celular',
     accentColor: 'Cor de destaque',
     accent_violet: 'Violeta',
@@ -2313,6 +2353,11 @@ function simpleMode() {
 }
 function isImdb(id) {
   return String(id || '').indexOf('tt') === 0;
+}
+/* a title's logo: its own, or the one Stremio's picture service keeps for an IMDb title */
+function logoOf(it) {
+  if (it.logo) return it.logo;
+  return isImdb(it.id) ? 'https://images.metahub.space/logo/medium/' + it.id + '/img' : '';
 }
 function posterOf(it) {
   if (it.poster) return it.poster;
@@ -4340,8 +4385,7 @@ function prewarmNeighbors(row) {
   var it = row.items[row.col];
   if (!it) return;
   prewarm(bgMid(it));
-  if (!TV_PROFILE.lowMemory && isImdb(it.id))
-    prewarm('https://images.metahub.space/logo/medium/' + it.id + '/img');
+  if (!TV_PROFILE.lowMemory && isImdb(it.id)) prewarm(logoOf(it));
 }
 // Screen switching and the Back stack.
 /* ================= screen manager ================= */
