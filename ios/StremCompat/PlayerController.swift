@@ -5,21 +5,28 @@ import UIKit
 /// pause, 10 s back and forward, the time bar, audio and subtitles). What is watched is told to
 /// the local server as the TV apps tell it (/app/progress), every few seconds and when it closes.
 final class PlayerController: UIViewController, VLCMediaPlayerDelegate {
-    var onClose: ((Bool) -> Void)?
+    /// how it ended, for the page: "ended" (to its end), "closed" (by the viewer), "failed"
+    var onClose: ((String) -> Void)?
 
     private let url: URL, titleText: String, resumeMs: Int64, item: String?
+    /* Settings: the seek step, and the languages (this show's subtitles when chosen before) */
+    private let seekStep: Int32, subtitleLanguage: String, audioLanguage: String
+    private var languagesChosen = false
     private let player = VLCMediaPlayer()
     private let video = UIView(), controls = UIView(), bar = UISlider()
     private let elapsed = UILabel(), remaining = UILabel(), playButton = UIButton(type: .system)
     private let tracksButton = UIButton(type: .system)
     private var hideTimer: Timer?, reportTimer: Timer?
-    private var seeking = false, closed = false, toTheEnd = false
+    private var seeking = false, closed = false
 
-    init(url: URL, title: String, resumeMs: Int64, item: String?) {
+    init(url: URL, title: String, resumeMs: Int64, item: String?, options: [String: Any]) {
         self.url = url
         self.titleText = title
         self.resumeMs = resumeMs
         self.item = item
+        seekStep = Int32(max(5, (options["seekStep"] as? NSNumber)?.intValue ?? 10))
+        subtitleLanguage = options["subtitleLanguage"] as? String ?? ""
+        audioLanguage = options["audioLanguage"] as? String ?? ""
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .fullScreen
     }
@@ -80,8 +87,8 @@ final class PlayerController: UIViewController, VLCMediaPlayerDelegate {
         title.font = .systemFont(ofSize: 17, weight: .semibold)
         title.translatesAutoresizingMaskIntoConstraints = false
 
-        let back = button("gobackward.10", size: 28, action: #selector(backTapped))
-        let forward = button("goforward.10", size: 28, action: #selector(forwardTapped))
+        let back = button("gobackward", size: 28, action: #selector(backTapped))
+        let forward = button("goforward", size: 28, action: #selector(forwardTapped))
         playButton.setImage(UIImage(systemName: "pause.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 40, weight: .bold)), for: .normal)
         playButton.tintColor = .white
         playButton.addTarget(self, action: #selector(playTapped), for: .touchUpInside)
@@ -174,8 +181,8 @@ final class PlayerController: UIViewController, VLCMediaPlayerDelegate {
         showControls()
     }
 
-    @objc private func backTapped() { player.jumpBackward(10); showControls() }
-    @objc private func forwardTapped() { player.jumpForward(10); showControls() }
+    @objc private func backTapped() { player.jumpBackward(seekStep); showControls() }
+    @objc private func forwardTapped() { player.jumpForward(seekStep); showControls() }
     @objc private func seekStarted() { seeking = true }
     @objc private func seekMoved() {
         let length = Double(player.media?.length.intValue ?? 0)
@@ -187,9 +194,9 @@ final class PlayerController: UIViewController, VLCMediaPlayerDelegate {
         showControls()
     }
 
-    @objc private func closeTapped() { close() }
+    @objc private func closeTapped() { close("closed") }
 
-    private func close() {
+    private func close(_ how: String) {
         if closed { return }
         closed = true
         report("leave")
@@ -197,8 +204,7 @@ final class PlayerController: UIViewController, VLCMediaPlayerDelegate {
         hideTimer?.invalidate()
         player.stop()
         UIApplication.shared.isIdleTimerDisabled = false
-        let ended = toTheEnd
-        dismiss(animated: true) { [onClose] in onClose?(ended) }
+        dismiss(animated: true) { [onClose] in onClose?(how) }
     }
 
     // MARK: the player's news
@@ -207,10 +213,12 @@ final class PlayerController: UIViewController, VLCMediaPlayerDelegate {
         let symbol = player.isPlaying ? "pause.fill" : "play.fill"
         playButton.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 40, weight: .bold)), for: .normal)
         if player.state == .ended {
-            toTheEnd = true
-            close()
+            close("ended")
         } else if player.state == .error {
-            close()
+            close("failed")
+        } else if player.isPlaying && !languagesChosen {
+            languagesChosen = true
+            chooseLanguages()
         }
     }
 
@@ -221,6 +229,30 @@ final class PlayerController: UIViewController, VLCMediaPlayerDelegate {
         remaining.text = length > 0 ? "-" + clock(length - time) : ""
         if length > 0 { bar.value = Float(time / length) }
     }
+
+    /// the subtitle and audio tracks of the languages wanted, by their names (VLC names a track
+    /// "Track 1 - [English]"); the ISO 639-2 code the settings keep, and its usual names
+    private func chooseLanguages() {
+        func pick(_ code: String, names: [Any]?, indexes: [Any]?, set: (Int32) -> Void) {
+            guard !code.isEmpty else { return }
+            let words = Self.languageNames[code] ?? [code]
+            let names = names as? [String] ?? [], indexes = indexes as? [NSNumber] ?? []
+            for (name, index) in zip(names, indexes) where index.int32Value >= 0 {
+                let low = name.lowercased()
+                if words.contains(where: { low.contains($0) }) { return set(index.int32Value) }
+            }
+        }
+        pick(audioLanguage, names: player.audioTrackNames, indexes: player.audioTrackIndexes) { player.currentAudioTrackIndex = $0 }
+        pick(subtitleLanguage, names: player.videoSubTitlesNames, indexes: player.videoSubTitlesIndexes) { player.currentVideoSubTitleIndex = $0 }
+    }
+
+    private static let languageNames: [String: [String]] = [
+        "por": ["portug", "[pt", "pt-br", "por"], "eng": ["english", "[en", "eng"], "spa": ["spanish", "español", "[es", "spa"],
+        "fre": ["french", "français", "[fr", "fre", "fra"], "ita": ["italian", "italiano", "[it", "ita"],
+        "ger": ["german", "deutsch", "[de", "ger", "deu"], "ara": ["arabic", "[ar", "ara"], "rus": ["russian", "[ru", "rus"],
+        "tur": ["turkish", "[tr", "tur"], "pol": ["polish", "[pl", "pol"], "jpn": ["japanese", "[ja", "jpn"],
+        "kor": ["korean", "[ko", "kor"], "chi": ["chinese", "[zh", "chi", "zho"],
+    ]
 
     private func clock(_ ms: Double) -> String {
         let s = max(0, Int(ms / 1000)), h = s / 3600, m = (s % 3600) / 60, sec = s % 60

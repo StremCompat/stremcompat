@@ -108,6 +108,11 @@ function answerStream(res, q, ref) {
       subtitleLanguage: titleSubtitle(q.id, L.setting('subsLang', L.defaultMediaLanguage())),
       /* Settings: only a forced subtitle track (the foreign lines and the signs) */
       forcedOnly: L.setting('forcedSubs', 'false') === 'true',
+      /* Settings > Audio: the language chosen by itself, when that is on ('' otherwise) */
+      audioLanguage:
+        L.setting('enableDefaultAudioTrack', 'false') === 'true'
+          ? L.setting('defaultAudioTrack', L.defaultMediaLanguage())
+          : '',
       /* Settings > Subtitles: size, colour, outline and background (web: subtitles.js) */
       subtitleStyle: {
         size: Math.round((38 * (SUBTITLE_SIZES[L.setting('subtitleSize', '2')] || 100)) / 100),
@@ -247,9 +252,10 @@ function markWatched(L, p) {
   push(L, it, true);
   if (p.type !== 'series' || !p.vid) return;
   seriesVideos(p.id, function (videos) {
-    var field = videos ? setWatched(s.watched || '', videos, p.vid, true) : '';
-    var cur = L.libItem(p.id);
-    if (!field || !cur || !cur.state) return;
+    /* applied to the state as it is now: another episode may have been marked meanwhile */
+    var cur = L.libItem(p.id),
+      field = videos && cur && cur.state ? setWatched(cur.state.watched || '', videos, p.vid, true) : '';
+    if (!field) return;
     cur.state.watched = field;
     cur._mtime = new Date().toISOString();
     writeItem(L, cur);
@@ -281,8 +287,25 @@ function finish(L, p, session, toNext) {
   push(L, it, true);
 }
 
-/* reports: { type, id, vid, next, name, poster, background, logo, time, duration (ms), event }
-   with event 'tick' (every few seconds while playing), 'pause', 'seek', 'leave', 'next' */
+/* Playbacks already left: a report that arrives after the leave (a late tick or pause from the
+   player) would bring Continue Watching back to that video, over the next episode. A player that
+   numbers its playbacks (play) has its own left ones ignored; one that does not, the reports of
+   the same video for a few seconds after its leave. */
+var LATE_MS = 5000;
+var leftPlays = {},
+  leftVideos = {};
+function lateReport(p, key) {
+  var now = Date.now();
+  for (var k in leftPlays)
+    if (Object.prototype.hasOwnProperty.call(leftPlays, k) && now - leftPlays[k] > 3600000)
+      delete leftPlays[k];
+  if (p.play) return !!leftPlays[p.play];
+  return !!leftVideos[key] && now - leftVideos[key] < LATE_MS;
+}
+
+/* reports: { type, id, vid, next, name, poster, background, logo, time, duration (ms), event,
+   play (the playback's own id, optional) } with event 'tick' (every few seconds while playing),
+   'pause', 'seek', 'leave', 'next' */
 function progress(req, res) {
   readJsonBody(req, 16384, function (p) {
     if (!p || !p.id || !p.type || !(p.duration > 0))
@@ -290,13 +313,19 @@ function progress(req, res) {
     var L = runtime.logic();
     if (L.setting('noHistory', 'false') === 'true' || isLive(p.type))
       return sendJson(res, { ok: true, kept: false });
-    var key = p.id + '|' + (p.vid || p.id),
-      session = sessions[key] || (sessions[key] = { lastPos: -1 });
+    var key = p.id + '|' + (p.vid || p.id);
+    if (lateReport(p, key)) return sendJson(res, { ok: true, kept: false });
+    var session = sessions[key] || (sessions[key] = { lastPos: -1 });
     if (p.event === 'seek') session.lastPos = -1;
     else if (p.event === 'leave' || p.event === 'next') {
       finish(L, p, session, p.event === 'next');
       delete sessions[key];
-    } else push(L, save(L, p, session), p.event === 'pause');
+      if (p.play) leftPlays[p.play] = Date.now();
+      else leftVideos[key] = Date.now();
+    } else {
+      delete leftVideos[key];
+      push(L, save(L, p, session), p.event === 'pause');
+    }
     sendJson(res, { ok: true, kept: true });
   });
 }

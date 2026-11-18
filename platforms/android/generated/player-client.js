@@ -465,7 +465,6 @@ var UI_TEXT = {
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
     watchAgain: 'Watch again',
-    skipWithButton: 'With a button',
     retry: 'Try again',
     nothingHere: 'Nothing here yet',
     moreText: 'More',
@@ -1053,7 +1052,6 @@ var UI_TEXT = {
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
     watchAgain: 'Assistir de novo',
-    skipWithButton: 'Com um botão',
     retry: 'Tentar de novo',
     nothingHere: 'Nada aqui ainda',
     moreText: 'Mais',
@@ -1651,11 +1649,12 @@ function streamCompatibility(s) {
     if (!/(hdr10\+?|\bhdr\b)/.test(t)) rank = Math.max(rank, 2);
   }
   if (/\b(hevc|h[ ._-]?265|x265)\b/.test(t) && /\b(10[ ._-]?bit|main[ ._-]?10)\b/.test(t)) add('HEVC 10-bit');
-  /* 10-bit H.264 (Hi10P, common in anime releases): no TV or phone decodes it in hardware, so it
-     goes to the end with the formats that do not play */
+  /* 10-bit H.264 (Hi10P, common in anime releases): many TVs have no hardware decoder for it, some
+     do, and VLC on a phone plays it. A warning that moves it a little down, as Dolby Vision
+     without HDR, never with the formats that cannot play. */
   if (/\bhi10p?\b/.test(t) || (/\b(h[ ._-]?264|x264|avc)\b/.test(t) && /\b10[ ._-]?bit\b/.test(t))) {
     add('H.264 10-bit');
-    rank = Math.max(rank, 3);
+    rank = Math.max(rank, 2);
   }
   if (/\b(true[ ._-]?hd)\b/.test(t)) add('TrueHD');
   else if (/\b(dts[ ._-]?hd|dts)\b/.test(t)) add('DTS');

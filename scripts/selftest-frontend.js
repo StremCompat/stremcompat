@@ -291,7 +291,7 @@ assert.strictEqual(tagsOf({ name:'X', title:'Film.2023.HDCAM.x264', quality:'720
 var sourceOf = firstRun.context.__SC_SOURCE_ITEM__;
 assert.deepStrictEqual([sourceOf({ name:'Torrentio\n[RD+] 1080p', title:'a', url:'http://x' }).cached, sourceOf({ name:'Comet [TORBOX\u26A1]', title:'a', url:'http://x' }).cached, sourceOf({ name:'Torrentio\n[RD download]', title:'a', url:'http://x' }).cached, sourceOf({ name:'MediaFusion \u26A1', title:'a', url:'http://x' }).cached], ['RD', 'TB', '', 'debrid'], 'the debrid cache was not read from the addon\'s name');
 var hi10 = sourceOf({ name:'X', title:'Anime.S01E01.1080p.Hi10P.x264', url:'http://x' });
-assert.deepStrictEqual([hi10.compatRank, hi10.compatLabels.join()], [3, 'H.264 10-bit'], '10-bit H.264 was not marked as a format that does not play');
+assert.deepStrictEqual([hi10.compatRank, hi10.compatLabels.join()], [2, 'H.264 10-bit'], '10-bit H.264 was not marked as one to check, below the formats that cannot play');
 var text = firstRun.context.__SC_SOURCE_TEXT__;
 assert.strictEqual(text({ title:'Show.S01E01.1080p.WEB\n\uD83D\uDC64 120 \uD83D\uDCBE 1.4 GB \u2699\uFE0F ThePirateBay\n\uD83C\uDDEC\uD83C\uDDE7 / \uD83C\uDDE7\uD83C\uDDF7' }), 'Show.S01E01.1080p.WEB', 'the source text still repeats what the badges say');
 var premium = firstRun.context.__SC_SOURCE_TAGS__({ name:'X', title:'Film.2160p.IMAX.REMUX.TrueHD.Atmos.7.1 60 GB', quality:'4K' }).map(function (x) { return x.t; }).join(',');

@@ -86,6 +86,8 @@ final class NodeRunner {
         /* the web, native and phone apps each have their port (build.gradle) */
         out.add("--env=SC_PORT=" + BuildConfig.SERVER_PORT);
         out.add("--env=SC_HANDOVER_PORT=" + BuildConfig.HANDOVER_PORT);
+        /* the native app (5.x) starts only with a server of its own version (LG-C boot.c) */
+        out.add("--env=SC_APP_VERSION=" + BuildConfig.VERSION_NAME);
         return out;
     }
 

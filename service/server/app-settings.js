@@ -41,6 +41,18 @@ var TV_ONLY = [
   '__speed',
   '__reload'
 ];
+/* what the phone's players (ExoPlayer, VLCKit) do not do yet: skipping intros, forced-only and
+   backup languages, the subtitles' look */
+var PHONE_NOT_YET = [
+  'skipIntro',
+  'forcedSubs',
+  'subsLang2',
+  'defaultAudioTrack2',
+  'subtitleSize',
+  'subsColor',
+  'subsOutlineColor',
+  'subsBgStyle'
+];
 /* "Ask" asks on a TV's Best button; the phone's Best does not ask */
 var NO_ASK = ['preferredSourceQuality', 'preferredSourceLanguage'];
 function phoneDefs(L) {
@@ -78,16 +90,9 @@ function phoneCategories(L) {
   L.settingsCategories().forEach(function (c) {
     var items = c.items
       .filter(function (d) {
-        return TV_ONLY.indexOf(d.k) < 0;
+        return TV_ONLY.indexOf(d.k) < 0 && PHONE_NOT_YET.indexOf(d.k) < 0;
       })
       .map(function (d) {
-        /* a phone has no OK button: the skip waits for a button on the screen */
-        if (d.k === 'skipIntro')
-          return Object.assign({}, d, {
-            opts: d.opts.map(function (o) {
-              return o[0] === 'button' ? [o[0], L.tx('skipWithButton')] : o;
-            })
-          });
         if (NO_ASK.indexOf(d.k) < 0) return d;
         var copy = Object.assign({}, d, {
           opts: d.opts.filter(function (o) {

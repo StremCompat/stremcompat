@@ -81,21 +81,22 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
-        /* the player kept the progress itself: the page shows it again, and after a video played to
-           its end goes on to the next episode */
-        boolean toTheEnd = data != null && data.getBooleanExtra(PlayerActivity.ENDED, false);
+        /* the player kept the progress itself: the page shows it again and goes on from how it
+           ended ('ended', 'failed'; back or home is 'closed') */
+        String how = data != null && data.getStringExtra(PlayerActivity.HOW) != null ? data.getStringExtra(PlayerActivity.HOW) : "closed";
         if (request == PLAY)
-            page.evaluateJavascript("window.stremcompatPlaybackEnded && window.stremcompatPlaybackEnded(" + toTheEnd + ")", null);
+            page.evaluateJavascript("window.stremcompatPlaybackEnded && window.stremcompatPlaybackEnded('" + how + "')", null);
     }
 
     /** What the page may ask of the app (service/mobile/js/views/player.js). */
     private final class Bridge {
-        @JavascriptInterface public void play(String url, String title, double resumeMs, String item) {
+        @JavascriptInterface public void play(String url, String title, double resumeMs, String item, String options) {
             Intent i = new Intent(MainActivity.this, PlayerActivity.class)
                     .putExtra(PlayerActivity.URL, url)
                     .putExtra(PlayerActivity.TITLE, title)
                     .putExtra(PlayerActivity.RESUME, (long) resumeMs)
-                    .putExtra(PlayerActivity.ITEM, item);
+                    .putExtra(PlayerActivity.ITEM, item)
+                    .putExtra(PlayerActivity.OPTIONS, options);
             main.post(() -> startActivityForResult(i, PLAY));
         }
 

@@ -10,8 +10,8 @@ final class WebController: UIViewController, WKScriptMessageHandler, WKNavigatio
     /* the bridge the page calls (service/mobile/js/views/player.js) */
     private static let bridge = """
     window.StremCompatNative = {
-      play: function (url, title, resume, item) {
-        webkit.messageHandlers.app.postMessage({ fn: 'play', url: url, title: title, resume: resume, item: item });
+      play: function (url, title, resume, item, options) {
+        webkit.messageHandlers.app.postMessage({ fn: 'play', url: url, title: title, resume: resume, item: item, options: options });
       },
       openExternal: function (url, title) {
         webkit.messageHandlers.app.postMessage({ fn: 'external', url: url, title: title });
@@ -76,11 +76,12 @@ final class WebController: UIViewController, WKScriptMessageHandler, WKNavigatio
               let address = body["url"] as? String, let url = URL(string: address) else { return }
         let title = body["title"] as? String ?? ""
         if fn == "external" { return openExternal(url) }
+        let options = (body["options"] as? String).flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) } as? [String: Any] ?? [:]
         let player = PlayerController(url: url, title: title,
                                       resumeMs: (body["resume"] as? NSNumber)?.int64Value ?? 0,
-                                      item: body["item"] as? String)
-        player.onClose = { [weak self] toTheEnd in
-            self?.page.evaluateJavaScript("window.stremcompatPlaybackEnded && window.stremcompatPlaybackEnded(\(toTheEnd))")
+                                      item: body["item"] as? String, options: options)
+        player.onClose = { [weak self] how in
+            self?.page.evaluateJavaScript("window.stremcompatPlaybackEnded && window.stremcompatPlaybackEnded('\(how)')")
         }
         present(player, animated: true)
     }

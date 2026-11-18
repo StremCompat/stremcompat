@@ -38,20 +38,26 @@ enum LocalServer {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
     }
 
+    /// The bundled server, copied out when what was copied before differs from it (its .build-id,
+    /// a hash of its files): a reinstall of the same version gets its own server too. The new copy
+    /// is made beside the old one and takes its place only once whole.
     private static func prepareService() throws -> URL {
         let fm = FileManager.default
         let target = support.appendingPathComponent("service", isDirectory: true)
-        let version = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "") + "-" +
-            (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")
-        let marker = target.appendingPathComponent(".copied-" + version)
-        if fm.fileExists(atPath: marker.path) { return target }
-        try? fm.removeItem(at: target)
-        try fm.createDirectory(at: support, withIntermediateDirectories: true)
         guard let bundled = Bundle.main.url(forResource: "service", withExtension: nil) else {
             throw NSError(domain: "StremCompat", code: 1, userInfo: [NSLocalizedDescriptionKey: "no service in the app"])
         }
-        try fm.copyItem(at: bundled, to: target)
-        fm.createFile(atPath: marker.path, contents: nil)
+        let id = { (dir: URL) in try? String(contentsOf: dir.appendingPathComponent(".build-id"), encoding: .utf8) }
+        if let now = id(bundled), now == id(target) { return target }
+        try fm.createDirectory(at: support, withIntermediateDirectories: true)
+        let fresh = support.appendingPathComponent("service-new", isDirectory: true)
+        try? fm.removeItem(at: fresh)
+        try fm.copyItem(at: bundled, to: fresh)
+        if fm.fileExists(atPath: target.path) {
+            _ = try fm.replaceItemAt(target, withItemAt: fresh)
+        } else {
+            try fm.moveItem(at: fresh, to: target)
+        }
         return target
     }
 }

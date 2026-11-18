@@ -1,6 +1,6 @@
-/* Playing: the Android app plays in its own player (window.StremCompatNative); a browser plays in
-   a <video>; Settings > Phone > Player can send it to another app instead. Either way the server
-   hears the progress, as from the TV. */
+/* Playing: the Android and iOS apps play in their own player (window.StremCompatNative); a browser
+   plays in a <video>; Settings > Phone > Player can send it to another app instead. Either way the
+   server hears the progress, as from the TV. */
 import { $, api, enc, IOS, prefs, t, toast } from '../core.js';
 import { goBack, opened, topView } from '../nav.js';
 import { openSources } from './sources.js';
@@ -26,6 +26,11 @@ export function playExternal(url, name) {
   location.href = `intent://${u.host}${u.pathname}${u.search}#Intent;scheme=${u.protocol.replace(':', '')};type=video/*;S.title=${enc(name || '')};end`;
 }
 
+/* The playback on screen now: what it plays, its own id for the server (a report that arrives
+   after it was left is ignored there), and whether its next episode follows. A new playback
+   replaces it, so a late end of the one before cannot start anything. */
+let current = null;
+
 export async function startPlayback(p) {
   toast(t('loadingText'));
   const ans = await api(`/app/play?${playQuery(p)}`);
@@ -42,25 +47,35 @@ export async function startPlayback(p) {
       poster: info.POSTER || '',
       background: info.BG || '',
       logo: info.LOGO || '',
-      next: info.NEXTVID || ''
+      next: info.NEXTVID || '',
+      play: Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+    },
+    /* what the app's own players apply: Settings and this show's remembered subtitles */
+    options = {
+      seekStep: ans.seekStep || 10,
+      subtitleLanguage: ans.subtitleLanguage || '',
+      audioLanguage: ans.audioLanguage || ''
     };
-  playing = item;
+  const session = (current = { item, binge: !!ans.binge, sourceName: p.name });
   if (prefs.player === 'external') return playExternal(info.URL, item.name);
   const n = native();
-  if (n && n.play) return n.play(info.URL, item.name, ans.resume || 0, JSON.stringify(item));
-  playInPage(info.URL, ans.resume || 0, item);
+  if (n && n.play)
+    return n.play(info.URL, item.name, ans.resume || 0, JSON.stringify(item), JSON.stringify(options));
+  playInPage(info.URL, ans.resume || 0, item, session);
 }
 
-/* what plays now, for its next episode when it ends */
-let playing = null;
-
-/* a video played to its end: the next episode starts with its best source (Settings > Play next
-   episode), as on the TV */
-function ended() {
-  const item = playing;
-  playing = null;
-  if (item && item.next && prefs.bingeWatch)
-    openSources(item.type, item.id, item.next, item.name, { best: true });
+/* how a playback ended: played to its end (the next episode follows, Settings > Play next
+   episode), closed by the viewer, or failed (back to the sources of the same episode) */
+function finished(session, how) {
+  if (!session || session !== current) return;
+  current = null;
+  const it = session.item;
+  if (how === 'ended' && it.next && session.binge)
+    openSources(it.type, it.id, it.next, it.name, { best: true });
+  else if (how === 'failed') {
+    toast(t('sourcePrepareFailed'));
+    openSources(it.type, it.id, it.vid, session.sourceName || it.name);
+  }
 }
 
 function report(item, time, duration, event) {
@@ -71,10 +86,11 @@ function report(item, time, duration, event) {
   );
 }
 
-function playInPage(url, resume, item) {
+function playInPage(url, resume, item, session) {
   const box = $('#player'),
     video = $('#video');
-  let last = 0;
+  let last = 0,
+    how = 'closed';
   box.classList.add('on');
   video.src = url;
   video.onloadedmetadata = () => {
@@ -88,20 +104,26 @@ function playInPage(url, resume, item) {
   };
   video.onpause = () => report(item, video.currentTime * 1000, video.duration * 1000, 'pause');
   video.onended = () => {
+    how = 'ended';
     goBack();
-    /* after the back above has closed the player, so the sources take their own history entry */
-    if (item) setTimeout(ended, 350);
+  };
+  video.onerror = () => {
+    how = 'failed';
+    goBack();
   };
   if (box.requestFullscreen) box.requestFullscreen().catch(() => {});
   if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
   opened(() => {
     report(item, video.currentTime * 1000, video.duration * 1000, 'leave');
+    video.onpause = video.onerror = null;
     video.pause();
     video.removeAttribute('src');
     video.load();
     box.classList.remove('on');
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     refreshTop();
+    /* after this back has closed the player, so the sources take their own history entry */
+    if (session) setTimeout(() => finished(session, how), 350);
   });
   $('#playerClose').onclick = goBack;
 }
@@ -110,14 +132,15 @@ function refreshTop() {
   const top = topView();
   if (top && top.refresh) top.refresh();
 }
-/* the Android player closed (it told the server what was watched): the page shows it */
-window.stremcompatPlaybackEnded = (toTheEnd) => {
+/* the app's own player closed (it told the server what was watched): 'ended', 'closed' or
+   'failed'. The page shows the progress, and goes on as finished() decides. */
+window.stremcompatPlaybackEnded = (how) => {
   setTimeout(refreshTop, 400);
-  if (toTheEnd) ended();
+  finished(current, how);
 };
 
 export async function playTrailer(type, id) {
   const ans = await api(`/app/trailer?type=${enc(type)}&id=${enc(id)}`);
   if (!ans || !ans.url) return toast((ans && ans.error) || t('trailerUnavailable'));
-  playInPage(ans.url, 0, null);
+  playInPage(ans.url, 0, null, null);
 }

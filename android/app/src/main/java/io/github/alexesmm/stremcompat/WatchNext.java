@@ -1,6 +1,7 @@
 package io.github.alexesmm.stremcompat;
 
 import android.app.UiModeManager;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.database.Cursor;
@@ -17,6 +18,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Continue Watching on the Android TV / Google TV home screen ("Watch Next"), from the local
@@ -67,16 +72,21 @@ final class WatchNext {
     }
 
     private static void publish(Context context, JSONArray items) throws Exception {
-        /* the provider lists only this app's programs: all of them are replaced */
-        try (Cursor old = context.getContentResolver().query(TvContractCompat.WatchNextPrograms.CONTENT_URI,
-                new String[] {TvContractCompat.WatchNextPrograms._ID}, null, null, null)) {
-            while (old != null && old.moveToNext())
-                context.getContentResolver().delete(TvContractCompat.buildWatchNextProgramUri(old.getLong(0)), null, null);
+        ContentResolver resolver = context.getContentResolver();
+        /* the provider lists only this app's programs, each known by its type and id */
+        Map<String, Long> old = new HashMap<>();
+        try (Cursor c = resolver.query(TvContractCompat.WatchNextPrograms.CONTENT_URI,
+                new String[] {TvContractCompat.WatchNextPrograms._ID, TvContractCompat.WatchNextPrograms.COLUMN_INTERNAL_PROVIDER_ID},
+                null, null, null)) {
+            while (c != null && c.moveToNext()) old.put(c.getString(1), c.getLong(0));
         }
+        /* each one written in place (or added), and only then the ones no longer there removed:
+           a write that fails leaves the row as it was, never empty */
+        Set<String> kept = new HashSet<>();
         long now = System.currentTimeMillis();
         for (int i = 0; i < items.length(); i++) {
             JSONObject it = items.getJSONObject(i);
-            String type = it.optString("type", "movie"), id = it.optString("id");
+            String type = it.optString("type", "movie"), id = it.optString("id"), key = type + ":" + id;
             boolean series = "series".equals(type), upNext = it.optBoolean("upNext");
             WatchNextProgram.Builder p = new WatchNextProgram.Builder();
             p.setWatchNextType(upNext ? TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_NEXT
@@ -84,12 +94,22 @@ final class WatchNext {
                     .setLastEngagementTimeUtcMillis(now - i)
                     .setType(series ? TvContractCompat.PreviewPrograms.TYPE_TV_SERIES : TvContractCompat.PreviewPrograms.TYPE_MOVIE)
                     .setTitle(it.optString("name"))
-                    .setInternalProviderId(type + ":" + id)
+                    .setInternalProviderId(key)
                     .setIntentUri(Uri.parse("stremcompat://title/" + Uri.encode(type) + "/" + Uri.encode(id)));
             String art = it.optString("art", it.optString("backdrop"));
             if (!art.isEmpty())
                 p.setPosterArtUri(Uri.parse(art)).setPosterArtAspectRatio(TvContractCompat.PreviewPrograms.ASPECT_RATIO_16_9);
-            context.getContentResolver().insert(TvContractCompat.WatchNextPrograms.CONTENT_URI, p.build().toContentValues());
+            try {
+                Long at = old.get(key);
+                if (at != null) resolver.update(TvContractCompat.buildWatchNextProgramUri(at), p.build().toContentValues(), null, null);
+                else resolver.insert(TvContractCompat.WatchNextPrograms.CONTENT_URI, p.build().toContentValues());
+                kept.add(key);
+            } catch (Exception e) {
+                Log.w(TAG, "Watch Next: " + key + " not written", e);
+                if (old.containsKey(key)) kept.add(key);
+            }
         }
+        for (Map.Entry<String, Long> e : old.entrySet())
+            if (!kept.contains(e.getKey())) resolver.delete(TvContractCompat.buildWatchNextProgramUri(e.getValue()), null, null);
     }
 }

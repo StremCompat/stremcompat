@@ -44,6 +44,12 @@ function canBeClear(b) {
   }
   return b.length > 4 && b.toString('ascii', 0, 4) === 'GIF8';
 }
+/* WebP and GIF, which browsers show themselves; the native TV apps do not */
+function browserOnly(b) {
+  if (b.length > 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP')
+    return 'image/webp';
+  return b.length > 4 && b.toString('ascii', 0, 4) === 'GIF8' ? 'image/gif' : '';
+}
 function isSvg(b) {
   return /^\s*(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*<svg[\s>]/i.test(b.slice(0, 512).toString('utf8'));
 }
@@ -175,7 +181,10 @@ function remember(address) {
 }
 
 function appImage(req, res, q) {
-  var address = String(q.u || ''),
+  /* a browser that takes WebP (the phones' web views, Safari) gets the picture as it is when it
+     cannot be converted: no FFmpeg on iOS, or one that does not run on the phone */
+  var webpOk = /image\/webp/.test(String(req.headers.accept || '')),
+    address = String(q.u || ''),
     width = Math.max(0, Math.min(CONVERT_MAX_WIDTH, parseInt(q.w, 10) || 0));
   if (!/^https?:\/\//i.test(address)) return missing(res);
   if (failed[address] && Date.now() - failed[address] < FAILED_KEEP_MS) return missing(res);
@@ -190,12 +199,13 @@ function appImage(req, res, q) {
         keep(file, data);
         send(res, type, data);
       },
-      res
+      res,
+      webpOk
     );
   });
 }
 
-function fetchAndSend(address, width, done, res) {
+function fetchAndSend(address, width, done, res, webpOk) {
   fetchUrl(
     address,
     function (body) {
@@ -216,11 +226,14 @@ function fetchAndSend(address, width, done, res) {
         if (png && plain !== 'image/png')
           return convert(body, width || CONVERT_MAX_WIDTH, false, function (jpeg) {
             if (jpeg) return done('image/jpeg', jpeg);
+            if (webpOk && browserOnly(body)) return send(res, browserOnly(body), body);
             remember(address);
             missing(res);
           });
-        /* without FFmpeg (Samsung) a JPEG or PNG still passes as it is */
+        /* without FFmpeg (Samsung) a JPEG or PNG still passes as it is; a WebP or GIF too, to a
+           browser that shows it (not kept: the disk copy is for every client) */
         if (plain) return done(plain, body);
+        if (webpOk && browserOnly(body)) return send(res, browserOnly(body), body);
         remember(address);
         missing(res);
       });

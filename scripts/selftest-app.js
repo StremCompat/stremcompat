@@ -497,6 +497,28 @@ async function main() {
       })
     ).json;
     assert.strictEqual(liveTick.kept, false, 'a live channel was kept in the library');
+    /* a report that arrives after its playback was left is not kept (it would bring Continue
+       Watching back to that video) */
+    var lateBase = {
+      type: 'movie',
+      id: 'tt9999901',
+      vid: 'tt9999901',
+      name: 'Late',
+      duration: 6000000,
+      play: 'late-1'
+    };
+    await request('/app/progress', Object.assign({ time: 600000, event: 'tick' }, lateBase));
+    await request('/app/progress', Object.assign({ time: 610000, event: 'leave' }, lateBase));
+    var late = (await request('/app/progress', Object.assign({ time: 605000, event: 'pause' }, lateBase)))
+      .json;
+    assert.strictEqual(late.kept, false, 'a report after its leave was kept');
+    var replay = (
+      await request(
+        '/app/progress',
+        Object.assign({}, lateBase, { play: 'late-2', time: 1000, event: 'tick' })
+      )
+    ).json;
+    assert.strictEqual(replay.kept, true, 'a new playback of the same video was ignored');
 
     /* an address from the phone: a chPage of its own, behind a code, for one address */
     var phone = (await request('/app/phone/start', {})).json;

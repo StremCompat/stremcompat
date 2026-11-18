@@ -78,7 +78,7 @@ export const ACCENTS = {
   rose: '#EC4899',
   white: '#F4F2FA'
 };
-export const prefs = { accent: 'violet', autoBest: false, player: 'app', bingeWatch: true };
+export const prefs = { accent: 'violet', autoBest: false, player: 'app' };
 
 /* the accent and the colours made from it (Android; iOS keeps the system blue) */
 export function applyAccent(name) {
@@ -101,7 +101,6 @@ export function readPrefs(model) {
   applyAccent(all.phoneAccent);
   prefs.autoBest = all.phoneAutoBest === 'true';
   prefs.player = all.phonePlayer === 'external' ? 'external' : 'app';
-  prefs.bingeWatch = all.bingeWatch !== 'false';
 }
 
 /* ---------- small feedback ---------- */

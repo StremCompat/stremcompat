@@ -14,7 +14,9 @@ import android.view.View;
 import android.view.WindowManager;
 
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.ui.PlayerView;
@@ -25,6 +27,8 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * A video on the phone: ExoPlayer with its touch controls, sideways and full screen, carried on in
@@ -32,9 +36,11 @@ import java.nio.charset.StandardCharsets;
  * server as the TV apps tell it (/app/progress), every few seconds and when it closes.
  */
 public class PlayerActivity extends Activity {
-    static final String URL = "url", TITLE = "title", RESUME = "resume", ITEM = "item", ENDED = "ended";
+    static final String URL = "url", TITLE = "title", RESUME = "resume", ITEM = "item", OPTIONS = "options", HOW = "how";
     private static final long REPORT_EVERY_MS = 10000;
     private final Handler main = new Handler(Looper.getMainLooper());
+    /* the reports go one after the other: sent in parallel, a pause could land after the leave */
+    private static final ExecutorService reports = Executors.newSingleThreadExecutor();
     private ExoPlayer player;
     private PlayerView view;
     private String item;
@@ -56,22 +62,44 @@ public class PlayerActivity extends Activity {
         view.setKeepScreenOn(true);
         setContentView(view);
         hideSystemBars();
-        player = new ExoPlayer.Builder(this, new DefaultRenderersFactory(this).setEnableDecoderFallback(true)).build();
+        /* Settings: the seek step, and the languages (this show's subtitles when chosen before) */
+        JSONObject options;
+        try {
+            options = new JSONObject(getIntent().getStringExtra(OPTIONS) == null ? "{}" : getIntent().getStringExtra(OPTIONS));
+        } catch (Exception e) {
+            options = new JSONObject();
+        }
+        long step = Math.max(5, options.optLong("seekStep", 10)) * 1000;
+        player = new ExoPlayer.Builder(this, new DefaultRenderersFactory(this).setEnableDecoderFallback(true))
+                .setSeekBackIncrementMs(step).setSeekForwardIncrementMs(step).build();
+        String subtitles = options.optString("subtitleLanguage", ""), audio = options.optString("audioLanguage", "");
+        TrackSelectionParameters.Builder tracks = player.getTrackSelectionParameters().buildUpon();
+        if (!subtitles.isEmpty()) tracks.setPreferredTextLanguage(subtitles);
+        if (!audio.isEmpty()) tracks.setPreferredAudioLanguage(audio);
+        player.setTrackSelectionParameters(tracks.build());
         view.setPlayer(player);
         player.setMediaItem(MediaItem.fromUri(getIntent().getStringExtra(URL)));
         long resume = getIntent().getLongExtra(RESUME, 0);
         if (resume > 0) player.seekTo(resume);
         player.addListener(new Player.Listener() {
             @Override public void onPlaybackStateChanged(int s) {
-                if (s != Player.STATE_ENDED) return;
                 /* played to its end: the page goes on to the next episode */
-                setResult(RESULT_OK, new Intent().putExtra(ENDED, true));
-                finish();
+                if (s == Player.STATE_ENDED) close("ended");
+            }
+
+            /* the source would not play: the page offers the sources of the same episode again */
+            @Override public void onPlayerError(PlaybackException error) {
+                close("failed");
             }
         });
         player.prepare();
         player.play();
         main.postDelayed(tick, REPORT_EVERY_MS);
+    }
+
+    private void close(String how) {
+        setResult(RESULT_OK, new Intent().putExtra(HOW, how));
+        finish();
     }
 
     private void hideSystemBars() {
@@ -121,7 +149,7 @@ public class PlayerActivity extends Activity {
         } catch (Exception e) {
             return;
         }
-        new Thread(() -> {
+        reports.execute(() -> {
             try {
                 HttpURLConnection c = (HttpURLConnection) new URL(MainActivity.HOME + "/app/progress").openConnection();
                 c.setRequestMethod("POST");
@@ -134,6 +162,6 @@ public class PlayerActivity extends Activity {
                 c.disconnect();
             } catch (Exception ignored) {
             }
-        }).start();
+        });
     }
 }
