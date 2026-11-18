@@ -1,6 +1,6 @@
 #!/bin/bash
 # Screenshots of the iOS app on the simulator, with the preview addon and a throwaway account:
-# sign-in, then Home, a title, Search and Settings (opened through stremcompat:// links).
+# sign-in, then Home, a title, Search, Library and Settings.
 # Run after the simulator build (.github/workflows/ios.yml), from the repository's root.
 set -euo pipefail
 
@@ -24,7 +24,11 @@ shot() { sleep "$2"; xcrun simctl io "$DEVICE" screenshot "$OUT/$1.png"; }
 shot 00-sign-in 0
 
 node scripts/preview-addon.js --account "$SERVER"
-open_page() { xcrun simctl openurl "$DEVICE" "stremcompat://m/?platform=ios$1"; }
+# the page to open goes to a file the Debug app reads (WebController.watchTestPage): a
+# stremcompat:// link would make the system ask before opening it
+DOCS="$(xcrun simctl get_app_container "$DEVICE" io.github.alexesmm.stremcompat data)/Documents"
+mkdir -p "$DOCS"
+open_page() { printf '%s' "/m/?platform=ios$1" > "$DOCS/open.txt"; }
 open_page ""
 shot 01-home 12
 open_page "&open=series/tt0903747"

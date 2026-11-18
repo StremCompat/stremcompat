@@ -45,7 +45,23 @@ final class WebController: UIViewController, WKScriptMessageHandler, WKNavigatio
         if started { return }
         started = true
         waitForServer(then: "/m/?platform=ios", attempt: 0)
+        #if DEBUG
+        watchTestPage()
+        #endif
     }
+
+    #if DEBUG
+    /// Screenshots on the simulator (scripts/ios-screens.sh): a page written to Documents/open.txt
+    /// opens, without the system asking about a link and without restarting the server.
+    private func watchTestPage() {
+        let file = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("open.txt")
+        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let path = try? String(contentsOf: file, encoding: .utf8) else { return }
+            try? FileManager.default.removeItem(at: file)
+            self?.open(path.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+    #endif
 
     /// a page of the interface; the iOS look is kept
     func open(_ path: String) {
