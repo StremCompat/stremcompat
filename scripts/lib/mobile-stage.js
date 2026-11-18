@@ -83,19 +83,16 @@ function stageService(dest) {
       return name !== 'bin' && name !== 'subcache' && !/\.log$/i.test(source);
     }
   });
-  run(process.execPath, [
-    path.join(root, 'node_modules', 'esbuild', 'bin', 'esbuild'),
-    path.join(root, 'platforms', 'android', 'engine', 'torrent-engine.js'),
-    '--bundle',
-    '--platform=node',
-    '--target=node18',
-    '--log-level=warning',
-    '--external:utp-native',
-    '--external:bufferutil',
-    '--external:utf-8-validate',
-    '--external:wrtc',
-    '--outfile=' + path.join(dest, 'engine', 'torrent-engine.js')
-  ]);
+  /* esbuild's own interface: its command is a script on Windows and a program on macOS */
+  require('esbuild').buildSync({
+    entryPoints: [path.join(root, 'platforms', 'android', 'engine', 'torrent-engine.js')],
+    bundle: true,
+    platform: 'node',
+    target: 'node18',
+    logLevel: 'warning',
+    external: ['utp-native', 'bufferutil', 'utf-8-validate', 'wrtc'],
+    outfile: path.join(dest, 'engine', 'torrent-engine.js')
+  });
   return JSON.parse(fs.readFileSync(path.join(root, 'profiles', PROFILE + '.json'), 'utf8'));
 }
 
