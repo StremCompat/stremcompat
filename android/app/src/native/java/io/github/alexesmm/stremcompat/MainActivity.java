@@ -1,6 +1,8 @@
 package io.github.alexesmm.stremcompat;
 
+import android.content.Intent;
 import android.graphics.PixelFormat;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.SurfaceView;
@@ -19,8 +21,32 @@ public class MainActivity extends SDLActivity {
         return new String[] {"SDL2", "main"};
     }
 
+    /** the title the home screen asked for (stremcompat://title/<type>/<id>), until the app takes it */
+    private static String link;
+
+    private static synchronized void keepLink(Intent intent) {
+        Uri data = intent == null ? null : intent.getData();
+        if (data != null && "stremcompat".equals(data.getScheme()) && data.getPathSegments().size() >= 2)
+            link = data.getPathSegments().get(0) + "\t" + data.getPathSegments().get(1);
+    }
+
+    /** read by the app (platform_take_link in android.c), once */
+    public static synchronized String takeLink() {
+        String taken = link;
+        link = null;
+        return taken;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        keepLink(intent);
+    }
+
     @Override
     protected void onCreate(Bundle state) {
+        keepLink(getIntent());
         NodeRunner.start(this);
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
