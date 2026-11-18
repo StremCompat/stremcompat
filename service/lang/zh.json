@@ -543,5 +543,7 @@
   "filterRemux": "Remux",
   "filterNoCam": "排除 CAM",
   "screensaverSetting": "屏幕保护",
-  "minutesN": "{0} 分钟"
+  "minutesN": "{0} 分钟",
+  "phoneSearchTitle": "在电视上搜索",
+  "phoneSearchHint": "扫码在手机上输入搜索"
 }

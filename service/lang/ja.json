@@ -543,5 +543,7 @@
   "filterRemux": "Remux",
   "filterNoCam": "CAMなし",
   "screensaverSetting": "スクリーンセーバー",
-  "minutesN": "{0} 分"
+  "minutesN": "{0} 分",
+  "phoneSearchTitle": "テレビで検索",
+  "phoneSearchHint": "スキャンしてスマホで検索語を入力"
 }

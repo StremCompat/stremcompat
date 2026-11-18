@@ -543,5 +543,7 @@
   "filterRemux": "Remux",
   "filterNoCam": "Sin CAM",
   "screensaverSetting": "Salvapantallas",
-  "minutesN": "{0} minutos"
+  "minutesN": "{0} minutos",
+  "phoneSearchTitle": "Buscar en la TV",
+  "phoneSearchHint": "Escanea para escribir la búsqueda en el móvil"
 }

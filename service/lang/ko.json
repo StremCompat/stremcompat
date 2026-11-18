@@ -543,5 +543,7 @@
   "filterRemux": "Remux",
   "filterNoCam": "CAM 제외",
   "screensaverSetting": "화면 보호기",
-  "minutesN": "{0}분"
+  "minutesN": "{0}분",
+  "phoneSearchTitle": "TV에서 검색",
+  "phoneSearchHint": "스캔해서 휴대폰으로 검색어 입력"
 }

@@ -1,8 +1,9 @@
-// Sending an address from the phone: typing a long M3U or addon address with a remote is slow,
-// so the address panel shows a QR code. On the same Wi-Fi it opens a small page served by the TV
+// Sending an address or a search from the phone: typing with a remote is slow, so the address
+// panel and Search show a QR code. On the same Wi-Fi it opens a small page served by the TV
 // itself, where the address is pasted and sent. The main server keeps listening only on the TV
 // (127.0.0.1); this page has a port of its own, open only while a panel asks for it, for one
-// address or five minutes, behind a random code. It takes an http(s) address and nothing else.
+// address or five minutes, behind a random code. It takes an http(s) address, or for Search
+// (kind "text") a line of text.
 
 var crypto = require('crypto');
 var http = require('http');
@@ -15,10 +16,11 @@ var runtime = require('./app-runtime');
 var LINK_PORT = PORT + 10;
 var OPEN_MS = 5 * 60 * 1000;
 var VALUE_MAX = 2048;
+var TEXT_MAX = 120;
 /* the home network; the tests keep it on the computer itself (no firewall question) */
 var LINK_HOST = process.env.SC_PHONE_HOST || '0.0.0.0';
 
-var link = null; /* { server, token, value, timer } while a panel waits */
+var link = null; /* { server, token, kind, value, timer } while a panel waits */
 
 /* the TV's address on the home network; when the link listens on one given address (tests), that one */
 function homeAddress() {
@@ -44,11 +46,16 @@ function close() {
 }
 
 function page(L, sent, error) {
-  var title = L.tx('phoneTitle'),
+  var text = link.kind === 'text',
+    title = L.tx(text ? 'phoneSearchTitle' : 'phoneTitle'),
+    field = text
+      ? '<input name="value" type="search" maxlength="' + TEXT_MAX + '" autofocus>'
+      : '<textarea name="value" rows="4" placeholder="https://" autofocus></textarea>',
     body = sent
       ? '<p class="ok">' + L.tx('phoneSent') + '</p>'
       : (error ? '<p class="err">' + L.tx('phoneInvalid') + '</p>' : '') +
-        '<form method="post"><textarea name="value" rows="4" placeholder="https://" autofocus></textarea>' +
+        '<form method="post">' +
+        field +
         '<button>' +
         L.tx('phoneSend') +
         '</button></form>';
@@ -57,7 +64,7 @@ function page(L, sent, error) {
     '<title>' +
     title +
     '</title><style>body{margin:0;padding:28px 20px;font:17px system-ui,sans-serif;background:#0b0b0d;color:#fff}' +
-    'h1{font-size:22px}textarea{width:100%;box-sizing:border-box;padding:14px;border-radius:12px;border:0;font-size:16px;background:#1d1d21;color:#fff}' +
+    'h1{font-size:22px}textarea,input{width:100%;box-sizing:border-box;padding:14px;border-radius:12px;border:0;font-size:16px;background:#1d1d21;color:#fff}' +
     'button{margin-top:14px;width:100%;padding:16px;border:0;border-radius:12px;font-size:17px;font-weight:700;background:#fff;color:#0b0b0d}' +
     '.ok{font-size:19px}.err{color:#ff9a9a}</style></head><body><h1>' +
     title +
@@ -92,28 +99,40 @@ function onPhone(req, res) {
       value = decodeURIComponent((/(?:^|&)value=([^&]*)/.exec(raw) || [])[1] || '').replace(/\+/g, ' ');
     } catch (e) {}
     value = value.trim();
-    if (value.length > VALUE_MAX || !/^https?:\/\/\S+$/i.test(value)) return answer(false, true);
+    var valid =
+      link.kind === 'text'
+        ? value.length > 0 && value.length <= TEXT_MAX
+        : value.length <= VALUE_MAX && /^https?:\/\/\S+$/i.test(value);
+    if (!valid) return answer(false, true);
     link.value = value;
     answer(true, false);
     /* one address per opening: the page goes away once the TV has it */
   });
 }
 
-/* POST: opens the page and answers its address as a QR code (rows for the native interface,
-   SVG for the web one) */
+/* POST { kind }: opens the page and answers its address as a QR code (rows for the native
+   interface, SVG for the web one) */
 function start(req, res) {
-  close();
-  var address = homeAddress();
-  if (!address) return sendJson(res, { ok: false });
-  var token = crypto.randomBytes(6).toString('hex'),
-    server = http.createServer(onPhone);
-  server.on('error', function () {
+  readJsonBody(req, 256, function (body) {
     close();
-  });
-  server.listen(LINK_PORT, LINK_HOST, function () {
-    var url = 'http://' + address + ':' + LINK_PORT + '/' + token;
-    link = { server: server, token: token, value: '', timer: setTimeout(close, OPEN_MS) };
-    sendJson(res, { ok: true, url: url, qr: qrRows(url), svg: qrSvg(url) });
+    var address = homeAddress();
+    if (!address) return sendJson(res, { ok: false });
+    var token = crypto.randomBytes(6).toString('hex'),
+      server = http.createServer(onPhone);
+    server.on('error', function () {
+      close();
+    });
+    server.listen(LINK_PORT, LINK_HOST, function () {
+      var url = 'http://' + address + ':' + LINK_PORT + '/' + token;
+      link = {
+        server: server,
+        token: token,
+        kind: body && body.kind === 'text' ? 'text' : 'address',
+        value: '',
+        timer: setTimeout(close, OPEN_MS)
+      };
+      sendJson(res, { ok: true, url: url, qr: qrRows(url), svg: qrSvg(url) });
+    });
   });
 }
 

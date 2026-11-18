@@ -543,6 +543,8 @@ var UI_TEXT = {
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
     pinDelete: 'Delete',
+    phoneSearchTitle: 'Search on the TV',
+    phoneSearchHint: 'Scan to type the search on your phone',
     screensaverSetting: 'Screensaver',
     minutesN: '{0} minutes',
     filterCached: 'Cached',
@@ -1095,6 +1097,8 @@ var UI_TEXT = {
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
     pinDelete: 'Apagar',
+    phoneSearchTitle: 'Buscar na TV',
+    phoneSearchHint: 'Escaneie para digitar a busca no celular',
     screensaverSetting: 'Proteção de tela',
     minutesN: '{0} minutos',
     filterCached: 'Em cache',
@@ -9702,8 +9706,49 @@ var search = {
         k === 'space' ? tx('keySpace') : k === 'del' ? tx('keyDelete') : k === 'clear' ? tx('keyClear') : k;
     }
   },
+  /* Type on the phone: the TV's page for a line of text, asked every two seconds while Search is
+     open; what comes searches as if typed and submitted */
+  startPhone: function () {
+    var self = this,
+      gen = ++this.phoneGen;
+    $('sPhone').className = '';
+    postJson(
+      '/app/phone/start',
+      { kind: 'text' },
+      function (j) {
+        if (gen !== self.phoneGen || !j || !j.ok) return;
+        $('sPhoneQr').innerHTML = j.svg;
+        $('sPhoneText').textContent = tx('phoneSearchHint');
+        $('sPhone').className = 'on';
+        self.pollPhone(gen);
+      },
+      8000
+    );
+  },
+  pollPhone: function (gen) {
+    var self = this;
+    setTimeout(function () {
+      if (gen !== self.phoneGen || SCR !== 'search') return;
+      xhrJson(
+        '/app/phone/poll',
+        function (j) {
+          if (gen !== self.phoneGen) return;
+          if (j && j.value) {
+            self.text = j.value;
+            $('sBox').value = j.value;
+            self.run(j.value, false);
+            return self.startPhone();
+          }
+          if (j && j.waiting) self.pollPhone(gen);
+        },
+        5000
+      );
+    }, 2000);
+  },
+  phoneGen: 0,
   enter: function (p) {
     this.wire();
+    this.startPhone();
     this.zone = 'keys';
     /* Back from a result returns to that result, not to the keyboard */
     if (p && p.zone === 'rows' && this.rows.length) {
@@ -9725,6 +9770,9 @@ var search = {
   /* Leaving Search for another section releases its results and decoded posters; the
      recent searches bring a query back with one key. */
   reset: function () {
+    this.phoneGen++;
+    $('sPhone').className = '';
+    postJson('/app/phone/stop', {}, function () {}, 4000);
     if (this.liveT) clearTimeout(this.liveT);
     this.liveT = null;
     this.clearResults();

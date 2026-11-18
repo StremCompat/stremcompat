@@ -546,6 +546,15 @@ async function main() {
         0,
         'the phone chPage still answers after its address'
       );
+      /* a search typed on the phone: any line of text */
+      var typed = (await request('/app/phone/start', { kind: 'text' })).json;
+      var typedPath = typed.url.replace(/^http:\/\/[^/]+/, '');
+      await phoneRequest(typedPath, 'value=' + encodeURIComponent('breaking bad'));
+      assert.strictEqual(
+        (await request('/app/phone/poll')).json.value,
+        'breaking bad',
+        'a search from the phone did not reach the TV'
+      );
     }
 
     var removed = (await request('/app/channels/lists', { remove: addonBase + '/list.m3u' })).json;

@@ -543,5 +543,7 @@
   "filterRemux": "Remux",
   "filterNoCam": "Без CAM",
   "screensaverSetting": "Заставка",
-  "minutesN": "{0} минут"
+  "minutesN": "{0} минут",
+  "phoneSearchTitle": "Поиск на телевизоре",
+  "phoneSearchHint": "Отсканируйте, чтобы ввести запрос на телефоне"
 }

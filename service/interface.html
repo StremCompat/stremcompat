@@ -338,6 +338,12 @@ body.series-episode #dSeasons{margin-top:24px}
 #sSide{position:absolute;top:0;left:576px;right:0}
 #sHint{margin-top:22px;font-size:25px;color:rgba(255,255,255,.72)}
 #sRecent{margin-top:24px}
+/* typing from the phone: a QR code to the TV's page on the home network */
+#sPhone{display:none;margin-top:30px;-webkit-align-items:center;align-items:center}
+#sPhone.on{display:-webkit-flex;display:flex}
+#sPhoneQr{width:150px;height:150px;-webkit-flex:none;flex:none;border-radius:10px;overflow:hidden;background:#fff}
+#sPhoneQr svg{width:100%;height:100%;display:block}
+#sPhoneText{margin-left:22px;font-size:22px;line-height:1.35;color:rgba(255,255,255,.72);max-width:380px}
 #sRecent .schip{margin-bottom:14px}
 #sRecent .schip.clear{background:transparent;box-shadow:inset 0 0 0 2px rgba(255,255,255,.2);color:rgba(255,255,255,.7)}
 #sRecent .schip.clear.f{background:#fff;color:#0c0b11;box-shadow:none}
@@ -950,7 +956,7 @@ body.lite .card.folder.f .fart{box-shadow:0 0 0 4px #fff!important}
   <div id="sWrap">
     <input id="sBox" placeholder="Search movies and series">
     <div id="sKeys"></div>
-    <div id="sSide"><div id="sHint">Type with the keyboard; results appear as you type</div><div id="sRecent"></div></div>
+    <div id="sSide"><div id="sHint">Type with the keyboard; results appear as you type</div><div id="sRecent"></div><div id="sPhone"><div id="sPhoneQr"></div><div id="sPhoneText"></div></div></div>
     <div id="sPreview"><div id="spTitle"></div><div id="spMeta"></div><div id="spDesc"></div></div>
     <div id="sRowsClip"><div id="sRows"></div></div>
   </div>
