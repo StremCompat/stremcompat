@@ -158,7 +158,9 @@
     b.style.textAlign='center';b.style.paddingTop='28vh';b.style.boxSizing='border-box';
     b.innerHTML='<div style="font-size:42px;font-weight:bold;margin-bottom:20px">StremCompat could not finish loading</div>'+
       '<div style="font-size:23px;color:#c3cad2;margin:0 auto 26px;max-width:1100px">'+String(message||'Unknown startup error').replace(/</g,'&lt;')+'</div>'+
-      '<div style="font-size:17px;color:#8b95a0">APP_BOOT '+(line||'')+' / '+window.__SC_BOOT_PHASE__+' · press BACK, then open the app again</div>';
+      '<div style="font-size:17px;color:#8b95a0">APP_BOOT '+(line||'')+' / '+window.__SC_BOOT_PHASE__+' · press BACK, then open the app again</div>'+
+      '<img alt="" style="width:170px;height:170px;margin-top:30px" src="/report-qr.svg?t='+encodeURIComponent('APP_BOOT '+(line||'')+' '+window.__SC_BOOT_PHASE__+' '+String(message||'').slice(0,60))+'">'+
+      '<div style="font-size:16px;color:#8b95a0;margin-top:10px">Scan with your phone to report it</div>';
   };
   window.onerror=function(message,source,line){window.__SC_BOOT_ERROR__(message,line);return false;};
   setTimeout(function(){

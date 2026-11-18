@@ -283,6 +283,15 @@ var ROUTES = {
     res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'max-age=86400' });
     res.end(qrSvg(SUPPORT_URL));
   },
+  /* a bug report already filled in with what the start error page says (no keys or account) */
+  '/report-qr.svg': function (req, res, q) {
+    var repo = { tizen: 'samsung', android: 'android-tv' }[PROFILE.platform] || 'webos',
+      title = ('Start: ' + String(q.t || '')).slice(0, 100);
+    res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'no-store' });
+    res.end(
+      qrSvg('https://github.com/StremCompat/' + repo + '/issues/new?title=' + encodeURIComponent(title))
+    );
+  },
   '/streamfile': function (req, res) {
     engineStatus(function (status) {
       sendJson(res, status);
