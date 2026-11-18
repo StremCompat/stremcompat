@@ -142,7 +142,8 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         String hash = titleHash(intent);
-        if (!hash.isEmpty()) page.loadUrl(HOME + "/beta" + hash);
+        /* a new address, not only a new #: the same page with another # is taken as Back */
+        if (!hash.isEmpty()) page.loadUrl(HOME + "/beta?open=" + System.currentTimeMillis() + hash);
     }
 
     /** What the page may ask of the app (src/platform/android). */

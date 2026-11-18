@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.net.Uri;
+import android.util.Log;
 
 import androidx.tvprovider.media.tv.TvContractCompat;
 import androidx.tvprovider.media.tv.WatchNextProgram;
@@ -24,6 +25,7 @@ import java.net.URL;
  */
 final class WatchNext {
     private static final int MAX_PROGRAMS = 15;
+    private static final String TAG = "StremCompat";
 
     private WatchNext() {}
 
@@ -33,9 +35,12 @@ final class WatchNext {
         Context app = context.getApplicationContext();
         new Thread(() -> {
             try {
-                publish(app, continueWatching());
-            } catch (Exception ignored) {
+                JSONArray items = continueWatching();
+                publish(app, items);
+                Log.i(TAG, "Watch Next: " + items.length() + " programs");
+            } catch (Exception e) {
                 /* the home row stays as it was */
+                Log.w(TAG, "Watch Next not updated", e);
             }
         }).start();
     }
