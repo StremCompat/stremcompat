@@ -545,5 +545,18 @@
   "screensaverSetting": "スクリーンセーバー",
   "minutesN": "{0} 分",
   "phoneSearchTitle": "テレビで検索",
-  "phoneSearchHint": "スキャンしてスマホで検索語を入力"
+  "phoneSearchHint": "スキャンしてスマホで検索語を入力",
+  "phoneGroup": "スマホ",
+  "accentColor": "アクセントカラー",
+  "accent_violet": "バイオレット",
+  "accent_crimson": "クリムゾン",
+  "accent_ocean": "オーシャン",
+  "accent_emerald": "エメラルド",
+  "accent_amber": "アンバー",
+  "accent_rose": "ローズ",
+  "accent_white": "ホワイト",
+  "playBestAutomatically": "最適なソースを自動再生",
+  "playerChoice": "プレーヤー",
+  "playerBuiltIn": "内蔵",
+  "playerExternal": "他のアプリ (VLC, MX Player…)"
 }

@@ -182,6 +182,27 @@ function catalog(req, res, q) {
   });
 }
 
+/* "See all": one more page of a Home catalog (Stremio's skip=), straight from the addon */
+function catalogPage(req, res, q) {
+  if (!q.url) return fail(res, 400, 'url is needed');
+  var skip = parseInt(q.skip, 10) || 0,
+    url = String(q.url).replace(/\.json(\?.*)?$/, function (all, query) {
+      return (skip > 0 ? '/skip=' + skip : '') + '.json' + (query || '');
+    });
+  fetchAddonJson(url, function (j) {
+    var metas = ((j && j.metas) || []).map(function (m) {
+      return {
+        id: m.id,
+        type: m.type || q.type || '',
+        name: m.name,
+        poster: m.poster,
+        background: m.background
+      };
+    });
+    sendJson(res, { items: decorate(metas, false), more: metas.length > 0 });
+  });
+}
+
 /* ---------- a title with its episodes ---------- */
 function meta(req, res, q) {
   if (!q.type || !q.id) return fail(res, 400, 'type and id are needed');
@@ -246,6 +267,16 @@ function startSearch(type, vid) {
   return s;
 }
 
+/* an addon's logo by its name, from the account's manifests */
+function addonLogo(L, name) {
+  var list = L.addons();
+  for (var i = 0; name && i < list.length; i++) {
+    var m = list[i].manifest || {};
+    if (m.name === name) return m.logo || '';
+  }
+  return '';
+}
+
 /* the list as the sources screen shows it: chips, the language filter, the addon tabs, the
    sources in order, and the one Best plays with the addons still to answer */
 function sourceList(s, quality, lang, addon, pref) {
@@ -261,6 +292,7 @@ function sourceList(s, quality, lang, addon, pref) {
     done: s.done,
     failed: s.failed.length ? L.tx('addonsNoAnswer', s.failed.join(', ')) : '',
     left: s.done || !s.left.length ? '' : L.tx('addonsLeft', s.left.join(', ')),
+    leftCount: s.done ? 0 : s.left.length,
     best: best ? best._seq : 0,
     /* Best from the title page may play before the slowest addon answered (BEST_WAIT_MS) */
     bestNow: s.done || (!!best && Date.now() - s.at >= L.BEST_WAIT_MS),
@@ -274,6 +306,8 @@ function sourceList(s, quality, lang, addon, pref) {
       return {
         seq: it._seq,
         heading: L.sourceHeading(it),
+        logo: addonLogo(L, it.addon),
+        cached: it.cached || '',
         text: L.sourceText(it),
         tags: it.stored ? [] : L.sourceTags(it),
         compat: L.compatText(it)
@@ -680,6 +714,7 @@ module.exports = {
     '/app/addons': addonList,
     '/app/calendar': calendar,
     '/app/catalog': catalog,
+    '/app/catalog/page': catalogPage,
     '/app/home': home,
     '/app/img': appImage,
     '/app/library': library,

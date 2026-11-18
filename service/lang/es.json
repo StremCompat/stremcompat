@@ -545,5 +545,18 @@
   "screensaverSetting": "Salvapantallas",
   "minutesN": "{0} minutos",
   "phoneSearchTitle": "Buscar en la TV",
-  "phoneSearchHint": "Escanea para escribir la búsqueda en el móvil"
+  "phoneSearchHint": "Escanea para escribir la búsqueda en el móvil",
+  "phoneGroup": "Teléfono",
+  "accentColor": "Color de acento",
+  "accent_violet": "Violeta",
+  "accent_crimson": "Carmesí",
+  "accent_ocean": "Océano",
+  "accent_emerald": "Esmeralda",
+  "accent_amber": "Ámbar",
+  "accent_rose": "Rosa",
+  "accent_white": "Blanco",
+  "playBestAutomatically": "Reproducir la mejor fuente automáticamente",
+  "playerChoice": "Reproductor",
+  "playerBuiltIn": "Integrado",
+  "playerExternal": "Otra app (VLC, MX Player…)"
 }

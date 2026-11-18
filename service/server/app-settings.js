@@ -21,14 +21,88 @@ function itemOf(L, def) {
   return item;
 }
 
-function model(L) {
+/* ---------- the phone's Settings: what concerns a phone, and its own group ---------- */
+/* what only means something on a TV: its player's options, its look, its remote, its USB drive */
+var TV_ONLY = [
+  'scrubPreview',
+  'assStyle',
+  'embSubsMode',
+  'uiMode',
+  'uiLook',
+  'uiTextSize',
+  'bgTrailer',
+  'discoverMax',
+  'pointer',
+  'screensaver',
+  'torrentsOnUsb',
+  '__m3u',
+  '__m3uLists',
+  '__server',
+  '__speed',
+  '__reload'
+];
+/* "Ask" asks on a TV's Best button; the phone's Best does not ask */
+var NO_ASK = ['preferredSourceQuality', 'preferredSourceLanguage'];
+function phoneDefs(L) {
+  return [
+    {
+      k: 'phoneAccent',
+      lb: L.tx('accentColor'),
+      opts: ['violet', 'crimson', 'ocean', 'emerald', 'amber', 'rose', 'white'].map(function (c) {
+        return [c, L.tx('accent_' + c)];
+      }),
+      d: 'violet'
+    },
+    {
+      k: 'phoneAutoBest',
+      lb: L.tx('playBestAutomatically'),
+      opts: [
+        ['false', L.tx('disabled')],
+        ['true', L.tx('enabled')]
+      ],
+      d: 'false'
+    },
+    {
+      k: 'phonePlayer',
+      lb: L.tx('playerChoice'),
+      opts: [
+        ['app', L.tx('playerBuiltIn')],
+        ['external', L.tx('playerExternal')]
+      ],
+      d: 'app'
+    }
+  ];
+}
+function phoneCategories(L) {
+  var groups = [{ name: L.tx('phoneGroup'), id: 'phone', items: phoneDefs(L) }];
+  L.settingsCategories().forEach(function (c) {
+    var items = c.items
+      .filter(function (d) {
+        return TV_ONLY.indexOf(d.k) < 0;
+      })
+      .map(function (d) {
+        if (NO_ASK.indexOf(d.k) < 0) return d;
+        var copy = Object.assign({}, d, {
+          opts: d.opts.filter(function (o) {
+            return o[0] !== 'Ask';
+          })
+        });
+        if (L.setting(d.k, d.d) === 'Ask') copy.d = 'Auto';
+        return copy;
+      });
+    if (items.length) groups.push({ name: c.name, id: c.id, items: items });
+  });
+  return groups;
+}
+
+function model(L, phone) {
   var u = L.user() || {};
   return {
     account: {
       email: u.email || L.tx('connectedAccount'),
       plan: L.tx(L.isNuvioAccount() ? 'nuvioAccountLabel' : 'freeAccount')
     },
-    groups: L.settingsCategories().map(function (c) {
+    groups: (phone ? phoneCategories(L) : L.settingsCategories()).map(function (c) {
       return {
         name: c.name,
         id: c.id,
@@ -39,19 +113,19 @@ function model(L) {
     })
   };
 }
-
 function findDef(L, key) {
   var found = null;
-  L.settingsCategories().forEach(function (c) {
-    c.items.forEach(function (d) {
-      if (d.k === key) found = d;
+  L.settingsCategories()
+    .concat([{ items: phoneDefs(L) }])
+    .forEach(function (c) {
+      c.items.forEach(function (d) {
+        if (d.k === key) found = d;
+      });
     });
-  });
   return found;
 }
-
-function show(req, res) {
-  sendJson(res, model(runtime.logic()));
+function show(req, res, q) {
+  sendJson(res, model(runtime.logic(), q && q.for === 'phone'));
 }
 
 /* { k, v }: keeps a value; the language and the mode change the logic's texts and lists */
@@ -63,7 +137,7 @@ function change(req, res) {
     L.storeSetting(def, String(body.v));
     if (def.k === 'torrentsOnUsb') setUsbFirst(String(body.v) === 'true');
     if (def.k === 'uiLanguage' || def.k === 'uiMode') runtime.restart();
-    sendJson(res, model(runtime.logic()));
+    sendJson(res, model(runtime.logic(), body.for === 'phone'));
   });
 }
 
@@ -154,9 +228,9 @@ function support(req, res) {
 }
 
 /* reading and changing share an address: GET reads, POST changes */
-function settings(req, res) {
+function settings(req, res, q) {
   if (req.method === 'POST') return change(req, res);
-  show(req, res);
+  show(req, res, q);
 }
 
 module.exports = {

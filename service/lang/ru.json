@@ -545,5 +545,18 @@
   "screensaverSetting": "Заставка",
   "minutesN": "{0} минут",
   "phoneSearchTitle": "Поиск на телевизоре",
-  "phoneSearchHint": "Отсканируйте, чтобы ввести запрос на телефоне"
+  "phoneSearchHint": "Отсканируйте, чтобы ввести запрос на телефоне",
+  "phoneGroup": "Телефон",
+  "accentColor": "Цвет акцента",
+  "accent_violet": "Фиолетовый",
+  "accent_crimson": "Малиновый",
+  "accent_ocean": "Океан",
+  "accent_emerald": "Изумрудный",
+  "accent_amber": "Янтарный",
+  "accent_rose": "Розовый",
+  "accent_white": "Белый",
+  "playBestAutomatically": "Автоматически включать лучший источник",
+  "playerChoice": "Плеер",
+  "playerBuiltIn": "Встроенный",
+  "playerExternal": "Другое приложение (VLC, MX Player…)"
 }

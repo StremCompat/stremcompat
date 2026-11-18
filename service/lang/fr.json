@@ -545,5 +545,18 @@
   "screensaverSetting": "Économiseur d'écran",
   "minutesN": "{0} minutes",
   "phoneSearchTitle": "Rechercher sur la TV",
-  "phoneSearchHint": "Scannez pour taper la recherche sur votre téléphone"
+  "phoneSearchHint": "Scannez pour taper la recherche sur votre téléphone",
+  "phoneGroup": "Téléphone",
+  "accentColor": "Couleur d'accent",
+  "accent_violet": "Violet",
+  "accent_crimson": "Cramoisi",
+  "accent_ocean": "Océan",
+  "accent_emerald": "Émeraude",
+  "accent_amber": "Ambre",
+  "accent_rose": "Rose",
+  "accent_white": "Blanc",
+  "playBestAutomatically": "Lire la meilleure source automatiquement",
+  "playerChoice": "Lecteur",
+  "playerBuiltIn": "Intégré",
+  "playerExternal": "Une autre app (VLC, MX Player…)"
 }

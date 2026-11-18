@@ -583,6 +583,38 @@ async function main() {
         return i.k === 'seekStep';
       })[0];
     assert.strictEqual(step.chosen, '30', 'a Settings value was not kept');
+    /* the phone's Settings: its own group, nothing that only means something on a TV, no Ask */
+    var phoneSet = (await request('/app/settings?for=phone')).json,
+      phoneKeys = [].concat.apply(
+        [],
+        phoneSet.groups.map(function (g) {
+          return g.items;
+        })
+      );
+    assert.ok(
+      phoneSet.groups[0].id === 'phone' &&
+        !phoneKeys.some(function (i) {
+          return i.k === 'scrubPreview' || i.k === 'uiLook';
+        }),
+      'the phone Settings show TV options'
+    );
+    var quality = phoneKeys.filter(function (i) {
+      return i.k === 'preferredSourceQuality';
+    })[0];
+    assert.ok(
+      quality &&
+        !quality.options.some(function (o) {
+          return o.v === 'Ask';
+        }),
+      'the phone Settings offer Ask'
+    );
+    var page = (
+      await request(
+        '/app/catalog/page?type=series&skip=0&url=' +
+          encodeURIComponent(addonBase + '/catalog/series/popular.json')
+      )
+    ).json;
+    assert.ok(page.items.length === 1 && page.more, 'See all did not answer the catalog page');
 
     /* an episode marked watched takes the earlier ones along */
     await request('/app/act', {

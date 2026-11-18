@@ -545,5 +545,18 @@
   "screensaverSetting": "화면 보호기",
   "minutesN": "{0}분",
   "phoneSearchTitle": "TV에서 검색",
-  "phoneSearchHint": "스캔해서 휴대폰으로 검색어 입력"
+  "phoneSearchHint": "스캔해서 휴대폰으로 검색어 입력",
+  "phoneGroup": "휴대폰",
+  "accentColor": "강조 색상",
+  "accent_violet": "바이올렛",
+  "accent_crimson": "크림슨",
+  "accent_ocean": "오션",
+  "accent_emerald": "에메랄드",
+  "accent_amber": "앰버",
+  "accent_rose": "로즈",
+  "accent_white": "화이트",
+  "playBestAutomatically": "최적 소스 자동 재생",
+  "playerChoice": "플레이어",
+  "playerBuiltIn": "내장",
+  "playerExternal": "다른 앱 (VLC, MX Player…)"
 }

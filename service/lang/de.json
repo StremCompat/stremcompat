@@ -545,5 +545,18 @@
   "screensaverSetting": "Bildschirmschoner",
   "minutesN": "{0} Minuten",
   "phoneSearchTitle": "Auf dem Fernseher suchen",
-  "phoneSearchHint": "Scannen, um die Suche am Handy zu tippen"
+  "phoneSearchHint": "Scannen, um die Suche am Handy zu tippen",
+  "phoneGroup": "Handy",
+  "accentColor": "Akzentfarbe",
+  "accent_violet": "Violett",
+  "accent_crimson": "Karminrot",
+  "accent_ocean": "Ozean",
+  "accent_emerald": "Smaragd",
+  "accent_amber": "Bernstein",
+  "accent_rose": "Rosé",
+  "accent_white": "Weiß",
+  "playBestAutomatically": "Beste Quelle automatisch abspielen",
+  "playerChoice": "Player",
+  "playerBuiltIn": "Integriert",
+  "playerExternal": "Andere App (VLC, MX Player…)"
 }

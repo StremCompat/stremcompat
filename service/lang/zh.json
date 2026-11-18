@@ -545,5 +545,18 @@
   "screensaverSetting": "屏幕保护",
   "minutesN": "{0} 分钟",
   "phoneSearchTitle": "在电视上搜索",
-  "phoneSearchHint": "扫码在手机上输入搜索"
+  "phoneSearchHint": "扫码在手机上输入搜索",
+  "phoneGroup": "手机",
+  "accentColor": "强调色",
+  "accent_violet": "紫罗兰",
+  "accent_crimson": "深红",
+  "accent_ocean": "海洋",
+  "accent_emerald": "翡翠",
+  "accent_amber": "琥珀",
+  "accent_rose": "玫瑰",
+  "accent_white": "白色",
+  "playBestAutomatically": "自动播放最佳来源",
+  "playerChoice": "播放器",
+  "playerBuiltIn": "内置",
+  "playerExternal": "其他应用 (VLC, MX Player…)"
 }
