@@ -63,8 +63,10 @@ export function titleView(type, id, name, video) {
       main = m.actions[0],
       icons = $('.icon-btns', content);
     if (main) {
+      /* a film already watched, not left halfway: "Watch again" */
+      const label = !m.series && m.watched && main.kind !== 'resume' ? t('watchAgain') : main.label;
       const b = el(
-        `<button class="btn primary block">${main.kind === 'best' ? ICON.bolt : ICON.play}<span>${esc(main.label)}</span></button>`
+        `<button class="btn primary block">${main.kind === 'best' ? ICON.bolt : ICON.play}<span>${esc(label)}</span></button>`
       );
       b.onclick = () => runAction(main);
       $('.detail-main', content).appendChild(b);

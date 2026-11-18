@@ -44,10 +44,23 @@ export async function startPlayback(p) {
       logo: info.LOGO || '',
       next: info.NEXTVID || ''
     };
+  playing = item;
   if (prefs.player === 'external') return playExternal(info.URL, item.name);
   const n = native();
   if (n && n.play) return n.play(info.URL, item.name, ans.resume || 0, JSON.stringify(item));
   playInPage(info.URL, ans.resume || 0, item);
+}
+
+/* what plays now, for its next episode when it ends */
+let playing = null;
+
+/* a video played to its end: the next episode starts with its best source (Settings > Play next
+   episode), as on the TV */
+function ended() {
+  const item = playing;
+  playing = null;
+  if (item && item.next && prefs.bingeWatch)
+    openSources(item.type, item.id, item.next, item.name, { best: true });
 }
 
 function report(item, time, duration, event) {
@@ -74,7 +87,11 @@ function playInPage(url, resume, item) {
     report(item, video.currentTime * 1000, video.duration * 1000, 'tick');
   };
   video.onpause = () => report(item, video.currentTime * 1000, video.duration * 1000, 'pause');
-  video.onended = () => goBack();
+  video.onended = () => {
+    goBack();
+    /* after the back above has closed the player, so the sources take their own history entry */
+    if (item) setTimeout(ended, 350);
+  };
   if (box.requestFullscreen) box.requestFullscreen().catch(() => {});
   if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
   opened(() => {
@@ -94,7 +111,10 @@ function refreshTop() {
   if (top && top.refresh) top.refresh();
 }
 /* the Android player closed (it told the server what was watched): the page shows it */
-window.stremcompatPlaybackEnded = () => setTimeout(refreshTop, 400);
+window.stremcompatPlaybackEnded = (toTheEnd) => {
+  setTimeout(refreshTop, 400);
+  if (toTheEnd) ended();
+};
 
 export async function playTrailer(type, id) {
   const ans = await api(`/app/trailer?type=${enc(type)}&id=${enc(id)}`);

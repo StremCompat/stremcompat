@@ -2,7 +2,6 @@ package io.github.alexesmm.stremcompat;
 
 import android.content.Context;
 import android.content.res.AssetManager;
-import android.system.Os;
 import android.util.Log;
 
 import java.io.File;
@@ -10,6 +9,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * The local server, on nodejs-mobile's Node inside the app's process. Node can start only once
@@ -35,9 +37,10 @@ final class NodeRunner {
         new Thread(() -> {
             try {
                 File service = prepareService(app);
-                prepareEnvironment(app);
+                List<String> args = new ArrayList<>(Arrays.asList("node", new File(service, "local-server.js").getAbsolutePath()));
+                args.addAll(environment(app));
                 Log.i(TAG, "starting the local server");
-                int code = startNode(new String[] {"node", new File(service, "local-server.js").getAbsolutePath()});
+                int code = startNode(args.toArray(new String[0]));
                 Log.w(TAG, "the local server stopped: " + code);
             } catch (Exception e) {
                 Log.e(TAG, "the local server could not start", e);
@@ -68,18 +71,22 @@ final class NodeRunner {
         return mediaTools;
     }
 
-    private static void prepareEnvironment(Context context) throws Exception {
+    /** The server's environment, given as arguments (local-server.js applies them first): set with
+     *  Os.setenv, it did not reach a Node translated from ARM on an x86 device. */
+    private static List<String> environment(Context context) {
         File data = new File(context.getFilesDir(), "data");
         data.mkdirs();
+        List<String> out = new ArrayList<>();
         /* server-address.js and streaming-file.js keep their files under $HOME */
-        Os.setenv("HOME", data.getAbsolutePath(), true);
-        Os.setenv("TMPDIR", context.getCacheDir().getAbsolutePath(), true);
-        Os.setenv("SC_SERVER_LOG", new File(data, "local server.log").getAbsolutePath(), true);
-        Os.setenv("TV_FFMPEG", program(context, "ffmpeg").getAbsolutePath(), true);
-        Os.setenv("TV_FFPROBE", program(context, "ffprobe").getAbsolutePath(), true);
-        /* the web and the native app each have their port (build.gradle) */
-        Os.setenv("SC_PORT", String.valueOf(BuildConfig.SERVER_PORT), true);
-        Os.setenv("SC_HANDOVER_PORT", String.valueOf(BuildConfig.HANDOVER_PORT), true);
+        out.add("--env=HOME=" + data.getAbsolutePath());
+        out.add("--env=TMPDIR=" + context.getCacheDir().getAbsolutePath());
+        out.add("--env=SC_SERVER_LOG=" + new File(data, "local server.log").getAbsolutePath());
+        out.add("--env=TV_FFMPEG=" + program(context, "ffmpeg").getAbsolutePath());
+        out.add("--env=TV_FFPROBE=" + program(context, "ffprobe").getAbsolutePath());
+        /* the web, native and phone apps each have their port (build.gradle) */
+        out.add("--env=SC_PORT=" + BuildConfig.SERVER_PORT);
+        out.add("--env=SC_HANDOVER_PORT=" + BuildConfig.HANDOVER_PORT);
+        return out;
     }
 
     /** The server's files are copied out of the package once per version of the app. */

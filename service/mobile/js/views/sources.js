@@ -13,9 +13,9 @@ export function openSources(type, id, vid, name, opts = {}) {
   const body = el(`<div class="sources">
     <div class="sheet-head"><h3>${esc(t('sources'))}</h3><button class="btn tonal small best">${ICON.bolt}<span>${esc(t('playBest'))}</span></button></div>
     <div class="sheet-sub">${esc(name)}</div>
-    <div class="answering"><i></i><span></span></div>
+    <div class="answering" hidden><i></i><span></span></div>
     <div class="chips quality"></div><div class="tabs-line addons"></div>
-    <label class="search-field source-search">${ICON.search}<input type="search" autocomplete="off" placeholder="${esc(t('searchInSources'))}"></label>
+    <label class="search-field source-search" hidden>${ICON.search}<input type="search" autocomplete="off" placeholder="${esc(t('searchInSources'))}"></label>
     <div class="list"></div></div>`);
   $('.list', body).appendChild(spinner());
   let version = 0,

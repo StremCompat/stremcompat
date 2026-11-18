@@ -2,6 +2,7 @@ package io.github.alexesmm.stremcompat;
 
 import android.app.Activity;
 import android.app.PictureInPictureParams;
+import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Build;
@@ -31,7 +32,7 @@ import java.nio.charset.StandardCharsets;
  * server as the TV apps tell it (/app/progress), every few seconds and when it closes.
  */
 public class PlayerActivity extends Activity {
-    static final String URL = "url", TITLE = "title", RESUME = "resume", ITEM = "item";
+    static final String URL = "url", TITLE = "title", RESUME = "resume", ITEM = "item", ENDED = "ended";
     private static final long REPORT_EVERY_MS = 10000;
     private final Handler main = new Handler(Looper.getMainLooper());
     private ExoPlayer player;
@@ -62,7 +63,10 @@ public class PlayerActivity extends Activity {
         if (resume > 0) player.seekTo(resume);
         player.addListener(new Player.Listener() {
             @Override public void onPlaybackStateChanged(int s) {
-                if (s == Player.STATE_ENDED) finish();
+                if (s != Player.STATE_ENDED) return;
+                /* played to its end: the page goes on to the next episode */
+                setResult(RESULT_OK, new Intent().putExtra(ENDED, true));
+                finish();
             }
         });
         player.prepare();

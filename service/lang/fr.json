@@ -578,5 +578,6 @@
   "phoneLoginHint": "Connectez-vous pour voir votre bibliothèque et vos addons.",
   "continueInBrowser": "Continuer dans le navigateur",
   "browserApproveHint": "Approuvez sur la page qui s’ouvre, puis revenez",
-  "skipWithButton": "Avec un bouton"
+  "skipWithButton": "Avec un bouton",
+  "watchAgain": "Revoir"
 }

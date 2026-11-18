@@ -578,5 +578,6 @@
   "phoneLoginHint": "サインインしてライブラリとアドオンを表示します。",
   "continueInBrowser": "ブラウザで続ける",
   "browserApproveHint": "開いたページで承認して戻ってください",
-  "skipWithButton": "ボタンで"
+  "skipWithButton": "ボタンで",
+  "watchAgain": "もう一度見る"
 }

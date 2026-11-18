@@ -578,5 +578,6 @@
   "phoneLoginHint": "登录以查看你的片库和插件。",
   "continueInBrowser": "在浏览器中继续",
   "browserApproveHint": "在打开的页面上批准，然后返回",
-  "skipWithButton": "通过按钮"
+  "skipWithButton": "通过按钮",
+  "watchAgain": "再看一遍"
 }

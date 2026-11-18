@@ -9,6 +9,13 @@
 
 require('./compat');
 
+/* settings an app passes as arguments (--env=NAME=value): an Android app's environment does not
+   always reach Node (an ARM Node translated on an x86 device keeps an environment of its own) */
+process.argv.slice(2).forEach(function (arg) {
+  var m = /^--env=([A-Z_]+)=(.*)$/.exec(arg);
+  if (m) process.env[m[1]] = m[2];
+});
+
 var dns = require('dns');
 var http = require('http');
 
