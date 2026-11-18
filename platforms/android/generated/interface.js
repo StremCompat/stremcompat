@@ -341,6 +341,7 @@ var UI_TEXT = {
     continueWatching: 'Continue watching',
     myList: 'My list',
     newEpisodes: 'New episodes',
+    episodeUpdates: 'Episodes from your shows',
     newEpisodeTag: 'New · S{0} E{1}',
     cwUpNext: 'Up next · S{0} E{1}',
     cwEpisode: 'S{0} E{1}',
@@ -929,6 +930,7 @@ var UI_TEXT = {
     continueWatching: 'Continuar assistindo',
     myList: 'Minha lista',
     newEpisodes: 'Novos episódios',
+    episodeUpdates: 'Episódios das suas séries',
     newEpisodeTag: 'Novo · T{0} E{1}',
     cwUpNext: 'Próximo · T{0} E{1}',
     cwEpisode: 'T{0} E{1}',
@@ -3124,10 +3126,13 @@ function homeLibraryRows() {
     cwMapped = [];
   for (var c = 0; c < cw.length; c++) cwMapped.push(cwCard(cw[c]));
   if (cwMapped.length) rows.push({ title: tx('continueWatching'), items: cwMapped, wide: true });
-  var fresh = newEpisodeItems();
-  if (fresh.length) rows.push({ title: tx('newEpisodes'), items: fresh, wide: true });
-  var soon = upcomingItems();
-  if (soon.length) rows.push({ title: tx('upcomingRow'), items: soon, wide: true });
+  var episodes = newEpisodeItems(),
+    seen = Object.create(null);
+  episodes.forEach(function (item) { seen[item.id] = true; });
+  upcomingItems().forEach(function (item) {
+    if (!seen[item.id]) episodes.push(item);
+  });
+  if (episodes.length) rows.push({ title: tx('episodeUpdates'), items: episodes, wide: true });
   var mine = libGridItems().slice(0, 20),
     mineMapped = [];
   for (var mi = 0; mi < mine.length; mi++)
@@ -5643,7 +5648,7 @@ function makeCard(it, wide, label, eager) {
     var sub = cwSubtitle(it);
     if (sub) {
       var sl = document.createElement('div');
-      sl.className = 'sub' + (it.upNext || it.fresh ? ' next' : '');
+      sl.className = 'sub' + (it.upNext || it.fresh || it.airsAt ? ' next' : '');
       sl.textContent = sub;
       lb.appendChild(sl);
     }

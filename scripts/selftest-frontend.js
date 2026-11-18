@@ -586,6 +586,14 @@ assert.strictEqual(matchNext([{ addon:'Torrentio',quality:'1080p',title:'x.rar',
   assert.ok(ctx.homeDefs().every(function (r) { return r.tiles; }), 'fallback catalogs replaced catalogs explicitly hidden in Home settings');
   ctx.remoteAddons = function () { return []; };
   assert.ok(ctx.homeDefs().some(function (r) { return r.key === 'cin_m_top'; }), 'collections hid the fallback catalogs when no addon catalogs were available');
+  ctx.cwItems = ctx.libGridItems = function () { return []; };
+  ctx.newEpisodeItems = function () { return [{ id: 'both', videoId: 'aired', fresh: true }]; };
+  ctx.upcomingItems = function () {
+    return [{ id: 'both', videoId: 'future', airsAt: 1 }, { id: 'soon', videoId: 'soon', airsAt: 2 }];
+  };
+  var episodes = ctx.homeLibraryRows();
+  assert.strictEqual(episodes.length, 1, 'new and upcoming episodes must share a row');
+  assert.strictEqual(episodes[0].items.map(function (it) { return it.videoId; }).join(), 'aired,soon', 'an upcoming episode duplicated or replaced a newly aired episode');
 })();
 firstRun.context.__SC_SET_UI_LANGUAGE__('pt-BR');
 assert.strictEqual(firstRun.context.__SC_UI_LANGUAGE__(), 'pt-BR');

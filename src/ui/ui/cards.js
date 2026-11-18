@@ -133,7 +133,7 @@ function makeCard(it, wide, label, eager) {
     var sub = cwSubtitle(it);
     if (sub) {
       var sl = document.createElement('div');
-      sl.className = 'sub' + (it.upNext || it.fresh ? ' next' : '');
+      sl.className = 'sub' + (it.upNext || it.fresh || it.airsAt ? ' next' : '');
       sl.textContent = sub;
       lb.appendChild(sl);
     }
