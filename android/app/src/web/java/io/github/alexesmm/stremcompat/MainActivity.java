@@ -86,7 +86,7 @@ public class MainActivity extends Activity {
             }
             boolean ready = up;
             main.postDelayed(() -> {
-                if (ready || attempt > 120) page.loadUrl(HOME + "/beta");
+                if (ready || attempt > 120) page.loadUrl(HOME + "/beta" + titleHash(getIntent()));
                 else waitForServer(attempt + 1);
             }, ready ? 0 : 250);
         }).start();
@@ -126,6 +126,23 @@ public class MainActivity extends Activity {
     protected void onStop() {
         super.onStop();
         player.stopNow();
+        WatchNext.refresh(this);
+    }
+
+    /** "#detail/<type>/<id>" for a title opened from the home screen (stremcompat://title/<type>/<id>) */
+    private static String titleHash(Intent intent) {
+        Uri data = intent == null ? null : intent.getData();
+        if (data == null || !"stremcompat".equals(data.getScheme()) || data.getPathSegments().size() < 2) return "";
+        return "#detail/" + Uri.encode(data.getPathSegments().get(0)) + "/" + Uri.encode(data.getPathSegments().get(1));
+    }
+
+    /** the app already open: the title from the home screen replaces what shows */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        String hash = titleHash(intent);
+        if (!hash.isEmpty()) page.loadUrl(HOME + "/beta" + hash);
     }
 
     /** What the page may ask of the app (src/platform/android). */

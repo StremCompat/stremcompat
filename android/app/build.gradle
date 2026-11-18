@@ -110,6 +110,8 @@ dependencies {
     def media3 = '1.5.1'
     implementation "androidx.media3:media3-exoplayer:${media3}"
     implementation "androidx.media3:media3-exoplayer-hls:${media3}"
+    /* Continue Watching on the Android TV home screen (WatchNext.java) */
+    implementation 'androidx.tvprovider:tvprovider:1.0.0'
     /* the phone's player screen has ExoPlayer's touch controls */
     phoneImplementation "androidx.media3:media3-ui:${media3}"
 }

@@ -53,6 +53,7 @@ public class MainActivity extends SDLActivity {
     @Override
     protected void onStop() {
         super.onStop();
+        WatchNext.refresh(this);
         NativePlayer.stop();
     }
 }

@@ -74,7 +74,6 @@ function cwCard(it) {
   };
 }
 window.__SC_CW_CARD__ = cwCard;
-/* "Up next · S2 E6", "S2 E5 · 12 min left" or "48 min left" under a Continue Watching title */
 /* the day an episode airs, short: "Tue 24 Nov" */
 function airDay(at) {
   try {
@@ -83,6 +82,7 @@ function airDay(at) {
     return new Date(at).toISOString().slice(5, 10);
   }
 }
+/* "Up next · S2 E6", "S2 E5 · 12 min left" or "48 min left" under a Continue Watching title */
 function cwSubtitle(it) {
   var ep = '';
   if (it.videoId && it.videoId.indexOf(':') > 0) {
