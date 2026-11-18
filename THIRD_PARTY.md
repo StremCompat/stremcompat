@@ -35,6 +35,8 @@ The Samsung test package contains no Node.js, FFmpeg or FFprobe binary, because 
 
 The Android TV test package carries [nodejs-mobile](https://github.com/nodejs-mobile/nodejs-mobile) (Node.js for Android, MIT) to run the local server, [Media3 ExoPlayer](https://github.com/androidx/media) (Apache-2.0) for video, and [WebTorrent](https://github.com/webtorrent/webtorrent) (MIT) with its dependencies, bundled into one file, as the torrent engine. It also carries the same FFmpeg and FFprobe programs as the LG packages. It is built with the Android SDK and NDK.
 
+The iPhone and iPad app carries the same nodejs-mobile (Node.js for iOS, MIT), the same WebTorrent bundle, and [VLCKit](https://code.videolan.org/videolan/VLCKit) (MobileVLCKit, LGPL-2.1-or-later) for video. VLCKit is linked as a separate framework that can be replaced; its source is at the address above. The phone interface's Android look uses the [Plus Jakarta Sans](https://github.com/tokotype/PlusJakartaSans) typeface (SIL Open Font License 1.1).
+
 ## Downloaded by the television
 
 

@@ -14,3 +14,9 @@ android/build/
 android/app/build/
 android/app/.cxx/
 android/local.properties
+ios/build/
+ios/*.xcodeproj/
+ios/*.xcworkspace/
+ios/Pods/
+ios/Podfile.lock
+ios/StremCompat/Assets.xcassets/AppIcon.appiconset/icon.png

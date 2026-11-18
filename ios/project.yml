@@ -1,0 +1,33 @@
+# The iPhone and iPad app, as XcodeGen reads it (xcodegen generate, then pod install):
+# scripts/package-ios.js first stages build/service and build/NodeMobile.xcframework.
+name: StremCompat
+options:
+  bundleIdPrefix: io.github.alexesmm
+  deploymentTarget:
+    iOS: "15.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "4.4.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  StremCompat:
+    type: application
+    platform: iOS
+    sources:
+      - path: StremCompat
+      - path: build/service
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - framework: build/NodeMobile.xcframework
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.alexesmm.stremcompat
+        PRODUCT_NAME: StremCompat
+        INFOPLIST_FILE: StremCompat/Info.plist
+        SWIFT_OBJC_BRIDGING_HEADER: StremCompat/Bridging.h
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ENABLE_BITCODE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

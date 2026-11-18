@@ -1,0 +1,7 @@
+# VLCKit plays what the phone's own player cannot (Matroska, DTS, TrueHD, embedded subtitles).
+platform :ios, '15.0'
+
+target 'StremCompat' do
+  use_frameworks!
+  pod 'MobileVLCKit', '~> 3.6.0'
+end

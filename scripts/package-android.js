@@ -3,7 +3,7 @@
 // Builds the Android TV apps: dist/StremCompat-v<version>-AndroidTV.apk and StremCompat-Native-v<version>-AndroidTV.apk.
 //
 //   1. the pages and the local server, staged as for LG with the android-tv profile (build-stage.js)
-//   2. nodejs-mobile's Node for Android, downloaded once into .cache
+//   2. nodejs-mobile's Node for Android, downloaded once into .cache (scripts/lib/mobile-stage.js)
 //   3. what android/app/build.gradle reads from .build/android-tv-app, then Gradle
 //
 // Needs the Android SDK and NDK (ANDROID_HOME, by default ~/Android/sdk), a JDK 17 or newer
@@ -12,91 +12,22 @@
 //
 // Usage: node scripts/package-android.js
 
-var cp = require('child_process');
 var fs = require('fs');
-var https = require('https');
 var os = require('os');
 var path = require('path');
+var { root, run, nodeMobile, stageService } = require('./lib/mobile-stage');
 
-var root = path.resolve(__dirname, '..');
-var PROFILE = 'android-tv';
-var NODE_VERSION = 'v18.20.4';
-var NODE_ZIP = 'nodejs-mobile-' + NODE_VERSION + '-android.zip';
-var NODE_URL =
-  'https://github.com/nodejs-mobile/nodejs-mobile/releases/download/' + NODE_VERSION + '/' + NODE_ZIP;
 var ABIS = ['armeabi-v7a', 'arm64-v8a'];
 /* FFmpeg and FFprobe are static 32-bit ARM programs, which arm64 TVs that still run 32-bit code
    run too. The webOS torrent engine is built for webOS's C library and does not run on Android:
    torrents use WebTorrent inside the server instead (platforms/android/engine). */
 var PROGRAMS = { ffmpeg: 'libffmpeg.so', ffprobe: 'libffprobe.so' };
-
-var profile = JSON.parse(fs.readFileSync(path.join(root, 'profiles', PROFILE + '.json'), 'utf8'));
 var stage = path.join(root, '.build', 'android-tv-app');
-var cache = path.join(root, '.cache', 'nodejs-mobile-' + NODE_VERSION);
-
-function run(command, args, options) {
-  /* Windows runs .bat files only through its shell */
-  var r = cp.spawnSync(
-    command,
-    args,
-    Object.assign({ stdio: 'inherit', shell: /\.bat$/.test(command) }, options || {})
-  );
-  if (r.status !== 0) throw new Error(command + ' ' + args.join(' ') + ' failed');
-}
-function download(url, file) {
-  return new Promise(function (ok, bad) {
-    https
-      .get(url, function (res) {
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location)
-          return download(res.headers.location, file).then(ok, bad);
-        if (res.statusCode !== 200) return bad(new Error(url + ': ' + res.statusCode));
-        var out = fs.createWriteStream(file);
-        res.pipe(out);
-        out.on('finish', function () {
-          out.close(ok);
-        });
-      })
-      .on('error', bad);
-  });
-}
-
-async function nodeMobile() {
-  if (fs.existsSync(path.join(cache, 'bin', 'arm64-v8a', 'libnode.so'))) return;
-  fs.mkdirSync(cache, { recursive: true });
-  var zip = path.join(cache, NODE_ZIP);
-  console.log('Downloading ' + NODE_URL);
-  await download(NODE_URL, zip);
-  /* bsdtar opens zip files; on Windows it is the system's own, not the tar of Git's tools */
-  run(process.platform === 'win32' ? path.join(process.env.SystemRoot, 'System32', 'tar.exe') : 'tar', [
-    '-xf',
-    zip,
-    '-C',
-    cache
-  ]);
-  var inner = path.join(cache, 'nodejs-mobile');
-  if (fs.existsSync(inner)) {
-    fs.readdirSync(inner).forEach(function (name) {
-      fs.renameSync(path.join(inner, name), path.join(cache, name));
-    });
-    fs.rmdirSync(inner);
-  }
-  fs.unlinkSync(zip);
-}
 
 (async function () {
-  run(process.execPath, [path.join(root, 'scripts', 'build-ui.js')]);
-  run(process.execPath, [path.join(root, 'scripts', 'build-stage.js'), PROFILE]);
-  await nodeMobile();
-
   fs.rmSync(stage, { recursive: true, force: true });
-  var service = path.join(root, '.build', PROFILE, 'service');
-  fs.cpSync(service, path.join(stage, 'assets', 'service'), {
-    recursive: true,
-    filter: function (source) {
-      var name = path.relative(service, source).split(path.sep)[0];
-      return name !== 'bin' && name !== 'subcache' && !/\.log$/i.test(source);
-    }
-  });
+  var profile = stageService(path.join(stage, 'assets', 'service'));
+  var cache = await nodeMobile('android', path.join('bin', 'arm64-v8a', 'libnode.so'));
   ABIS.forEach(function (abi) {
     var libs = path.join(stage, 'jniLibs', abi);
     fs.mkdirSync(libs, { recursive: true });
@@ -107,20 +38,6 @@ async function nodeMobile() {
       fs.copyFileSync(from, path.join(libs, PROGRAMS[name]));
     });
   });
-  /* the torrent engine, bundled with WebTorrent into one file (platforms/android/engine) */
-  run(process.execPath, [
-    path.join(root, 'node_modules', 'esbuild', 'bin', 'esbuild'),
-    path.join(root, 'platforms', 'android', 'engine', 'torrent-engine.js'),
-    '--bundle',
-    '--platform=node',
-    '--target=node18',
-    '--log-level=warning',
-    '--external:utp-native',
-    '--external:bufferutil',
-    '--external:utf-8-validate',
-    '--external:wrtc',
-    '--outfile=' + path.join(stage, 'assets', 'service', 'engine', 'torrent-engine.js')
-  ]);
   fs.cpSync(path.join(cache, 'include'), path.join(stage, 'node', 'include'), { recursive: true });
   fs.cpSync(path.join(cache, 'bin'), path.join(stage, 'node', 'bin'), { recursive: true });
 

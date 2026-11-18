@@ -56,7 +56,7 @@ function renderTabs() {
   });
 }
 
-function selectTab(id) {
+export function selectTab(id) {
   /* the tab already shown: back to its first view, or to its top when already there */
   if (id === currentTab) {
     if (closers.length) closeAll();

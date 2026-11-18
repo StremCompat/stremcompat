@@ -1,0 +1,49 @@
+name: iOS app
+
+# An unsigned .ipa (to install with Sideloadly or AltStore, which sign it with the person's own
+# Apple ID) and screenshots from the simulator.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ios]
+
+jobs:
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run package:ios
+      - run: brew install xcodegen
+      - name: Xcode project and VLCKit
+        working-directory: ios
+        run: xcodegen generate && pod install
+      - name: Unsigned IPA
+        working-directory: ios
+        run: |
+          xcodebuild -quiet -workspace StremCompat.xcworkspace -scheme StremCompat -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          version=$(node -p "require('../package.json').version")
+          mkdir -p build/ipa/Payload
+          cp -R build/dd/Build/Products/Release-iphoneos/StremCompat.app build/ipa/Payload/
+          (cd build/ipa && zip -qry "../StremCompat-v$version-beta-iOS.ipa" Payload)
+      - name: Simulator build
+        working-directory: ios
+        run: |
+          xcodebuild -quiet -workspace StremCompat.xcworkspace -scheme StremCompat -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd-sim \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Screenshots
+        run: bash scripts/ios-screens.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios
+          path: |
+            ios/build/*.ipa
+            ios/build/screens/
