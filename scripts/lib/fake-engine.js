@@ -18,6 +18,7 @@ var server = http.createServer(function (req, res) {
 });
 
 var streams = 0,
+  removed = [],
   magnets = [];
 function say(value) {
   process.stdout.write(JSON.stringify(value) + '\n');
@@ -61,8 +62,11 @@ server.listen(0, '127.0.0.1', function () {
           stream: 's' + streams,
           url: 'http://127.0.0.1:' + port + '/stream/' + p[2] + '/' + p[3]
         });
+      } else if (p[0] === 'remove') {
+        removed.push(p[1]);
+        say({ event: 'removed', torrent: p[1], message: '' });
       } else if (p[0] === 'stats') {
-        say({ event: 'stats', torrents: magnets.length, streams: streams, requests: 0, peers: 3, seeds: 1, downBps: 5, upBps: 1, memUsed: 0, memCap: 1, diskUsed: 0, diskCap: 2, magnets: magnets });
+        say({ event: 'stats', torrents: magnets.length, streams: streams, requests: 0, peers: 3, seeds: 1, downBps: 5, upBps: 1, memUsed: 0, memCap: 1, diskUsed: 0, diskCap: 2, magnets: magnets, removed: removed });
       }
     });
   });

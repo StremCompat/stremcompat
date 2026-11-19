@@ -135,6 +135,14 @@ function spawn(args) {
         stream: id,
         url: 'http://127.0.0.1:' + port + '/' + id
       });
+    } else if (p[0] === 'remove') {
+      t = client.get(p[1]);
+      if (!t) return;
+      Object.keys(streams).forEach(function (id) {
+        if (streams[id].torrent === t) delete streams[id];
+      });
+      t.destroy({ destroyStore: true });
+      say({ event: 'removed', torrent: t.infoHash, message: '' });
     } else if (p[0] === 'stats') {
       var used = 0,
         peers = 0;

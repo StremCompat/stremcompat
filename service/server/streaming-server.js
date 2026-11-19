@@ -206,11 +206,14 @@ function startEngine(folder, disk) {
   return true;
 }
 
+/* stops the engine; the child it was, for whoever waits for it to leave, or null */
 function stopEngine() {
-  if (!engine) return;
+  if (!engine) return null;
   var child = engine.child;
   engine = null;
   stats = null;
+  clearTimeout(releaseTimer);
+  releaseTimer = null;
   failAll('engine stopped');
   /* it leaves by itself when its input closes, which also clears what it kept on storage */
   try {
@@ -221,6 +224,41 @@ function stopEngine() {
       child.kill('SIGKILL');
     } catch (e) {}
   }, 5000);
+  return child;
+}
+
+/* The TV plays one torrent at a time. The others go as soon as a new one is asked for, and the one
+   played goes RELEASE_GRACE_MS after its player left, unless it is asked for again. Kept alive, a
+   stalled torrent held its peers and memory, and a few source changes filled the TV's RAM (webos#19). */
+var RELEASE_GRACE_MS = 30000;
+var releaseTimer = null;
+
+function dropTorrent(hash) {
+  var t = torrents[hash];
+  if (!t) return;
+  delete torrents[hash];
+  settle(t.waiting, 'removed');
+  Object.keys(t.streams).forEach(function (index) {
+    settle(t.streams[index].waiting, 'removed');
+  });
+  send('remove\t' + (t.id || hash));
+}
+
+function dropOthers(hash) {
+  clearTimeout(releaseTimer);
+  releaseTimer = null;
+  Object.keys(torrents).forEach(function (other) {
+    if (other !== hash) dropTorrent(other);
+  });
+}
+
+/* the player left: every torrent goes after the grace time */
+function releaseTorrents() {
+  clearTimeout(releaseTimer);
+  releaseTimer = setTimeout(function () {
+    releaseTimer = null;
+    Object.keys(torrents).forEach(dropTorrent);
+  }, RELEASE_GRACE_MS);
 }
 
 function torrentById(id) {
@@ -265,6 +303,10 @@ function onEngineMessage(m) {
         if (t.streams[index].id === m.stream) delete t.streams[index];
       });
     }
+  } else if (m.event === 'removed') {
+    /* the engine let it go by itself: the next request adds it again */
+    t = torrentById(m.torrent);
+    if (t) delete torrents[t.hash];
   } else if (m.event === 'stats') {
     stats = m;
   } else if (m.event === 'error' || m.event === 'failed') {
@@ -450,8 +492,22 @@ function folderMb(folder) {
   walk(path.join(folder, 'cache'));
   return Math.round(bytes / 1048576);
 }
+/* a torrent still held by a player keeps its files; once left (or only waiting for its grace time to
+   end), the engine stops and its files go */
 function clearTorrentCache(cb) {
-  if (engine) return cb({ cleared: false, running: true });
+  if (engine && Object.keys(torrents).length && !releaseTimer) return cb({ cleared: false, running: true });
+  var child = stopEngine(),
+    done = false;
+  function clear() {
+    if (done) return;
+    done = true;
+    clearFolders(cb);
+  }
+  if (!child) return clear();
+  child.on('exit', clear);
+  setTimeout(clear, 6000);
+}
+function clearFolders(cb) {
   cacheFolders(function (folders) {
     var mb = 0;
     folders.forEach(function (folder) {
@@ -498,20 +554,33 @@ function parseAddress(u) {
 }
 
 /* ---------- the OpenSubtitles hash, so subtitle addons can match this exact file ---------- */
+/* gives up after OPENSUB_TIMEOUT_MS: on a stalled torrent the last piece never comes, and the open
+   request kept the engine from ever stopping */
+var OPENSUB_TIMEOUT_MS = 15000;
 function readRange(url, start, end, cb) {
-  var o = urlmod.parse(url);
+  var o = urlmod.parse(url),
+    chunks = [],
+    done = false;
   o.headers = { Range: 'bytes=' + start + '-' + end };
-  var chunks = [];
+  function finish(err, data) {
+    if (done) return;
+    done = true;
+    cb(err, data);
+  }
   var req = http.get(o, function (res) {
     res.on('data', function (d) {
       chunks.push(d);
     });
     res.on('end', function () {
-      cb(res.statusCode < 400 ? null : 'status ' + res.statusCode, Buffer.concat(chunks));
+      finish(res.statusCode < 400 ? null : 'status ' + res.statusCode, Buffer.concat(chunks));
     });
   });
+  req.setTimeout(OPENSUB_TIMEOUT_MS, function () {
+    req.abort();
+    finish('timeout');
+  });
   req.on('error', function (e) {
-    cb(e.message);
+    finish(e.message);
   });
 }
 
@@ -559,6 +628,7 @@ function handleRequest(req, res) {
   var parsed = urlmod.parse(req.url, true);
   var address = parseAddress(req.url);
   if (address) {
+    dropOthers(address.hash);
     return streamFor(address.hash, address.index, address.trackers, function (err, entry) {
       if (err) {
         dbg('torrent ' + address.hash + ': ' + err);
@@ -640,6 +710,7 @@ module.exports = {
   engineStatus: engineStatus,
   opensubHash: opensubHash,
   portUp: portUp,
+  releaseTorrents: releaseTorrents,
   startStreamingServer: startStreamingServer,
   streamingServerUp: streamingServerUp,
   torrentFiles: torrentFiles,

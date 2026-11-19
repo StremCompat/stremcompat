@@ -232,6 +232,12 @@ function spriteGen(q, res) {
   sendJson(res, { ok: true, buckets: times });
 }
 
+/* the player left: the frames still to make are not wanted */
+function stopPreviews() {
+  if (previews && previews.worker) previews.worker.kill('SIGKILL');
+  previews = null;
+}
+
 function nearestIndex(times, target, allowed) {
   var best = -1;
   times.forEach(function (time, i) {
@@ -274,5 +280,6 @@ module.exports = {
   describe: describe,
   grabFrame: grabFrame,
   probeInfo: probeInfo,
-  spriteGen: spriteGen
+  spriteGen: spriteGen,
+  stopPreviews: stopPreviews
 };

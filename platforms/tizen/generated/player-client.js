@@ -2293,17 +2293,35 @@ function mediaReady() {
     startupWatch = null;
   }
 }
+/* lets go of the video: the TV's decoder and the connection to the source */
+function unloadVideo() {
+  try {
+    v.pause();
+    v.removeAttribute('src');
+    v.load();
+  } catch (e) {}
+}
+/* leaving this video for good: the server stops its previews and subtitle reading, and a torrent goes
+   after a short grace (streaming-server.js), so a stalled one does not keep the TV's memory while
+   another source plays (webos#19). then() runs once the server has the message (a page change would
+   cancel it), or after 400 ms at the latest. */
+function releaseVideo(then) {
+  var done = false;
+  function next() {
+    if (done) return;
+    done = true;
+    if (then) then();
+  }
+  xhr('/release', next);
+  setTimeout(next, 400);
+}
 function retryStartup(reason) {
   if (mediaUsable || startupRetry >= 1 || startupResetting) return false;
   startupRetry++;
   startupResetting = true;
   diag('media_start_retry', { reason: reason });
   showToast(P.retrying);
-  try {
-    v.pause();
-    v.removeAttribute('src');
-    v.load();
-  } catch (e) {}
+  unloadVideo();
   setTimeout(function () {
     startupResetting = false;
     try {
@@ -3435,13 +3453,23 @@ function hideSourceFailed() {
   document.getElementById('fail').className = '';
 }
 function tryAnotherSource() {
+  var at = Date.now(),
+    failedKey = 'tvfailed_' + ID + '_' + (VID || ID);
   try {
+    /* every source that failed in the last minutes, so the next try never goes back to one of them */
+    var kept = JSON.parse(localStorage.getItem(failedKey) || 'null'),
+      failed = kept && at - kept.at < 10 * 60 * 1000 ? kept.sources : [];
+    failed.push({ addon: ADDON, text: SNAME });
+    localStorage.setItem(failedKey, JSON.stringify({ at: at, sources: failed }));
     localStorage.setItem(
       'tvretry_' + ID + '_' + (VID || ID),
-      JSON.stringify({ at: Date.now(), addon: ADDON, text: SNAME })
+      JSON.stringify({ at: at, addon: ADDON, text: SNAME })
     );
   } catch (e) {}
-  location.replace(appUrl('/' + (BACK || 'beta')));
+  unloadVideo();
+  releaseVideo(function () {
+    location.replace(appUrl('/' + (BACK || 'beta')));
+  });
 }
 /* A film that was playing and lost its link opens again where it was, once, before another
    source is offered: the engine's link for a torrent ends after a long pause (the address on
@@ -3757,6 +3785,8 @@ function exit() {
   try {
     v.pause();
   } catch (e) {}
+  /* the progress below still reads the video's time: it is let go only on leaving */
+  releaseVideo();
   try {
     window.removeEventListener('popstate', onPop);
   } catch (e) {}
@@ -3777,6 +3807,7 @@ function exit() {
     if (left) return;
     left = true;
     leavePlayer();
+    unloadVideo();
   }
   setTimeout(leave, 900);
   try {

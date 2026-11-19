@@ -451,6 +451,13 @@ function embCues(q, res) {
   });
 }
 
+/* the player left: the track it was reading is not wanted */
+function stopReading() {
+  if (!reading) return;
+  stopWorker(reading);
+  reading = null;
+}
+
 /* the player left without saying so */
 setInterval(function () {
   if (!reading || Date.now() - reading.polledAt <= ABANDONED_AFTER_MS) return;
@@ -466,5 +473,6 @@ module.exports = {
   parseCues: parseCues,
   parseSrt: parseSrt,
   subtitleCues: subtitleCues,
+  stopReading: stopReading,
   subtitleText: subtitleText
 };

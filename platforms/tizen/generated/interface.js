@@ -4100,10 +4100,15 @@ function takeRetryRequest(id, vid) {
   try {
     localStorage.removeItem(retryKey(id, vid));
   } catch (e) {}
-  return pref && pref.at && Date.now() - pref.at < 10 * 60 * 1000 ? pref : null;
+  if (!pref || !pref.at || Date.now() - pref.at >= 10 * 60 * 1000) return null;
+  /* the player also keeps every source that failed in these minutes (src/player/controls.js) */
+  var kept = lsJson('tvfailed_' + id + '_' + vid);
+  pref.failed = kept && kept.sources && Date.now() - kept.at < 10 * 60 * 1000 ? kept.sources : [];
+  return pref;
 }
-/* the first source in list order that is not the one that failed */
+/* the first source in list order that is not one that failed */
 function nextSourceAfterFailure(items, pref) {
+  var failed = (pref.failed || []).concat([pref]);
   for (var i = 0; i < items.length; i++) {
     var s = items[i];
     if (s.stored) continue;
@@ -4111,8 +4116,10 @@ function nextSourceAfterFailure(items, pref) {
     var text = String((s.name || '') + ' ' + (s.title || s.description || ''))
       .replace(/[\r\n\0]/g, ' ')
       .slice(0, 400);
-    if (s.addon === pref.addon && text === pref.text) continue;
-    return s;
+    var tried = failed.some(function (f) {
+      return s.addon === f.addon && text === f.text;
+    });
+    if (!tried) return s;
   }
   return null;
 }

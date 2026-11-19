@@ -191,13 +191,23 @@ function hideSourceFailed() {
   document.getElementById('fail').className = '';
 }
 function tryAnotherSource() {
+  var at = Date.now(),
+    failedKey = 'tvfailed_' + ID + '_' + (VID || ID);
   try {
+    /* every source that failed in the last minutes, so the next try never goes back to one of them */
+    var kept = JSON.parse(localStorage.getItem(failedKey) || 'null'),
+      failed = kept && at - kept.at < 10 * 60 * 1000 ? kept.sources : [];
+    failed.push({ addon: ADDON, text: SNAME });
+    localStorage.setItem(failedKey, JSON.stringify({ at: at, sources: failed }));
     localStorage.setItem(
       'tvretry_' + ID + '_' + (VID || ID),
-      JSON.stringify({ at: Date.now(), addon: ADDON, text: SNAME })
+      JSON.stringify({ at: at, addon: ADDON, text: SNAME })
     );
   } catch (e) {}
-  location.replace(appUrl('/' + (BACK || 'beta')));
+  unloadVideo();
+  releaseVideo(function () {
+    location.replace(appUrl('/' + (BACK || 'beta')));
+  });
 }
 /* A film that was playing and lost its link opens again where it was, once, before another
    source is offered: the engine's link for a torrent ends after a long pause (the address on

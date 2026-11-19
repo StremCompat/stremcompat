@@ -1008,27 +1008,39 @@ async function engineRoutesTests() {
   assert.strictEqual(settings.running, true, 'the engine is not reported as running');
   assert.strictEqual((await ask('/not-a-torrent')).status, 404, 'an unknown address was answered');
   assert.strictEqual((await ask('/' + 'b'.repeat(39) + '/1')).status, 404, 'a malformed hash was accepted');
-  var refused = await ask('/' + 'deadbeef'.repeat(5) + '/0');
-  assert.strictEqual(refused.status, 503, 'a torrent the engine refuses was not reported');
-  var listed = JSON.parse(
-    (
-      await request({
-        hostname: '127.0.0.1',
-        port: appPort,
-        path: '/torrentfiles?u=' + encodeURIComponent('http://127.0.0.1:11470/' + hash + '/1')
-      })
-    ).text
-  ).files;
+  async function listed() {
+    return JSON.parse(
+      (
+        await request({
+          hostname: '127.0.0.1',
+          port: appPort,
+          path: '/torrentfiles?u=' + encodeURIComponent('http://127.0.0.1:11470/' + hash + '/1')
+        })
+      ).text
+    ).files;
+  }
+  async function app(p) {
+    return JSON.parse((await request({ hostname: '127.0.0.1', port: appPort, path: p })).text);
+  }
   assert.deepStrictEqual(
-    listed,
+    await listed(),
     [
       { index: 1, name: 'movie.mkv', size: 200000, playing: true },
       { index: 2, name: 'sample.mkv', size: 5000, playing: false }
     ],
     'the video files of a torrent were not listed for the player'
   );
-  var busy = JSON.parse((await request({ hostname: '127.0.0.1', port: appPort, path: '/clearcache' })).text);
-  assert.strictEqual(busy.running, true, 'the cache of a torrent that is playing was cleared');
+  assert.strictEqual((await app('/clearcache')).running, true, 'the cache of a torrent that is playing was cleared');
+  /* another torrent asked for: the one before goes (webos#19, a stalled torrent kept the TV's RAM) */
+  var refused = await ask('/' + 'deadbeef'.repeat(5) + '/0');
+  assert.strictEqual(refused.status, 503, 'a torrent the engine refuses was not reported');
+  assert.deepStrictEqual(await listed(), [], 'a torrent stayed in the engine after another one was asked for');
+  /* the player left: once released, clearing the cache stops the engine instead of refusing */
+  assert.strictEqual((await ask('/' + hash + '/1')).status, 302, 'a torrent could not be played again');
+  assert.strictEqual((await app('/release')).ok, true, 'the player could not release its torrent');
+  var cleared = await app('/clearcache');
+  assert.strictEqual(cleared.cleared, true, 'the cache was not cleared after the player left: ' + JSON.stringify(cleared));
+  assert.strictEqual(JSON.parse((await ask('/settings')).text).running, false, 'the engine kept running after clearing');
   var file = await ask('/streamfile');
   assert.strictEqual(file.status, 404, 'the torrent address answers the interface routes');
   console.log(

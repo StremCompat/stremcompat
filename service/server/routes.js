@@ -9,13 +9,20 @@ var { EMBEDDED_INTERFACE_SCRIPT_B64, EMBEDDED_INTERFACE_HTML_B64 } = require('./
 var { safeText } = require('./text');
 var { fetchJson, readJsonBody, sendJson } = require('./http-util');
 var { fontFile, logoPng, readUiAsset, renderInterfaceHtml } = require('./ui-assets');
-var { clearTorrentCache, engineStatus, setUsbFirst, torrentFiles, usbFirst } = require('./streaming-server');
+var {
+  clearTorrentCache,
+  engineStatus,
+  releaseTorrents,
+  setUsbFirst,
+  torrentFiles,
+  usbFirst
+} = require('./streaming-server');
 var { seasonEpisodes } = require('./episodes');
 var { remoteAddress, setServerAddress, streamingUrl } = require('./server-address');
 var { getStreamRef, storeStreamRef } = require('./stream-refs');
 var { handleProxy } = require('./proxy');
 var { playerConstants, playerContext, playerPage } = require('./player-page');
-var { embCues, embStart, embTracks, subtitleCues } = require('./subtitles');
+var { embCues, embStart, embTracks, stopReading, subtitleCues } = require('./subtitles');
 var { addonSubtitles } = require('./subtitle-addons');
 var { postStremioApi } = require('./stremio-api');
 var {
@@ -28,7 +35,7 @@ var {
   setProfilePin
 } = require('./nuvio-account');
 var { ytResolve } = require('./youtube');
-var { grabFrame, probeInfo, spriteGen } = require('./media');
+var { grabFrame, probeInfo, spriteGen, stopPreviews } = require('./media');
 var { bgResize } = require('./images');
 var { checkUpdate } = require('./update-check');
 var { skipTimes } = require('./skips');
@@ -383,6 +390,14 @@ var ROUTES = {
   /* torrents always on a USB drive (Settings); without usb= it only answers the current choice */
   '/torrentplace': function (req, res, q) {
     sendJson(res, { usb: q.usb == null ? usbFirst() : setUsbFirst(q.usb === '1') });
+  },
+  /* a player left its video: its previews and subtitle reading stop, and a torrent goes after a
+     short grace (streaming-server.js) */
+  '/release': function (req, res) {
+    stopPreviews();
+    stopReading();
+    releaseTorrents();
+    sendJson(res, { ok: true });
   },
   '/torrentfiles': function (req, res, q) {
     sendJson(res, { files: torrentFiles(q.u || '') });

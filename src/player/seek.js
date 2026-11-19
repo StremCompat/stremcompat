@@ -95,6 +95,8 @@ function exit() {
   try {
     v.pause();
   } catch (e) {}
+  /* the progress below still reads the video's time: it is let go only on leaving */
+  releaseVideo();
   try {
     window.removeEventListener('popstate', onPop);
   } catch (e) {}
@@ -115,6 +117,7 @@ function exit() {
     if (left) return;
     left = true;
     leavePlayer();
+    unloadVideo();
   }
   setTimeout(leave, 900);
   try {

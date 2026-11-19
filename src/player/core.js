@@ -84,17 +84,35 @@ function mediaReady() {
     startupWatch = null;
   }
 }
+/* lets go of the video: the TV's decoder and the connection to the source */
+function unloadVideo() {
+  try {
+    v.pause();
+    v.removeAttribute('src');
+    v.load();
+  } catch (e) {}
+}
+/* leaving this video for good: the server stops its previews and subtitle reading, and a torrent goes
+   after a short grace (streaming-server.js), so a stalled one does not keep the TV's memory while
+   another source plays (webos#19). then() runs once the server has the message (a page change would
+   cancel it), or after 400 ms at the latest. */
+function releaseVideo(then) {
+  var done = false;
+  function next() {
+    if (done) return;
+    done = true;
+    if (then) then();
+  }
+  xhr('/release', next);
+  setTimeout(next, 400);
+}
 function retryStartup(reason) {
   if (mediaUsable || startupRetry >= 1 || startupResetting) return false;
   startupRetry++;
   startupResetting = true;
   diag('media_start_retry', { reason: reason });
   showToast(P.retrying);
-  try {
-    v.pause();
-    v.removeAttribute('src');
-    v.load();
-  } catch (e) {}
+  unloadVideo();
   setTimeout(function () {
     startupResetting = false;
     try {
