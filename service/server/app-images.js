@@ -229,10 +229,11 @@ function fetchAndSend(address, width, file, res, webpOk) {
       if (isSvg(body)) return done('image/svg+xml', body);
       var plain = isJpeg(body) ? 'image/jpeg' : isPng(body) ? 'image/png' : '';
       if (plain && (!width || body.length <= SMALL_ENOUGH)) return done(plain, body);
-      /* With FFmpeg busy on others, what this browser can show goes as it is now, and the small copy
-         is made behind it for the next time: a row of collection covers waited one FFmpeg run each,
-         seconds apiece on a TV, the first time Home showed them. */
-      var asIs = plain || (webpOk && browserOnly(body));
+      /* With FFmpeg busy on others, a browser (it takes WebP) gets what it can show as it is now, and
+         the small copy is made behind it for the next time: a row of collection covers waited one
+         FFmpeg run each, seconds apiece on a TV. The native interface always waits for the small
+         copy: it draws pictures as textures, and a full-size backdrop can pass what the TV's GPU takes. */
+      var asIs = webpOk && (plain || browserOnly(body));
       if (asIs && converting) answer(asIs, body);
       /* a picture that can be transparent (PNG, WebP, GIF: logos over the artwork) stays a PNG, so
          its transparency is kept; only pictures that have none become JPEG */

@@ -119,6 +119,8 @@ function useProfile(req, res, q) {
         'profileFace',
         JSON.stringify({ name: p.name, color: p.color, avatar: p.avatar })
       );
+      /* the profile in use, only asked for its PIN: nothing to fetch again */
+      if (p.current) return sendJson(res, { ok: true });
       L.reloadAccount(function () {
         withLibrary(L, function () {
           runtime.restart();

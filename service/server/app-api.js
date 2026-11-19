@@ -74,7 +74,9 @@ function answerState(res) {
     language: L.uiLanguage(),
     signedIn: !!L.authKey(),
     provider: L.authKey() ? (L.isNuvioAccount() ? 'nuvio' : 'stremio') : '',
-    email: (u && u.email) || ''
+    email: (u && u.email) || '',
+    /* Settings > Interface: the Magic Remote pointer, off for those who press it by mistake */
+    pointer: L.setting('pointer', 'on') !== 'off'
   });
 }
 

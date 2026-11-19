@@ -215,10 +215,13 @@ var profilePanel = {
           return toast(tx('profilesUnavailable'));
         }
         lsSet('profileFace', { name: p.name, color: p.color, avatar: p.avatar });
+        /* the profile in use, only asked for its PIN: what this TV keeps of it stays (it was
+           emptied on every start, and Home came up without its addons, then rebuilt itself) */
+        if (p.current) return self.done(false);
         postJson(API + '/api/getUser', { authKey: self.account }, function (u) {
           if (u && u.result) lsSet('user', u.result);
           forgetProfileData();
-          self.done(!p.current);
+          self.done(true);
         });
       },
       20000
