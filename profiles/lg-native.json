@@ -4,7 +4,7 @@
   "appId": "io.github.alexesmm.stremcompat.native",
   "serviceId": "io.github.alexesmm.stremcompat.native.server",
   "title": "StremCompat Native (Beta)",
-  "version": "5.2.1",
+  "version": "5.2.2",
   "port": 8083,
   "graphicsResolution": "1920x1080",
   "ecmaTarget": "chrome38",

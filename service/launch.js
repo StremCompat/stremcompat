@@ -222,6 +222,9 @@ function startRuntime() {
   }
   env.HOME = env.HOME || '/home/root';
   env.USER = env.USER || 'root';
+  /* Node's own helper threads (4 by default) do every name lookup and disk read: with a Home asking
+     for dozens of catalogs and covers at once, a cover's disk copy waited behind addons' lookups */
+  env.UV_THREADPOOL_SIZE = env.UV_THREADPOOL_SIZE || '16';
 
   log('Starting the local server on Node ' + process.version);
   try {

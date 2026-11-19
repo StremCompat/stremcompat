@@ -3272,6 +3272,8 @@ function discoverPageUrl(cat, genre, offset) {
     (cat.query || '')
   );
 }
+var CATALOG_FAILED_MS = 3 * 60 * 1000,
+  catalogFailedAt = {};
 function getCatalogUrl(url, key, type, cb) {
   var ck = 'beta_cat_' + key,
     cached = lsJson(ck);
@@ -3286,14 +3288,22 @@ function getCatalogUrl(url, key, type, cb) {
     cb(cached.items, true);
   else cached = null;
   /* Catalogs take the second lane (net.js), away from the pictures, and a failed one is asked once
-     more: a row that came back empty on a timeout stayed hidden for the whole session. */
+     more: a row that came back empty on a timeout stayed hidden for the whole session. One that failed
+     twice is not asked again for a few minutes, so a dead addon does not hold every Home for its
+     timeouts. */
   var tries = 0;
+  if (Date.now() - (catalogFailedAt[url] || 0) < CATALOG_FAILED_MS) {
+    if (!cached) cb([], false);
+    return;
+  }
   function ask() {
     tries++;
     xhrJson(url, answered, 20000, true);
   }
   function answered(j, failure) {
     if (failure && tries < 2) return ask();
+    if (failure) catalogFailedAt[url] = Date.now();
+    else delete catalogFailedAt[url];
     var metas = (j && j.metas) || [];
     if (!metas.length) {
       if (!cached) cb([], false);
