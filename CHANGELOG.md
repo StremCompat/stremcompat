@@ -4,6 +4,8 @@ What changed in each version, newest first. The full notes of each release are i
 
 ## Unreleased
 
+## 4.5.3 / Native 5.2.3
+
 - Native: the Nuvio profile's picture at the top of the side menu again, and it can be selected (who is watching, or the account for Stremio).
 - Native: subtitles grouped by language, and languages matched whatever code the file or the addon uses ("por", "pob", "pt-BR").
 - Native: the recommended source leads the list and has the focus when the sources open; more workers for slow addons.
