@@ -78,8 +78,9 @@ function finished(session, how) {
   }
 }
 
+/* leaving is said even without a length: the server then lets the video's torrent go */
 function report(item, time, duration, event) {
-  if (!item || !(duration > 0)) return;
+  if (!item || (!(duration > 0) && event !== 'leave')) return;
   api(
     '/app/progress',
     Object.assign({}, item, { time: Math.round(time), duration: Math.round(duration), event })

@@ -6,6 +6,7 @@
 var { readJsonBody, sendJson } = require('./http-util');
 var { playerConstants, playerContext } = require('./player-page');
 var { getStreamRef, storeStreamRef } = require('./stream-refs');
+var { releaseTorrents } = require('./streaming-server');
 var { seriesVideos, setWatched } = require('./watched');
 var runtime = require('./app-runtime');
 
@@ -308,6 +309,11 @@ function lateReport(p, key) {
    'pause', 'seek', 'leave', 'next' */
 function progress(req, res) {
   readJsonBody(req, 16384, function (p) {
+    /* a player that leaves lets its torrent go, even one that never knew its length (a stalled
+       torrent, webos#19): the phones' players and Native say so only here */
+    var leaving = p && (p.event === 'leave' || p.event === 'next');
+    if (leaving) releaseTorrents();
+    if (leaving && !(p.duration > 0)) return sendJson(res, { ok: true, kept: false });
     if (!p || !p.id || !p.type || !(p.duration > 0))
       return fail(res, 400, 'id, type and duration are needed');
     var L = runtime.logic();

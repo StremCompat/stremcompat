@@ -262,7 +262,8 @@ final class PlayerController: UIViewController, VLCMediaPlayerDelegate {
     /// what was watched, to the local server
     private func report(_ event: String) {
         let length = Int64(player.media?.length.intValue ?? 0), time = Int64(player.time.intValue)
-        guard let item = item, length > 0,
+        /* leaving is said even without a length: the server then lets the video's torrent go */
+        guard let item = item, length > 0 || event == "leave",
               var body = (try? JSONSerialization.jsonObject(with: Data(item.utf8))) as? [String: Any] else { return }
         body["time"] = time
         body["duration"] = length

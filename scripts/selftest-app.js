@@ -519,6 +519,9 @@ async function main() {
       )
     ).json;
     assert.strictEqual(replay.kept, true, 'a new playback of the same video was ignored');
+    /* a stalled torrent never learned its length: leaving it is still heard (the torrent goes) */
+    var stalled = await request('/app/progress', Object.assign({}, lateBase, { play: 'late-3', time: 0, duration: 0, event: 'leave' }));
+    assert.ok(stalled.json && stalled.json.ok && !stalled.json.kept, 'leaving a video without a length was refused');
 
     /* an address from the phone: a chPage of its own, behind a code, for one address */
     var phone = (await request('/app/phone/start', {})).json;

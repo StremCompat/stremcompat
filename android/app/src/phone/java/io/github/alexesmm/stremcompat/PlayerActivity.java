@@ -140,7 +140,9 @@ public class PlayerActivity extends Activity {
     /** what was watched, to the local server, off the main thread */
     private void report(String event) {
         long duration = player.getDuration(), time = player.getCurrentPosition();
-        if (item == null || duration <= 0) return;
+        /* leaving is said even without a length: the server then lets the video's torrent go */
+        if (item == null || (duration <= 0 && !event.equals("leave"))) return;
+        duration = Math.max(0, duration);
         String body;
         try {
             JSONObject o = new JSONObject(item);
