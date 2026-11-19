@@ -13,11 +13,14 @@ function hiddenNewEpisodes() {
 function showHiddenNewEpisodes() {
   lsSet(NEW_EPISODES_HIDDEN, []);
 }
+/* the row is worked out once a day: an episode watched since then leaves it at once */
 function newEpisodeItems() {
   var c = lsJson(NEW_EPISODES_KEY),
     hidden = hiddenNewEpisodes();
   return ((c && c.items) || []).filter(function (it) {
-    return hidden.indexOf(it.id) < 0;
+    var lib = lsJson(PRE + it.id),
+      watched = (lib && lib.state && lib.state.watchedEpisodes) || [];
+    return hidden.indexOf(it.id) < 0 && watched.indexOf(it.videoId) < 0;
   });
 }
 function hideNewEpisodes(id) {

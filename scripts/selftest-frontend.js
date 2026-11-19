@@ -600,6 +600,17 @@ assert.strictEqual(matchNext([{ addon:'Torrentio',quality:'1080p',title:'x.rar',
   var episodes = ctx.homeLibraryRows();
   assert.strictEqual(episodes.length, 1, 'new and upcoming episodes must share a row');
   assert.strictEqual(episodes[0].items.map(function (it) { return it.videoId; }).join(), 'aired,soon', 'an upcoming episode duplicated or replaced a newly aired episode');
+  /* a series taken out of the row stays out as an upcoming one, and a new episode watched since leaves it */
+  var store = {
+    beta_calendar: { at: 1, items: [{ id: 'gone', released: 9e15, videoId: 'g1' }, { id: 'kept', released: 9e15, videoId: 'k1' }] },
+    newEpisodesHidden: ['gone'],
+    newEpisodes: { items: [{ id: 'seen', videoId: 'seen:1:3' }, { id: 'kept', videoId: 'kept:1:2' }] },
+    lib_seen: { state: { watchedEpisodes: ['seen:1:3'] } }
+  };
+  var epCtx = { PRE: 'lib_', TV_PROFILE: {}, window: {}, lsJson: function (k) { return store[k] || null; }, lsSet: function () {} };
+  vm.runInNewContext(['new-episodes.js', 'calendar.js'].map(function (f) { return fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'data', f), 'utf8'); }).join('\n'), epCtx);
+  assert.strictEqual(epCtx.upcomingItems().map(function (it) { return it.id; }).join(), 'kept', 'a series taken out of the episodes row came back as an upcoming episode');
+  assert.strictEqual(epCtx.newEpisodeItems().map(function (it) { return it.id; }).join(), 'kept', 'a new episode watched since stayed in the episodes row');
 })();
 firstRun.context.__SC_SET_UI_LANGUAGE__('pt-BR');
 assert.strictEqual(firstRun.context.__SC_UI_LANGUAGE__(), 'pt-BR');

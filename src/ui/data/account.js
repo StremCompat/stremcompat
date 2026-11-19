@@ -196,6 +196,15 @@ function pullLib(cb) {
     );
   });
 }
+/* What belongs to the profile in use, asked again for the next one: another Nuvio profile kept
+   seeing the last one's new episodes, upcoming row and collections for up to a day. */
+function forgetProfileData() {
+  ['addons', 'newEpisodes', 'beta_calendar', 'nuvioCollections', 'nuvioHome'].forEach(function (k) {
+    try {
+      localStorage.removeItem(k);
+    } catch (e) {}
+  });
+}
 /* push one library item up to the account (datastorePut = how Stremio persists it) */
 /* Signing out: the account is told, and what this TV kept of it is forgotten */
 function signOut() {

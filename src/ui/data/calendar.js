@@ -15,12 +15,14 @@ var CALENDAR_SERIES = 30,
 var UPCOMING_MAX = 20;
 function upcomingItems() {
   var now = Date.now(),
+    hidden = hiddenNewEpisodes(),
     seen = {},
     out = [];
   var items = (calendarKept && calendarKept.items) || [];
   for (var i = 0; i < items.length && out.length < UPCOMING_MAX; i++) {
     var it = items[i];
-    if (it.released <= now || seen[it.id]) continue;
+    /* a series taken out of the episodes row stays out, aired or not */
+    if (it.released <= now || seen[it.id] || hidden.indexOf(it.id) >= 0) continue;
     seen[it.id] = 1;
     out.push({
       id: it.id,

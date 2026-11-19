@@ -223,7 +223,7 @@ var cwMenu = {
         refreshCurBoard();
         toast(tx('removedFromCw'));
       });
-    if (it.fresh)
+    if (it.fresh || it.airsAt)
       add(ICON.close, tx('hideNewEpisodes'), function () {
         hideNewEpisodes(it.id);
         self.close();

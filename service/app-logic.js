@@ -355,11 +355,8 @@ var UI_TEXT = {
     popularSeries: 'Popular · Series',
     topMovies: 'Top rated · Movies',
     topSeries: 'Top rated · Series',
-    trendingMovies: 'Trending · Movies',
-    trendingSeries: 'Trending · Series',
     continueWatching: 'Continue watching',
     myList: 'My list',
-    newEpisodes: 'New episodes',
     episodeUpdates: 'Episodes from your shows',
     newEpisodeTag: 'New · S{0} E{1}',
     cwUpNext: 'Up next · S{0} E{1}',
@@ -536,7 +533,6 @@ var UI_TEXT = {
     spoilersPictures: 'Blur unwatched pictures',
     spoilersAll: 'Hide pictures and synopses',
     spoilerHidden: 'Synopsis hidden until you watch this episode.',
-    upcomingRow: 'Upcoming episodes',
     upcomingTag: 'S{0} E{1} · {2}',
     forcedSubsSetting: 'Forced subtitles only',
     skipIntroSetting: 'Skip intro and recap',
@@ -599,15 +595,14 @@ var UI_TEXT = {
     addonRemoved: 'Addon removed',
     addonNotChanged: 'Could not change the addons on your account',
     installAddon: 'Install',
-    addonIsInstalled: 'Installed',
     removeAddon: 'Remove',
     removeAddonConfirm: 'Press OK again to remove',
     storeUnavailable: 'The store did not answer. Try again later.',
     addonsHint: 'Addons are saved on your account and show up on every device.',
     profilesHint: 'OK chooses · Down edits the profile',
     profileEditHint: 'OK on the name opens the keyboard · Back returns',
-    hideNewEpisodes: 'Hide from New episodes',
-    newEpisodesHidden: 'This series no longer appears in New episodes',
+    hideNewEpisodes: 'Hide from Episodes from your shows',
+    newEpisodesHidden: 'This series no longer appears in Episodes from your shows',
     showHiddenNewEpisodes: 'Bring back series removed from New episodes',
     newEpisodesShown: '{0} series back in New episodes',
     save: 'Save',
@@ -692,7 +687,6 @@ var UI_TEXT = {
     filterByAudio: 'By audio (dubbed)',
     filterBySubs: 'By embedded subtitles',
     clearLangFilter: 'Remove the filter (show all sources)',
-    langAll: 'All',
     langOther: 'Other',
     subsTag: 'SUBS',
     automatic: 'Automatic',
@@ -769,8 +763,6 @@ var UI_TEXT = {
     calendarTomorrow: 'Tomorrow',
     navChannels: 'Channels',
     channelsEmpty: 'No channels yet: install an addon with TV channels, or add an M3U list in Settings',
-    channelsAll: 'All',
-    m3uGroup: 'Channels',
     m3uAdd: 'Add an M3U list',
     m3uRemove: 'Remove the M3U lists',
     m3uAddress: 'Address of the M3U list',
@@ -778,10 +770,8 @@ var UI_TEXT = {
     m3uFailed: 'Could not read that list',
     m3uRemoved: 'M3U lists removed',
     liveNow: 'Now',
-    updateInstallNow: 'Install version {0}',
     updateDownloading: 'Downloading the update…',
     updateFailed: 'The update could not be installed: {0}',
-    updateCurrent: 'You have the latest version',
     signIn: 'Sign in',
     qrUnavailable: 'QR unavailable — use email',
     waitingPhone: 'Waiting for your phone',
@@ -944,11 +934,8 @@ var UI_TEXT = {
     popularSeries: 'Populares · Séries',
     topMovies: 'Mais bem avaliados · Filmes',
     topSeries: 'Mais bem avaliadas · Séries',
-    trendingMovies: 'Em alta · Filmes',
-    trendingSeries: 'Em alta · Séries',
     continueWatching: 'Continuar assistindo',
     myList: 'Minha lista',
-    newEpisodes: 'Novos episódios',
     episodeUpdates: 'Episódios das suas séries',
     newEpisodeTag: 'Novo · T{0} E{1}',
     cwUpNext: 'Próximo · T{0} E{1}',
@@ -1124,7 +1111,6 @@ var UI_TEXT = {
     spoilersPictures: 'Desfocar imagens não vistas',
     spoilersAll: 'Ocultar imagens e sinopses',
     spoilerHidden: 'Sinopse oculta até você assistir a este episódio.',
-    upcomingRow: 'Próximos episódios',
     upcomingTag: 'T{0} E{1} · {2}',
     forcedSubsSetting: 'Só legendas forçadas',
     skipIntroSetting: 'Pular abertura e recapitulação',
@@ -1187,15 +1173,14 @@ var UI_TEXT = {
     addonRemoved: 'Addon removido',
     addonNotChanged: 'Não foi possível mudar os addons da sua conta',
     installAddon: 'Instalar',
-    addonIsInstalled: 'Instalado',
     removeAddon: 'Remover',
     removeAddonConfirm: 'Aperte OK de novo para remover',
     storeUnavailable: 'A loja não respondeu. Tente mais tarde.',
     addonsHint: 'Os addons ficam salvos na sua conta e aparecem em todos os aparelhos.',
     profilesHint: 'OK escolhe · Para baixo edita o perfil',
     profileEditHint: 'OK no nome abre o teclado · Voltar retorna',
-    hideNewEpisodes: 'Não mostrar em Novos episódios',
-    newEpisodesHidden: 'Esta série não aparece mais em Novos episódios',
+    hideNewEpisodes: 'Não mostrar em Episódios das suas séries',
+    newEpisodesHidden: 'Esta série não aparece mais em Episódios das suas séries',
     showHiddenNewEpisodes: 'Trazer de volta séries tiradas de Novos episódios',
     newEpisodesShown: '{0} série(s) de volta em Novos episódios',
     save: 'Salvar',
@@ -1281,7 +1266,6 @@ var UI_TEXT = {
     filterByAudio: 'Por áudio (dublagem)',
     filterBySubs: 'Por legenda embutida',
     clearLangFilter: 'Tirar o filtro (mostrar todas as fontes)',
-    langAll: 'Todos',
     langOther: 'Outros',
     subsTag: 'LEG',
     automatic: 'Automática',
@@ -1359,8 +1343,6 @@ var UI_TEXT = {
     navChannels: 'Canais',
     channelsEmpty:
       'Nenhum canal ainda: instale um addon com canais de TV ou adicione uma lista M3U em Ajustes',
-    channelsAll: 'Todos',
-    m3uGroup: 'Canais',
     m3uAdd: 'Adicionar lista M3U',
     m3uRemove: 'Remover as listas M3U',
     m3uAddress: 'Endereço da lista M3U',
@@ -1368,10 +1350,8 @@ var UI_TEXT = {
     m3uFailed: 'Não foi possível ler essa lista',
     m3uRemoved: 'Listas M3U removidas',
     liveNow: 'Agora',
-    updateInstallNow: 'Instalar a versão {0}',
     updateDownloading: 'Baixando a atualização…',
     updateFailed: 'Não foi possível instalar a atualização: {0}',
-    updateCurrent: 'Você está na versão mais recente',
     signIn: 'Entrar',
     qrUnavailable: 'QR indisponível — use o e-mail',
     waitingPhone: 'Aguardando seu celular',
@@ -2328,6 +2308,15 @@ function pullLib(cb) {
         if (cb) cb();
       }
     );
+  });
+}
+/* What belongs to the profile in use, asked again for the next one: another Nuvio profile kept
+   seeing the last one's new episodes, upcoming row and collections for up to a day. */
+function forgetProfileData() {
+  ['addons', 'newEpisodes', 'beta_calendar', 'nuvioCollections', 'nuvioHome'].forEach(function (k) {
+    try {
+      localStorage.removeItem(k);
+    } catch (e) {}
   });
 }
 /* push one library item up to the account (datastorePut = how Stremio persists it) */
@@ -4178,11 +4167,14 @@ function hiddenNewEpisodes() {
 function showHiddenNewEpisodes() {
   lsSet(NEW_EPISODES_HIDDEN, []);
 }
+/* the row is worked out once a day: an episode watched since then leaves it at once */
 function newEpisodeItems() {
   var c = lsJson(NEW_EPISODES_KEY),
     hidden = hiddenNewEpisodes();
   return ((c && c.items) || []).filter(function (it) {
-    return hidden.indexOf(it.id) < 0;
+    var lib = lsJson(PRE + it.id),
+      watched = (lib && lib.state && lib.state.watchedEpisodes) || [];
+    return hidden.indexOf(it.id) < 0 && watched.indexOf(it.videoId) < 0;
   });
 }
 function hideNewEpisodes(id) {
@@ -4285,12 +4277,14 @@ var CALENDAR_SERIES = 30,
 var UPCOMING_MAX = 20;
 function upcomingItems() {
   var now = Date.now(),
+    hidden = hiddenNewEpisodes(),
     seen = {},
     out = [];
   var items = (calendarKept && calendarKept.items) || [];
   for (var i = 0; i < items.length && out.length < UPCOMING_MAX; i++) {
     var it = items[i];
-    if (it.released <= now || seen[it.id]) continue;
+    /* a series taken out of the episodes row stays out, aired or not */
+    if (it.released <= now || seen[it.id] || hidden.indexOf(it.id) >= 0) continue;
     seen[it.id] = 1;
     out.push({
       id: it.id,
@@ -5240,7 +5234,8 @@ window.__logic = {
   reloadAccount: function (done) {
     postJson(API + '/api/getUser', { authKey: authKey() }, function (u) {
       if (u && u.result) lsSet('user', u.result);
-      lsRawSet('addons', '');
+      forgetProfileData();
+      calendarKept = null;
       syncAddons(function () {
         syncCollections(function () {
           done();

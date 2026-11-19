@@ -110,7 +110,8 @@ window.__logic = {
   reloadAccount: function (done) {
     postJson(API + '/api/getUser', { authKey: authKey() }, function (u) {
       if (u && u.result) lsSet('user', u.result);
-      lsRawSet('addons', '');
+      forgetProfileData();
+      calendarKept = null;
       syncAddons(function () {
         syncCollections(function () {
           done();

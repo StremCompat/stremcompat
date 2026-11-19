@@ -210,7 +210,7 @@ var profilePanel = {
         lsSet('profileFace', { name: p.name, color: p.color, avatar: p.avatar });
         postJson(API + '/api/getUser', { authKey: self.account }, function (u) {
           if (u && u.result) lsSet('user', u.result);
-          lsRawSet('addons', '');
+          forgetProfileData();
           self.done(!p.current);
         });
       },
