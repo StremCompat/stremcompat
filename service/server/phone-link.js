@@ -20,7 +20,7 @@ var TEXT_MAX = 120;
 /* the home network; the tests keep it on the computer itself (no firewall question) */
 var LINK_HOST = process.env.SC_PHONE_HOST || '0.0.0.0';
 
-var link = null; /* { server, token, kind, value, timer } while a panel waits */
+var link = null; /* { server, sockets, token, kind, value, timer } while a panel waits */
 
 /* the TV's address on the home network; when the link listens on one given address (tests), that one */
 function homeAddress() {
@@ -36,12 +36,16 @@ function homeAddress() {
   return found;
 }
 
+/* the phone's open connections go too: before Node 19, closing a server leaves them answering */
 function close() {
   if (!link) return;
   clearTimeout(link.timer);
   try {
     link.server.close();
   } catch (e) {}
+  link.sockets.forEach(function (socket) {
+    socket.destroy();
+  });
   link = null;
 }
 
@@ -118,7 +122,14 @@ function start(req, res) {
     var address = homeAddress();
     if (!address) return sendJson(res, { ok: false });
     var token = crypto.randomBytes(6).toString('hex'),
-      server = http.createServer(onPhone);
+      server = http.createServer(onPhone),
+      sockets = [];
+    server.on('connection', function (socket) {
+      sockets.push(socket);
+      socket.on('close', function () {
+        sockets.splice(sockets.indexOf(socket), 1);
+      });
+    });
     server.on('error', function () {
       close();
     });
@@ -126,6 +137,7 @@ function start(req, res) {
       var url = 'http://' + address + ':' + LINK_PORT + '/' + token;
       link = {
         server: server,
+        sockets: sockets,
         token: token,
         kind: body && body.kind === 'text' ? 'text' : 'address',
         value: '',
