@@ -242,7 +242,8 @@ function subtitleList(req, res, q) {
 
 function watchedSet(req, res, q) {
   seriesVideos(String(q.id || ''), function (videos) {
-    var field = videos ? setWatched(String(q.f || ''), videos, String(q.vid || ''), q.w !== '0') : '';
+    var vids = [].concat(q.vid || []).map(String),
+      field = videos ? setWatched(String(q.f || ''), videos, vids, q.w !== '0') : '';
     sendJson(res, field ? { watched: field } : { error: 'unknown_video' });
   });
 }

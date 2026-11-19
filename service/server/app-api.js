@@ -589,12 +589,8 @@ function act(req, res) {
         });
       case 'show':
         /* a whole series at once */
-        return L.getMeta('series', it.id, function (m) {
-          L.setEpisodesWatched(it, L.episodesUpTo(m, ''), done, function () {
-            L.setItemWatched({ id: it.id, type: it.type, name: it.name }, done, function () {
-              answer(L.tx(done ? 'markedWatched' : 'markedUnwatched'));
-            });
-          });
+        return L.setSeriesWatched(it, done, function () {
+          answer(L.tx(done ? 'markedWatched' : 'markedUnwatched'));
         });
       case 'season':
         return L.setEpisodesWatched(it, body.vids || [], done, function () {

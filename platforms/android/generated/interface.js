@@ -6085,7 +6085,8 @@ function libHas(id) {
    set by other devices, which reset the position to 0 once a film ends), when it is in the
    local watched list, or when it stopped in the credits (past 90 %). */
 function itemWatched(it) {
-  if (!it || !it.id || it.type === 'series') return false;
+  if (!it || !it.id) return false;
+  if (it.type === 'series') return seriesHasWatched(it);
   var lib = lsJson(PRE + it.id);
   if (!lib || !lib.state) return false;
   var s = lib.state;
@@ -6094,6 +6095,14 @@ function itemWatched(it) {
   if (s.watchedEpisodes)
     for (var i = 0; i < s.watchedEpisodes.length; i++) if (s.watchedEpisodes[i] === vid) return true;
   return watchFinished(s.timeOffset, s.duration);
+}
+/* A series counts as watched (for "Mark series unwatched") once anything of it is: an episode's bit
+   in state.watched, one in the local list, or one played to its end. Its flaggedWatched only speaks
+   of the episode in state.video_id, so it cannot say this. */
+function seriesHasWatched(it) {
+  var lib = lsJson(PRE + it.id),
+    s = lib && lib.state;
+  return !!(s && (s.watched || (s.watchedEpisodes && s.watchedEpisodes.length) || s.timesWatched > 0));
 }
 /* A library entry as Stremio stores one, for a title the library has not seen yet */
 function newLibItem(item, now) {
@@ -6228,36 +6237,48 @@ function markCwWatched(it) {
   if (lib2.type !== 'series' || vid === it.id) return;
   pushEpisodeField(it.id, vid, true, s2.watched);
 }
-/* An episode's bit in state.watched, written by the local server (it has the episode
-   list), so other devices show the change too; cb runs once it is saved. */
-function pushEpisodeField(id, vid, watched, field, cb) {
-  xhrJson(
-    '/watchedset?id=' +
-      encodeURIComponent(id) +
-      '&vid=' +
-      encodeURIComponent(vid) +
-      '&w=' +
-      (watched ? '1' : '0') +
-      '&f=' +
-      encodeURIComponent(field || ''),
-    function (j) {
+/* Episodes' bits in state.watched, written by the local server (it has the episode list), so other
+   devices show the change too: EPISODE_FIELD_BATCH episodes a request, each on the field the one
+   before left, and the account told once at the end; cb runs once it is saved. */
+var EPISODE_FIELD_BATCH = 80;
+function pushEpisodeField(id, vids, watched, field, cb) {
+  var left = [].concat(vids),
+    changed = false;
+  (function next(f) {
+    var part = left.splice(0, EPISODE_FIELD_BATCH);
+    if (!part.length) {
       var cur = lsJson(PRE + id);
-      if (j && j.watched && cur && cur.state) {
-        cur.state.watched = j.watched;
+      if (changed && cur && cur.state) {
+        cur.state.watched = f;
         cur._mtime = new Date().toISOString();
         lsSet(PRE + id, cur);
         pushLib(cur);
       }
       if (cb) cb();
+      return;
     }
-  );
+    var q =
+      '/watchedset?id=' +
+      encodeURIComponent(id) +
+      '&w=' +
+      (watched ? '1' : '0') +
+      '&f=' +
+      encodeURIComponent(f || '');
+    for (var i = 0; i < part.length; i++) q += '&vid=' + encodeURIComponent(part[i]);
+    xhrJson(q, function (j) {
+      if (j && j.watched) {
+        changed = true;
+        f = j.watched;
+      }
+      next(f);
+    });
+  })(field);
 }
 /* Mark as watched / unwatched from the title menu: a film (it.videoId empty or its own id)
    or one episode of a series (it.videoId). A title not in the library gets an entry that
    stays out of it (removed), as Stremio keeps watched state for titles never added. */
-function setItemWatched(it, watched, cb) {
-  var now = new Date().toISOString(),
-    lib = lsJson(PRE + it.id);
+function watchedEntry(it, now) {
+  var lib = lsJson(PRE + it.id);
   if (!lib) {
     lib = newLibItem(it, now);
     lib.removed = true;
@@ -6268,10 +6289,16 @@ function setItemWatched(it, watched, cb) {
     lib.posterShape = 'poster';
     lib.background = it.background || '';
   }
-  var s = lib.state || (lib.state = {}),
+  if (!lib.state) lib.state = {};
+  if (!lib.state.watchedEpisodes) lib.state.watchedEpisodes = [];
+  return lib;
+}
+function setItemWatched(it, watched, cb) {
+  var now = new Date().toISOString(),
+    lib = watchedEntry(it, now);
+  var s = lib.state,
     vid = it.videoId || it.id,
     episode = it.type === 'series' && vid !== it.id;
-  if (!s.watchedEpisodes) s.watchedEpisodes = [];
   var at = s.watchedEpisodes.indexOf(vid);
   if (watched && at < 0) s.watchedEpisodes.push(vid);
   if (!watched && at >= 0) s.watchedEpisodes.splice(at, 1);
@@ -6288,43 +6315,70 @@ function setItemWatched(it, watched, cb) {
   if (episode) pushEpisodeField(it.id, vid, watched, s.watched, cb);
   else if (cb) cb();
 }
-/* A whole season at once: its episodes one after another, since each episode's bit is
-   written over the field the previous one left. */
 /* The regular episodes of a series in order up to vid, vid included (marking one watched marks the
    ones before it too, as the official apps' "watched up to here"); all of them when vid is empty.
-   A special (season 0) is only itself. */
+   Episodes not out yet are left out: they would never show as new. A special (season 0) is only
+   itself. */
 function episodesUpTo(meta, vid) {
   var seasons = buildEpisodeModel((meta && meta.videos) || []).seasons,
+    now = Date.now(),
     out = [];
   for (var s = 0; s < seasons.length; s++) {
     if (!(seasons[s].n > 0)) continue;
     for (var e = 0; e < seasons[s].eps.length; e++) {
-      out.push(seasons[s].eps[e].id);
-      if (vid && seasons[s].eps[e].id === vid) return out;
+      var ep = seasons[s].eps[e];
+      if (episodeReleased(ep, now)) out.push(ep.id);
+      if (vid && ep.id === vid) return out;
     }
   }
   return vid ? [vid] : out;
 }
+/* Several episodes at once (a season, a series, the ones before an episode): one change of the
+   library entry and a few requests for their bits, instead of three requests an episode. */
 function setEpisodesWatched(it, vids, watched, cb) {
-  var i = 0;
-  (function next() {
-    if (i >= vids.length) {
-      if (cb) cb();
-      return;
-    }
-    setItemWatched(
-      {
-        type: 'series',
-        id: it.id,
-        name: it.name,
-        poster: it.poster,
-        background: it.background,
-        videoId: vids[i++]
-      },
-      watched,
-      next
-    );
-  })();
+  if (!vids.length) {
+    if (cb) cb();
+    return;
+  }
+  var now = new Date().toISOString(),
+    lib = watchedEntry(
+      { type: 'series', id: it.id, name: it.name, poster: it.poster, background: it.background },
+      now
+    ),
+    s = lib.state;
+  for (var i = 0; i < vids.length; i++) {
+    var at = s.watchedEpisodes.indexOf(vids[i]);
+    if (watched && at < 0) s.watchedEpisodes.push(vids[i]);
+    if (!watched && at >= 0) s.watchedEpisodes.splice(at, 1);
+    if (s.video_id === vids[i]) s.timeOffset = 0;
+  }
+  lib._mtime = now;
+  lsSet(PRE + it.id, lib);
+  pushLib(lib);
+  invalidateBoards();
+  pushEpisodeField(it.id, vids, watched, s.watched, cb);
+}
+/* A whole series, from the hold menu of the web interface and of Native (app-api.js): every episode
+   out (every one at all when unmarking), then the series' own state */
+function setSeriesWatched(it, watched, cb) {
+  var started = false;
+  /* getMeta answers twice when it has a copy and then a fresher one: the first answer does it */
+  getMeta('series', it.id, function (m) {
+    if (started) return;
+    started = true;
+    var all = watched
+      ? episodesUpTo(m, '')
+      : ((m && m.videos) || []).map(function (v) {
+          return v.id;
+        });
+    setEpisodesWatched(it, all, watched, function () {
+      setItemWatched(
+        { id: it.id, type: 'series', name: it.name, poster: it.poster, background: it.background },
+        watched,
+        cb
+      );
+    });
+  });
 }
 // What the title screen says, apart from how it is drawn: the facts line, the first action and
 // the episode to land on, and each episode's line and badge. Shared with the native interface.
@@ -7006,12 +7060,9 @@ var cwMenu = {
         tx(showDone ? 'markSeriesUnwatched' : 'markSeriesWatched'),
         function () {
           self.close();
-          getMeta('series', it.id, function (m) {
-            setEpisodesWatched(it, episodesUpTo(m, ''), !showDone, function () {
-              setItemWatched(it, !showDone);
-              refreshCurBoard();
-              toast(tx(showDone ? 'markedUnwatched' : 'markedWatched'));
-            });
+          setSeriesWatched(it, !showDone, function () {
+            refreshCurBoard();
+            toast(tx(showDone ? 'markedUnwatched' : 'markedWatched'));
           });
         }
       );

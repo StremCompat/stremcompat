@@ -201,12 +201,9 @@ var cwMenu = {
         tx(showDone ? 'markSeriesUnwatched' : 'markSeriesWatched'),
         function () {
           self.close();
-          getMeta('series', it.id, function (m) {
-            setEpisodesWatched(it, episodesUpTo(m, ''), !showDone, function () {
-              setItemWatched(it, !showDone);
-              refreshCurBoard();
-              toast(tx(showDone ? 'markedUnwatched' : 'markedWatched'));
-            });
+          setSeriesWatched(it, !showDone, function () {
+            refreshCurBoard();
+            toast(tx(showDone ? 'markedUnwatched' : 'markedWatched'));
           });
         }
       );

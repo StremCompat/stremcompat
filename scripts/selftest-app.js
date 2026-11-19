@@ -666,6 +666,17 @@ async function main() {
       }
     );
     assert.deepStrictEqual(marks, [true, true], 'the episode before the one marked watched was not marked');
+    /* the whole series: unwatched (offered once anything is watched), then watched again */
+    function episodeMarks(answer) {
+      return answer.json.title.series.seasons[0].episodes.map(function (e) {
+        return e.watched;
+      });
+    }
+    var showItem = { id: 'tst1', type: 'series', name: 'Test Show' };
+    await request('/app/act', { action: 'show', watched: false, item: showItem });
+    assert.deepStrictEqual(episodeMarks(await request('/app/title?type=series&id=tst1')), [false, false], 'Mark series unwatched left episodes watched');
+    await request('/app/act', { action: 'show', watched: true, item: showItem });
+    assert.deepStrictEqual(episodeMarks(await request('/app/title?type=series&id=tst1')), [true, true], 'Mark series watched missed episodes');
     var poster = await request('/app/img?u=' + encodeURIComponent(meta.poster));
     assert.ok(poster.status === 200 && poster.text.length > 0, 'a JPEG did not pass through /app/img');
     var nothing = await request('/app/img?u=' + encodeURIComponent('file:///etc/passwd'));

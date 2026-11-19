@@ -135,6 +135,7 @@ window.__logic = {
   simpleMode: simpleMode,
   removeFromCw: removeFromCw,
   setEpisodesWatched: setEpisodesWatched,
+  setSeriesWatched: setSeriesWatched,
   setItemWatched: setItemWatched,
   sourceHeading: sourceHeading,
   sourceTags: sourceTags,

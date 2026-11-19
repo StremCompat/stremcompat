@@ -44,10 +44,18 @@ function orderedIds(videos) {
 
 /* The field with `vid` marked watched (or unmarked), or '' when `vid` is not a video of
    the series. A field whose anchor is no longer in the list starts empty, as in core. */
+/* vid: one episode, or a list of them (a season or a whole series at once) */
 function setWatched(field, videos, vid, watched) {
   var ids = orderedIds(videos),
-    at = ids.indexOf(vid);
-  if (at < 0) return '';
+    at = []
+      .concat(vid)
+      .map(function (v) {
+        return ids.indexOf(v);
+      })
+      .filter(function (i) {
+        return i >= 0;
+      });
+  if (!at.length) return '';
   var bits = [],
     i;
   for (i = 0; i < ids.length; i++) bits.push(0);
@@ -62,7 +70,9 @@ function setWatched(field, videos, vid, watched) {
       }
     }
   }
-  bits[at] = watched === false ? 0 : 1;
+  at.forEach(function (index) {
+    bits[index] = watched === false ? 0 : 1;
+  });
   var bytes = Buffer.alloc(Math.ceil(ids.length / 8)),
     last = 0;
   for (i = 0; i < ids.length; i++)
