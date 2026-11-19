@@ -540,7 +540,6 @@ var UI_TEXT = {
     pinSaved: 'PIN saved',
     pinRemoved: 'PIN removed',
     pinNotSaved: 'Could not change the PIN on Nuvio',
-    pinDelete: 'Delete',
     watchAgain: 'Watch again',
     retry: 'Try again',
     nothingHere: 'Nothing here yet',
@@ -1118,7 +1117,6 @@ var UI_TEXT = {
     pinSaved: 'PIN salvo',
     pinRemoved: 'PIN removido',
     pinNotSaved: 'Não foi possível mudar o PIN no Nuvio',
-    pinDelete: 'Apagar',
     watchAgain: 'Assistir de novo',
     retry: 'Tentar de novo',
     nothingHere: 'Nada aqui ainda',
@@ -8862,6 +8860,9 @@ function openProfile() {
 var PROFILE_COLORS = ['#1E88E5', '#E53935', '#43A047', '#FB8C00', '#8E24AA', '#00ACC1', '#F4511E', '#6D4C41'];
 var MAX_PROFILES = 6;
 
+var PIN_EMPTY = 9,
+  PIN_ZERO = 10,
+  PIN_DELETE = 11;
 var profilePanel = {
   open: false,
   mode: 'pick',
@@ -9011,17 +9012,24 @@ var profilePanel = {
     $('pfTitle').textContent = title;
     $('pfHint').textContent = '';
     drawFace($('pfPinFace'), face);
+    /* the pad as a phone's: 1 to 9 in rows, then 0 in the middle and Delete at the right (cell 9,
+       bottom left, is empty) */
     var keys = $('pfPinKeys');
     keys.innerHTML = '';
     this.pinEls = [];
-    for (var i = 0; i < 11; i++) {
+    for (var i = 0; i < 12; i++) {
       var k = document.createElement('span');
-      k.textContent = i < 10 ? String((i + 1) % 10) : tx('pinDelete');
-      if (i === 10) k.className = 'wide';
+      if (i === PIN_DELETE) k.innerHTML = ICON.close;
+      else if (i !== PIN_EMPTY) k.textContent = i === PIN_ZERO ? '0' : String(i + 1);
       keys.appendChild(k);
       this.pinEls.push(k);
     }
     this.paint();
+  },
+  pinPress: function (cell) {
+    if (cell === PIN_DELETE) this.pinType(null);
+    else if (cell === PIN_ZERO) this.pinType('0');
+    else if (cell < PIN_EMPTY) this.pinType(String(cell + 1));
   },
   pinType: function (digit) {
     if (digit === null) this.pin = this.pin.slice(0, -1);
@@ -9047,9 +9055,16 @@ var profilePanel = {
     if (k >= 48 && k <= 57) return this.pinType(String(k - 48));
     if (k >= 96 && k <= 105) return this.pinType(String(k - 96));
     if (k === 8) return this.pinType(null);
-    if (k === 37) this.pinKey = Math.max(0, this.pinKey - 1);
-    else if (k === 39) this.pinKey = Math.min(10, this.pinKey + 1);
-    else if (k === 13) return this.pinType(this.pinKey === 10 ? null : String((this.pinKey + 1) % 10));
+    if (k === 13) return this.pinPress(this.pinKey);
+    var row = Math.floor(this.pinKey / 3),
+      col = this.pinKey % 3;
+    if (k === 37 && col > 0) col--;
+    else if (k === 39 && col < 2) col++;
+    else if (k === 38 && row > 0) row--;
+    else if (k === 40 && row < 3) row++;
+    var next = row * 3 + col;
+    /* the empty cell is stepped over: towards 0 from above, back where it was from the left */
+    this.pinKey = next === PIN_EMPTY ? (k === 37 ? this.pinKey : PIN_ZERO) : next;
     this.paint();
   },
   /* the editor's PIN button: sets one, or takes it away after the current one */
@@ -9185,7 +9200,7 @@ var profilePanel = {
       for (var i = 0; i < 4; i++) dots += '<span' + (i < this.pin.length ? ' class="on"' : '') + '></span>';
       $('pfPinDots').innerHTML = dots;
       for (var e = 0; e < this.pinEls.length; e++)
-        this.pinEls[e].className = (e === 10 ? 'wide' : '') + (e === this.pinKey ? ' f' : '');
+        this.pinEls[e].className = (e === PIN_EMPTY ? 'gap' : '') + (e === this.pinKey ? ' f' : '');
       return;
     }
     if (this.mode === 'pick') {
@@ -12157,6 +12172,15 @@ function pointerUI(target, activate) {
     return true;
   }
   if (profilePanel.open) {
+    if (profilePanel.mode === 'pin') {
+      i = pointerIndex(target, profilePanel.pinEls);
+      if (i >= 0 && i !== PIN_EMPTY) {
+        profilePanel.pinKey = i;
+        profilePanel.paint();
+        if (activate) profilePanel.pinPress(i);
+      }
+      return true;
+    }
     i = profilePanel.mode === 'pick' ? pointerIndex(target, profilePanel.els) : -1;
     if (i >= 0) {
       profilePanel.zone = 'row';

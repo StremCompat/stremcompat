@@ -454,7 +454,6 @@
   "pinSaved": "PIN enregistré",
   "pinRemoved": "PIN retiré",
   "pinNotSaved": "Impossible de modifier le PIN sur Nuvio",
-  "pinDelete": "Effacer",
   "organizeCatalogs": "Organiser les catalogues",
   "rowsHint": "OK sur un nom pour le déplacer avec haut et bas. Droite pour l’afficher ou le masquer.",
   "rowShown": "Visible",

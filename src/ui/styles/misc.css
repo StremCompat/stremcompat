@@ -126,9 +126,10 @@ body.lite .card.folder.f .fart{box-shadow:0 0 0 4px #fff!important}
 #pfPinDots{margin-top:40px}
 #pfPinDots span{display:inline-block;width:26px;height:26px;margin:0 14px;border-radius:50%;box-shadow:inset 0 0 0 3px rgba(255,255,255,.55)}
 #pfPinDots span.on{background:#fff;box-shadow:none}
-#pfPinKeys{margin-top:46px}
-#pfPinKeys span{display:inline-block;min-width:64px;margin:0 6px;padding:14px 0;border-radius:14px;background:rgba(255,255,255,.1);font-size:30px;font-weight:700;color:#fff}
-#pfPinKeys span.wide{padding:14px 22px;font-size:22px}
+#pfPinKeys{width:306px;margin:46px auto 0;font-size:0}
+#pfPinKeys span{display:inline-block;width:84px;height:84px;line-height:84px;margin:0 9px 18px;border-radius:50%;background:rgba(255,255,255,.1);font-size:34px;font-weight:600;color:#fff;vertical-align:top}
+#pfPinKeys span.gap{visibility:hidden}
+#pfPinKeys svg{width:30px;height:30px;fill:currentColor;vertical-align:middle}
 #pfPinKeys span.f{background:#fff;color:#12101a}
 #pfEdBtns{margin-top:36px}
 #pfEdBtns span{display:inline-block;margin:0 12px;padding:14px 44px;border-radius:40px;font-size:27px;font-weight:700;color:rgba(255,255,255,.85);box-shadow:inset 0 0 0 3px rgba(255,255,255,.3)}

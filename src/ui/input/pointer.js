@@ -53,6 +53,15 @@ function pointerUI(target, activate) {
     return true;
   }
   if (profilePanel.open) {
+    if (profilePanel.mode === 'pin') {
+      i = pointerIndex(target, profilePanel.pinEls);
+      if (i >= 0 && i !== PIN_EMPTY) {
+        profilePanel.pinKey = i;
+        profilePanel.paint();
+        if (activate) profilePanel.pinPress(i);
+      }
+      return true;
+    }
     i = profilePanel.mode === 'pick' ? pointerIndex(target, profilePanel.els) : -1;
     if (i >= 0) {
       profilePanel.zone = 'row';

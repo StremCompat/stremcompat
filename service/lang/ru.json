@@ -454,7 +454,6 @@
   "pinSaved": "PIN сохранён",
   "pinRemoved": "PIN убран",
   "pinNotSaved": "Не удалось изменить PIN в Nuvio",
-  "pinDelete": "Стереть",
   "organizeCatalogs": "Упорядочить каталоги",
   "rowsHint": "OK на названии, затем вверх и вниз, чтобы переместить. Вправо — показать или скрыть.",
   "rowShown": "Показан",
