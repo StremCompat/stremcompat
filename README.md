@@ -4,6 +4,8 @@
   <img src="docs/assets/stremcompat-hero-en.png" alt="StremCompat home screen" width="1200">
 </p>
 
+<p align="center"><b>English</b> · <a href="README.pt.md">Português</a></p>
+
 StremCompat brings your **Stremio or Nuvio** account and addons to TVs the official apps left behind. This repository holds the source code of the web version and of the local server that both versions use. It is an independent, unofficial project, not affiliated with or endorsed by Stremio, Nuvio, LG, Samsung or Google.
 
 > **Looking to install it?** Pick your TV. Each page has the downloads, installation steps, screenshots and compatibility tables.
