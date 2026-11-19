@@ -8888,6 +8888,10 @@ var profilePanel = {
     this.idx = 0;
     $('pfScreen').style.display = 'block';
     $('boot').style.display = 'none';
+    /* the start is over once a screen waits for the viewer: lingering here (or picking a profile,
+       which reloads the page) is not a start that stopped */
+    window.__SC_BOOT_DONE__ = true;
+    window.__SC_PHASE__('READY');
     $('pfPick').style.display = '';
     $('pfEditor').style.display = 'none';
     $('pfTitle').textContent = tx('whoIsWatching');
@@ -12379,6 +12383,16 @@ function queuePointerHover(target) {
     if (next) pointerUI(next, false);
   }, 140);
 }
+/* moving the Magic Remote means someone is there: the screensaver waits again, or ends */
+on(
+  document,
+  'mousemove',
+  function () {
+    idleTouch();
+    if (saverOn()) hideSaver();
+  },
+  false
+);
 on(
   document,
   'mouseover',
@@ -12396,7 +12410,9 @@ on(
       pointerHoverTimer = null;
     }
     pointerHoverTarget = null;
-    if (pointerOff()) {
+    /* a click while the screensaver shows only ends it, like a key */
+    if (pointerOff() || saverOn()) {
+      hideSaver();
       e.preventDefault();
       e.stopPropagation();
       return;

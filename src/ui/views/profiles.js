@@ -135,6 +135,10 @@ var profilePanel = {
     this.idx = 0;
     $('pfScreen').style.display = 'block';
     $('boot').style.display = 'none';
+    /* the start is over once a screen waits for the viewer: lingering here (or picking a profile,
+       which reloads the page) is not a start that stopped */
+    window.__SC_BOOT_DONE__ = true;
+    window.__SC_PHASE__('READY');
     $('pfPick').style.display = '';
     $('pfEditor').style.display = 'none';
     $('pfTitle').textContent = tx('whoIsWatching');

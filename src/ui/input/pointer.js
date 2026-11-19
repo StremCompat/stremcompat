@@ -303,6 +303,16 @@ function queuePointerHover(target) {
     if (next) pointerUI(next, false);
   }, 140);
 }
+/* moving the Magic Remote means someone is there: the screensaver waits again, or ends */
+on(
+  document,
+  'mousemove',
+  function () {
+    idleTouch();
+    if (saverOn()) hideSaver();
+  },
+  false
+);
 on(
   document,
   'mouseover',
@@ -320,7 +330,9 @@ on(
       pointerHoverTimer = null;
     }
     pointerHoverTarget = null;
-    if (pointerOff()) {
+    /* a click while the screensaver shows only ends it, like a key */
+    if (pointerOff() || saverOn()) {
+      hideSaver();
       e.preventDefault();
       e.stopPropagation();
       return;
