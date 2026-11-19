@@ -50,7 +50,9 @@ export function libraryView() {
     body.innerHTML = '';
     if (!tabs.length) return body.appendChild(stateBox(t('emptyLibraryTitle'), t('emptyLibraryPhone')));
     if (upcoming && at === rows.length) return renderUpcoming();
-    const items = rows[at].items.slice();
+    /* a tab kept from before the library changed may be gone */
+    if (!rows[at]) at = 0;
+    const items = (rows[at].items || []).slice();
     if (byName) items.sort((a, b) => String(a.name).localeCompare(String(b.name)));
     const grid = el('<div class="grid"></div>');
     items.forEach((it) => grid.appendChild(card(it)));

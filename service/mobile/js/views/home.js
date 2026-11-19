@@ -14,7 +14,7 @@ export function homeView() {
   async function load() {
     const home = await api('/app/home');
     const next = el('<div class="home-content"></div>');
-    if (!home) next.appendChild(stateBox(t('noConnectionShort'), t('noConnection'), load));
+    if (!home || !home.rows) next.appendChild(stateBox(t('noConnectionShort'), t('noConnection'), load));
     else build(next, home);
     /* swapped whole, at the same scroll, so a refresh does not flash */
     const y = v.node.scrollTop;

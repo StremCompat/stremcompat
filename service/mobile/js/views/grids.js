@@ -79,7 +79,8 @@ export function folderView(it) {
   const g = pagedGrid(v, (skip) => api(`/app/folder/page?id=${enc(it.id)}&tab=${tab}&skip=${skip}`));
   v.node.append(tabsBox, g.grid);
   api(`/app/folder?id=${enc(it.id)}`).then((f) => {
-    if (!f) return g.grid.replaceChildren(stateBox(t('noConnectionShort')));
+    if (!f) return g.grid.replaceChildren(stateBox(t('noConnectionShort'), '', () => location.reload()));
+    f.tabs = f.tabs || [];
     f.tabs.forEach((tb, i) => {
       const b = el(`<button class="${i ? '' : 'on'}">${esc(tb.title)}</button>`);
       b.onclick = () => {

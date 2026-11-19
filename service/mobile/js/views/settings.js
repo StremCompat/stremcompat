@@ -19,13 +19,14 @@ export function settingsView() {
   function apply(model) {
     if (!model) return content.replaceChildren(stateBox(t('noConnectionShort'), '', load));
     readPrefs(model);
+    const account = model.account || {};
     content.innerHTML = '';
     content.appendChild(
       el(
-        `<div class="group account"><div class="cell"><span class="avatar">${esc((model.account.email || '?')[0].toUpperCase())}</span><span class="label">${esc(model.account.email)}<small>${esc(model.account.plan)}</small></span></div></div>`
+        `<div class="group account"><div class="cell"><span class="avatar">${esc((account.email || '?')[0].toUpperCase())}</span><span class="label">${esc(account.email || '')}<small>${esc(account.plan || '')}</small></span></div></div>`
       )
     );
-    model.groups.forEach((g) => {
+    (model.groups || []).forEach((g) => {
       const items = g.items.filter((it) => HIDDEN.indexOf(it.k) < 0);
       if (!items.length) return;
       content.appendChild(el(`<div class="group-title">${esc(g.name)}</div>`));

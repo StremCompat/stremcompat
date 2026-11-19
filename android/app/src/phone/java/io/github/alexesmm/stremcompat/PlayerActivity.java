@@ -13,6 +13,8 @@ import android.util.Rational;
 import android.view.View;
 import android.view.WindowManager;
 
+import androidx.media3.common.AudioAttributes;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -72,6 +74,9 @@ public class PlayerActivity extends Activity {
         long step = Math.max(5, options.optLong("seekStep", 10)) * 1000;
         player = new ExoPlayer.Builder(this, new DefaultRenderersFactory(this).setEnableDecoderFallback(true))
                 .setSeekBackIncrementMs(step).setSeekForwardIncrementMs(step).build();
+        /* a call or another app's sound pauses the video, and headphones pulled out stop it, as the TV player does */
+        player.setAudioAttributes(new AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true);
+        player.setHandleAudioBecomingNoisy(true);
         String subtitles = options.optString("subtitleLanguage", ""), audio = options.optString("audioLanguage", "");
         TrackSelectionParameters.Builder tracks = player.getTrackSelectionParameters().buildUpon();
         if (!subtitles.isEmpty()) tracks.setPreferredTextLanguage(subtitles);

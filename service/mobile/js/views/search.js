@@ -47,7 +47,7 @@ export function searchView() {
     if (!text) return recent(ans);
     results.innerHTML = '';
     if (!ans) return results.appendChild(stateBox(t('noConnectionShort'), '', () => run(false)));
-    if (ans.empty || !ans.rows.length)
+    if (ans.empty || !(ans.rows || []).length)
       return results.appendChild(stateBox(ans.empty || t('noResults', text)));
     ans.rows.forEach((r) => {
       results.appendChild(el(`<div class="section-head"><h2>${esc(r.title)}</h2></div>`));

@@ -108,7 +108,9 @@ export function titleView(type, id, name, video) {
       const found = seasons.find((s) => s.episodes.some((e) => e.id === landing));
       season = (found || seasons.find((s) => s.n > 0) || seasons[0]).n;
     }
-    const cur = seasons.find((s) => s.n === season);
+    /* a season remembered from before may be gone after the list changed */
+    const cur = seasons.find((s) => s.n === season) || seasons.find((s) => s.n > 0) || seasons[0];
+    season = cur.n;
     box.innerHTML = `<div class="section-head"><h2>${esc(t('episodesTitle'))}</h2><button class="see-all season-mark">${esc(t(cur.watched ? 'markSeasonUnwatched' : 'markSeasonWatched'))}</button></div><div class="pills"></div><div class="episodes"></div>`;
     $('.season-mark', box).onclick = () => markSeason(cur, !cur.watched);
     const pills = $('.pills', box),
