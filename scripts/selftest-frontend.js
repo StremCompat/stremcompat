@@ -440,6 +440,8 @@ assert.strictEqual(matchNext([{ addon:'Torrentio',quality:'1080p',title:'x.rar',
   var cached1080 = { addon: 'a', quality: '1080p', compatRank: 0, seeders: 0, cached: 'RD' };
   assert.strictEqual(best([seeded720, healthy1080]), healthy1080, 'the most seeded 720p won over a healthy 1080p');
   assert.strictEqual(best([seeded720, weak1080]), seeded720, 'a 1080p with almost no seeders won over a healthy 720p');
+  var uncounted1080 = { addon: 'a', quality: '1080p', compatRank: 0, url: 'http://127.0.0.1:11470/' + 'c'.repeat(40) + '/0' };
+  assert.strictEqual(best([seeded720, uncounted1080]), seeded720, 'a torrent with no seeder count won over a healthy 720p');
   assert.strictEqual(best([seeded720, cached1080]), cached1080, 'a cached 1080p did not count as healthy');
   assert.strictEqual(best([unknown, low, fullHd]), fullHd, 'an unknown or low quality won over a known one');
   assert.strictEqual(best([unknown, hevc]), unknown, 'a warning lost to nothing better without one');

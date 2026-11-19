@@ -297,7 +297,7 @@ function sourceList(s, quality, lang, addon, pref) {
     best: best ? best._seq : 0,
     /* Best from the title page may play before the slowest addon answered (BEST_WAIT_MS) */
     bestNow: s.done || (!!best && Date.now() - s.at >= L.BEST_WAIT_MS),
-    chips: L.qualityChips(s.items, s.trimmed),
+    chips: L.qualityChips(s.items, s.trimmed, lang, addon),
     addons: L.addonChoices(s.items),
     langs: langs.keys.map(function (key) {
       return { key: key, label: L.langFilterName(key), count: langs.counts[key] || 0 };

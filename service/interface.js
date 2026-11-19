@@ -3609,8 +3609,12 @@ function bestSource(items, quality, language) {
 var HEALTHY_SEEDERS = 10,
   BEST_QUALITIES = ['1080p', '4K', '720p'];
 function healthyBest(playable, language) {
+  /* a torrent (a seeder count, or the engine's address) starts well with enough seeders; one whose
+     addon gave no count is not known to */
   var healthy = playable.filter(function (s) {
-    return s.cached || s.seeders == null || s.seeders < 0 || s.seeders >= HEALTHY_SEEDERS;
+    var counted = s.seeders != null && s.seeders >= 0,
+      torrent = counted || /:11470\/[0-9a-f]{32,64}\//i.test(s.url || '');
+    return s.cached || !torrent || (counted && s.seeders >= HEALTHY_SEEDERS);
   });
   if (!healthy.length) return null;
   var rank = function (s) {
@@ -3841,10 +3845,17 @@ function quickFilterTest(key) {
     if ('f:' + QUICK_FILTERS[i][0] === key) return QUICK_FILTERS[i][2];
   return null;
 }
-function qualityChips(pool, trimmed) {
+/* the counts are of the sources the language and addon filters keep (langKey, addon: 'All' or none
+   for every one) */
+function qualityChips(pool, trimmed, langKey, addon) {
   var counts = {},
     out = [],
     order = ['All', '4K', '1440p', '1080p', '720p', 'SD', 'Other'];
+  pool = pool.filter(function (s) {
+    return (
+      s.stored || (inLangFilter(s, langKey || 'All') && (!addon || addon === 'All' || s.addon === addon))
+    );
+  });
   for (var n = 0; n < pool.length; n++) {
     var q = pool[n].quality || 'Other';
     counts[q] = (counts[q] || 0) + 1;
@@ -3939,7 +3950,11 @@ function orderedSources(pool, quality, langKey, addon) {
   var choices = flat.filter(function (s) {
     return !s.stored;
   }).length;
-  return { items: flat, recommended: choices < 2 ? -1 : flat.indexOf(bestSource(flat, pref)) };
+  /* the source the Best button would start, in the language it looks for */
+  return {
+    items: flat,
+    recommended: choices < 2 ? -1 : flat.indexOf(bestSource(flat, pref, preferredSourceLanguage()))
+  };
 }
 /* a source's heading and its text, as the list shows them */
 function sourceHeading(s) {
@@ -9489,7 +9504,7 @@ var streamsUI = {
   renderChips: function () {
     var host = $('stChips'),
       allItems = this.all(),
-      chips = qualityChips(allItems, this.trimmed);
+      chips = qualityChips(allItems, this.trimmed, this.langFilter, this.addonFilter);
     host.innerHTML = '';
     this.chips = [];
     this.chipEls = [];
@@ -9601,6 +9616,7 @@ var streamsUI = {
   refilter: function () {
     this.idx = 0;
     this.moved = false;
+    this.renderChips();
     this.rebuild();
   },
   paintChips: function () {

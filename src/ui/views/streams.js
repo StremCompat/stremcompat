@@ -229,7 +229,7 @@ var streamsUI = {
   renderChips: function () {
     var host = $('stChips'),
       allItems = this.all(),
-      chips = qualityChips(allItems, this.trimmed);
+      chips = qualityChips(allItems, this.trimmed, this.langFilter, this.addonFilter);
     host.innerHTML = '';
     this.chips = [];
     this.chipEls = [];
@@ -341,6 +341,7 @@ var streamsUI = {
   refilter: function () {
     this.idx = 0;
     this.moved = false;
+    this.renderChips();
     this.rebuild();
   },
   paintChips: function () {
