@@ -207,9 +207,22 @@ function qrStart(cb) {
   }
 }
 /* cb({ status }) while waiting; cb({ result: { authKey, user } }) once the phone approved */
+/* A poll that comes while another is still exchanging the code waits, and the sign-in is answered
+   again for a minute: a second poll found the session already gone, answered "expired", and the TV
+   put up a new code over a sign-in that had worked. */
+var signedInBy = {}; /* id -> { answer, at } */
 function qrPoll(id, cb) {
-  var p = pending[id];
+  var p = pending[id],
+    done = signedInBy[id];
+  if (done && Date.now() - done.at < 60000) return cb(done.answer);
   if (!p || Date.now() - p.at > 15 * 60000) return cb({ status: 'expired' });
+  if (p.busy) return cb({ status: 'pending' });
+  p.busy = true;
+  function answer(value) {
+    p.busy = false;
+    if (value && value.result) signedInBy[id] = { answer: value, at: Date.now() };
+    cb(value);
+  }
   call(
     'POST',
     '/rest/v1/rpc/poll_tv_login_session',
@@ -219,7 +232,7 @@ function qrPoll(id, cb) {
       var state = (rows && rows[0] && rows[0].status) || (status ? 'pending' : 'offline');
       if (state !== 'approved') {
         if (state === 'expired' || state === 'used' || state === 'cancelled') delete pending[id];
-        return cb({ status: state });
+        return answer({ status: state });
       }
       call(
         'POST',
@@ -228,13 +241,13 @@ function qrPoll(id, cb) {
         { code: p.code, device_nonce: p.nonce },
         function (s, json) {
           var tokens = json && (json.access_token ? json : json.session);
-          if (!tokens || !tokens.access_token) return cb({ status: 'pending' });
+          if (!tokens || !tokens.access_token) return answer({ status: 'pending' });
           delete pending[id];
-          if (tokens.user && tokens.user.id) return cb(startSession(tokens, tokens.user.email));
+          if (tokens.user && tokens.user.id) return answer(startSession(tokens, tokens.user.email));
           /* without the user in the answer, the account says who it is */
           call('GET', '/auth/v1/user', tokens.access_token, null, function (s2, account) {
             tokens.user = account || null;
-            cb(startSession(tokens, account && account.email));
+            answer(startSession(tokens, account && account.email));
           });
         }
       );

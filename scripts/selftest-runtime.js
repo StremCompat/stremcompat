@@ -575,8 +575,13 @@ function nuvioQrTests() {
               return r.url === '/functions/v1/tv-logins-exchange';
             })[0];
             assert.strictEqual(trade.body.code, 'DEV1', 'the code was not traded for the session');
+            var trades = seen.length;
             nuvio.qrPoll(started.id, function (again) {
-              assert.strictEqual(again.status, 'expired', 'a used code could sign in twice');
+              /* a late poll gets the same sign-in again, never a new session of the used code */
+              assert.ok(
+                again.result && again.result.authKey === done.result.authKey && seen.length === trades,
+                'a late poll after the sign-in did not get the same session, or traded the used code again'
+              );
               server.close();
               process.env.HOME = realHome;
               delete process.env.SC_NUVIO_URL;
