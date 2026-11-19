@@ -481,7 +481,15 @@ function getCatalogUrl(url, key, type, cb) {
   )
     cb(cached.items, true);
   else cached = null;
-  xhrJson(url, function (j) {
+  /* Catalogs take the second lane (net.js), away from the pictures, and a failed one is asked once
+     more: a row that came back empty on a timeout stayed hidden for the whole session. */
+  var tries = 0;
+  function ask() {
+    tries++;
+    xhrJson(url, answered, 20000, true);
+  }
+  function answered(j, failure) {
+    if (failure && tries < 2) return ask();
     var metas = (j && j.metas) || [];
     if (!metas.length) {
       if (!cached) cb([], false);
@@ -495,5 +503,6 @@ function getCatalogUrl(url, key, type, cb) {
     var same = cached && cached.items && JSON.stringify(cached.items) === JSON.stringify(slim);
     lsSet(ck, { v: 2, t: Date.now(), items: slim });
     if (!same) cb(slim, false); /* identical to cache -> skip the double row rebuild at boot */
-  });
+  }
+  ask();
 }

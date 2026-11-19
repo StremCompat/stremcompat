@@ -335,16 +335,7 @@ var disc = {
     for (var i = 0; i < this.els.length; i++) {
       var imgs = this.els[i].getElementsByTagName('img'),
         near = Math.abs(Math.floor((this.base + i) / cols) - row) <= 1;
-      for (var z = 0; z < imgs.length; z++) {
-        var im = imgs[z];
-        if (near && im._full) {
-          im.src = im._full;
-          im._full = null;
-        } else if (!near && im.src && im.src !== BLANK_IMG) {
-          im._full = im.src;
-          im.src = BLANK_IMG;
-        }
-      }
+      for (var z = 0; z < imgs.length; z++) setImgNear(imgs[z], near);
     }
     var y = this.zone === 'grid' ? Math.max(0, row - 1) * rowH : 0;
     $('discGrid').style.transform = 'translateY(-' + y + 'px)';

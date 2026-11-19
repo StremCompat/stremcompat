@@ -4,6 +4,69 @@
    near the cursor keep real textures; far rows hold a 1px placeholder and reload from the
    HTTP cache when you scroll back. ---- */
 var BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+/* Pictures the local server makes (/app/img) take their turn, a few at a time: each one holds one of
+   the six connections the TV's browser opens to the server while FFmpeg makes it, and Home's
+   catalogs waited behind a row of collection covers until they timed out and their rows went. */
+var imgBusy = 0,
+  imgWaiting = [];
+function imgNext() {
+  var lanes = TV_PROFILE.lowMemory ? 2 : 3;
+  while (imgBusy < lanes && imgWaiting.length) {
+    var im = imgWaiting.shift(),
+      url = im._queued;
+    if (!url) continue;
+    im._queued = null;
+    startImg(im, url);
+  }
+}
+/* a picture of its own fetches it (into the HTTP cache), and the card shows it once it came: events
+   of the card's own picture can belong to the blank it had before */
+function startImg(im, url) {
+  var loader = new Image(),
+    finished = false;
+  function free() {
+    if (finished) return;
+    finished = true;
+    loader.onload = loader.onerror = null;
+    imgBusy--;
+    if (im._loading === url) {
+      im._loading = null;
+      im.src = url;
+    }
+    imgNext();
+  }
+  imgBusy++;
+  im._loading = url;
+  loader.onload = loader.onerror = free;
+  setTimeout(free, 20000);
+  loader.src = url;
+}
+function showImg(im, url) {
+  if (url.indexOf('/app/img?') < 0) {
+    im._queued = im._loading = null;
+    im.src = url;
+    return;
+  }
+  if (im._loading === url) return;
+  if (!im._queued) imgWaiting.push(im);
+  im._queued = url;
+  imgNext();
+}
+/* a picture near the focus is shown; one far from it gives its memory back and keeps where it was */
+function setImgNear(im, near) {
+  if (near) {
+    if (!im._full) return;
+    var url = im._full;
+    im._full = null;
+    showImg(im, url);
+  } else if (im._queued || im._loading) {
+    im._full = im._queued || im._loading;
+    im._queued = im._loading = null;
+  } else if (im.src && im.src !== BLANK_IMG) {
+    im._full = im.src;
+    im.src = BLANK_IMG;
+  }
+}
 function setRowLoaded(row, on) {
   if (!row || !row.cardsEl) return;
   if (row._loaded === on && on !== true) return;
@@ -15,18 +78,7 @@ function setRowLoaded(row, on) {
   for (var c = 0; c < cards.length; c++) {
     var near = on && (cards === row.cardEls ? c >= col - 8 && c <= col + 16 : true),
       imgs = cards[c].getElementsByTagName('img');
-    for (var i = imgs.length - 1; i >= 0; i--) {
-      var im = imgs[i];
-      if (!near) {
-        if (im.src && im.src !== BLANK_IMG) {
-          im._full = im.src;
-          im.src = BLANK_IMG;
-        }
-      } else if (im._full) {
-        im.src = im._full;
-        im._full = null;
-      }
-    }
+    for (var i = imgs.length - 1; i >= 0; i--) setImgNear(imgs[i], near);
   }
 }
 function virtualizeBoard(b, center, fast) {
@@ -60,7 +112,7 @@ function makeFolderCard(it, eager) {
     img.onerror = function () {
       art.innerHTML = '<div class="fglyph">' + esc(it.glyph || '') + '</div>';
     };
-    if (eager) img.src = folderArtUrl(it);
+    if (eager) showImg(img, folderArtUrl(it));
     else {
       img._full = folderArtUrl(it);
       img.src = BLANK_IMG;
@@ -106,7 +158,7 @@ function makeCard(it, wide, label, eager) {
     };
     /* LAZY by default: rows away from the cursor never even START their downloads/decodes
        (the boot flood of ~100 posters was part of the slow/unstable startup) */
-    if (eager) img.src = src;
+    if (eager) showImg(img, src);
     else {
       img._full = src;
       img.src = BLANK_IMG;

@@ -11,9 +11,10 @@ var FILE_LIMIT = 8 * 1024 * 1024;
 var ADDON_LIMIT = 4 * 1024 * 1024;
 /* Connections to the same host are kept open and used again: every new HTTPS connection costs a TLS
    handshake, which takes hundreds of milliseconds on a TV's processor, and Home asks the same
-   addons for many catalogs in a row. No cap on how many at once: with one (4.4.0 had 6 a host),
-   Home's catalogs waited in line behind collection covers and episode lists. */
-var AGENT_SETTINGS = { keepAlive: true, maxFreeSockets: 4 };
+   addons for many catalogs in a row. Up to 8 at once to a host: 6 (4.4.0) left Home's catalogs in
+   line behind collection covers and episode lists, and no limit at all let one Home open dozens of
+   handshakes at the same time on a weak processor. */
+var AGENT_SETTINGS = { keepAlive: true, maxSockets: 8, maxFreeSockets: 4 };
 var agents = { 'http:': new http.Agent(AGENT_SETTINGS), 'https:': new https.Agent(AGENT_SETTINGS) };
 
 function unpackGzip(buf) {
@@ -33,6 +34,9 @@ function collect(stream, limit, onDone) {
     }
   });
   stream.on('end', function () {
+    /* Node 0.12 and 4 end a response that was cut off like a whole one */
+    var expected = parseInt(stream.headers && stream.headers['content-length'], 10);
+    if (expected > 0 && size < expected) return onDone('cut short');
     onDone(null, Buffer.concat(parts));
   });
   stream.on('error', function (e) {
@@ -95,7 +99,13 @@ function download(address, settings, cb, hops) {
     return answer('error');
   }
   request.on('error', function (e) {
-    answer((e && e.code) || 'error');
+    var code = (e && e.code) || 'error';
+    /* a kept connection the other side had already closed: asked once more on a new one */
+    if ((code === 'ECONNRESET' || code === 'EPIPE') && !settings.again && !answered) {
+      answered = true;
+      return download(address, Object.assign({}, settings, { again: true }), cb, hops);
+    }
+    answer(code);
   });
   request.setTimeout(settings.timeout, function () {
     answer('timeout');

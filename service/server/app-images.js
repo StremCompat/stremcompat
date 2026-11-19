@@ -19,11 +19,14 @@ var IMAGE_LIMIT = 6 * 1024 * 1024;
 var CONVERT_TIMEOUT_MS = 9000;
 var CONVERT_MAX_WIDTH = 1280;
 var SMALL_ENOUGH = 48 * 1024; /* below this a picture passes as it is, even with ?w= */
-var FAILED_KEEP_MS = 30 * 60 * 1000;
+/* a picture that cannot be made is not asked again for a while; one that did not download (the
+   network, an addon's server) only for a short one */
+var BROKEN_KEEP_MS = 30 * 60 * 1000;
+var UNREACHED_KEEP_MS = 2 * 60 * 1000;
 var FAILED_MAX = 500;
-var failed = {}; /* address -> when it failed */
+var failed = {}; /* address -> until when it is not asked again */
 var DISK = path.join(DIR, '.imgcache');
-var DISK_MAX = 600; /* files; the oldest go first, checked every DISK_CHECK writes */
+var DISK_MAX_BYTES = 64 * 1024 * 1024; /* the oldest go first, checked every DISK_CHECK writes */
 var DISK_CHECK = 50;
 var diskWrites = 0;
 
@@ -73,30 +76,38 @@ function diskFile(address, width) {
 
 function trimDisk() {
   fs.readdir(DISK, function (err, names) {
-    if (err || names.length <= DISK_MAX) return;
-    var files = names.map(function (name) {
-      var file = path.join(DISK, name);
-      try {
-        return { file: file, time: fs.statSync(file).mtime.getTime() };
-      } catch (e) {
-        return { file: file, time: 0 };
-      }
-    });
+    if (err) return;
+    var total = 0,
+      files = names.map(function (name) {
+        var file = path.join(DISK, name);
+        try {
+          var stat = fs.statSync(file);
+          total += stat.size;
+          return { file: file, time: stat.mtime.getTime(), size: stat.size };
+        } catch (e) {
+          return { file: file, time: 0, size: 0 };
+        }
+      });
+    if (total <= DISK_MAX_BYTES) return;
     files.sort(function (a, b) {
       return a.time - b.time;
     });
-    files.slice(0, files.length - Math.floor(DISK_MAX * 0.8)).forEach(function (f) {
-      fs.unlink(f.file, function () {});
-    });
+    for (var i = 0; i < files.length && total > DISK_MAX_BYTES * 0.8; i++) {
+      total -= files[i].size;
+      fs.unlink(files[i].file, function () {});
+    }
   });
 }
 
+/* written under a name of its own and then renamed, so two requests for the same cover never
+   write into the same file */
 function keep(file, data) {
+  var part = file + '.' + process.pid + '-' + ++diskWrites + '.tmp';
   fs.mkdir(DISK, function () {
-    fs.writeFile(file + '.tmp', data, function (err) {
+    fs.writeFile(part, data, function (err) {
       if (err) return;
-      fs.rename(file + '.tmp', file, function () {});
-      if (++diskWrites % DISK_CHECK === 0) trimDisk();
+      fs.rename(part, file, function () {});
+      if (diskWrites % DISK_CHECK === 0) trimDisk();
     });
   });
 }
@@ -174,10 +185,10 @@ function convert(input, width, png, cb) {
   convertNext();
 }
 
-function remember(address) {
+function remember(address, keepMs) {
   var keys = Object.keys(failed);
   if (keys.length >= FAILED_MAX) delete failed[keys[0]];
-  failed[address] = Date.now();
+  failed[address] = Date.now() + keepMs;
 }
 
 function appImage(req, res, q) {
@@ -187,35 +198,42 @@ function appImage(req, res, q) {
     address = String(q.u || ''),
     width = Math.max(0, Math.min(CONVERT_MAX_WIDTH, parseInt(q.w, 10) || 0));
   if (!/^https?:\/\//i.test(address)) return missing(res);
-  if (failed[address] && Date.now() - failed[address] < FAILED_KEEP_MS) return missing(res);
+  if (failed[address] && Date.now() < failed[address]) return missing(res);
   var file = diskFile(address, width);
   fs.readFile(file, function (err, kept) {
     var type = !err && kept && kept.length ? sniff(kept) : '';
     if (type) return send(res, type, kept);
-    fetchAndSend(
-      address,
-      width,
-      function (type, data) {
-        keep(file, data);
-        send(res, type, data);
-      },
-      res,
-      webpOk
-    );
+    fetchAndSend(address, width, file, res, webpOk);
   });
 }
 
-function fetchAndSend(address, width, done, res, webpOk) {
+/* res becomes null once answered: the small copy can still be on its way to the disk */
+function fetchAndSend(address, width, file, res, webpOk) {
+  function answer(type, data) {
+    if (res) send(res, type, data);
+    res = null;
+  }
+  function done(type, data) {
+    keep(file, data);
+    answer(type, data);
+  }
+  function fail(keepMs) {
+    remember(address, keepMs);
+    if (res) missing(res);
+    res = null;
+  }
   fetchUrl(
     address,
     function (body) {
-      if (!body || !body.length) {
-        remember(address);
-        return missing(res);
-      }
+      if (!body || !body.length) return fail(UNREACHED_KEEP_MS);
       if (isSvg(body)) return done('image/svg+xml', body);
       var plain = isJpeg(body) ? 'image/jpeg' : isPng(body) ? 'image/png' : '';
       if (plain && (!width || body.length <= SMALL_ENOUGH)) return done(plain, body);
+      /* With FFmpeg busy on others, what this browser can show goes as it is now, and the small copy
+         is made behind it for the next time: a row of collection covers waited one FFmpeg run each,
+         seconds apiece on a TV, the first time Home showed them. */
+      var asIs = plain || (webpOk && browserOnly(body));
+      if (asIs && converting) answer(asIs, body);
       /* a picture that can be transparent (PNG, WebP, GIF: logos over the artwork) stays a PNG, so
          its transparency is kept; only pictures that have none become JPEG */
       var png = plain === 'image/png' || canBeClear(body);
@@ -226,16 +244,14 @@ function fetchAndSend(address, width, done, res, webpOk) {
         if (png && plain !== 'image/png')
           return convert(body, width || CONVERT_MAX_WIDTH, false, function (jpeg) {
             if (jpeg) return done('image/jpeg', jpeg);
-            if (webpOk && browserOnly(body)) return send(res, browserOnly(body), body);
-            remember(address);
-            missing(res);
+            if (webpOk && browserOnly(body)) return answer(browserOnly(body), body);
+            fail(BROKEN_KEEP_MS);
           });
         /* without FFmpeg (Samsung) a JPEG or PNG still passes as it is; a WebP or GIF too, to a
            browser that shows it (not kept: the disk copy is for every client) */
         if (plain) return done(plain, body);
-        if (webpOk && browserOnly(body)) return send(res, browserOnly(body), body);
-        remember(address);
-        missing(res);
+        if (webpOk && browserOnly(body)) return answer(browserOnly(body), body);
+        fail(BROKEN_KEEP_MS);
       });
     },
     0,

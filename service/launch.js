@@ -71,10 +71,13 @@ function isUp(callback) {
   }, 1000);
 }
 
-/* The version answering /health on the app port, or '' when nothing answers. */
-function healthVersion(callback) {
+/* The version answering /health on the app port, '' when nothing listens there, '?' when something
+   holds the port without answering in time: a server stuck after the TV ran out of memory took the
+   port and answered nothing, and was taken for no server at all (webos#19). */
+function healthVersion(callback, waitMs) {
   var socket = net.connect(APP_PORT, '127.0.0.1');
   var settled = false;
+  var connected = false;
   var response = '';
   function finish() {
     var m;
@@ -84,9 +87,10 @@ function healthVersion(callback) {
       socket.destroy();
     } catch (ignore) {}
     m = response.match(/"version":"([^"]*)"/);
-    callback(m ? m[1] : response ? '?' : '');
+    callback(m ? m[1] : response || connected ? '?' : '');
   }
   socket.on('connect', function () {
+    connected = true;
     socket.write('GET /health HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n');
   });
   socket.on('data', function (chunk) {
@@ -95,7 +99,7 @@ function healthVersion(callback) {
   });
   socket.on('end', finish);
   socket.on('error', finish);
-  setTimeout(finish, 1500);
+  setTimeout(finish, waitMs || 1500);
 }
 
 /* The local server runs detached, so after an update the previous version's server can
@@ -197,6 +201,8 @@ function runInsideService(reason) {
   insideService = true;
   spawned = true;
   log('Running the local server inside the service: ' + reason);
+  /* the server then never ends this process (server/takeover.js) */
+  process.env.SC_IN_SERVICE = '1';
   try {
     require(SUPERVISOR);
   } catch (error) {
@@ -257,21 +263,24 @@ function startRuntime() {
   }, OWN_PROCESS_WAIT_MS);
 }
 
-/* callback(ready, staleVersion). A normal start gets the full minute. Only while ANOTHER
-   version keeps answering (the old server could not be stopped) the wait ends after 30 s,
-   so the launcher can explain it instead of timing out. */
-function waitUntilReady(callback, attempts) {
-  attempts = attempts || 0;
+/* callback(ready, staleVersion). A normal start gets READY_WAIT_MS, less than the launcher's own
+   90 s, so the launcher always gets an answer with the log to show. Only while ANOTHER version keeps
+   answering (the old server could not be stopped) the wait ends after 30 s, so the launcher can
+   explain it. */
+var READY_WAIT_MS = 75000;
+function waitUntilReady(callback, startedAt) {
+  startedAt = startedAt || Date.now();
   healthVersion(function (version) {
+    var waited = Date.now() - startedAt;
     if (version === APP_VERSION) {
       everReady = true;
       return callback(true, '');
     }
-    if (version && version !== '?' && attempts >= 60) return callback(false, version);
-    if (attempts >= 120) return callback(false, '');
+    if (version && version !== '?' && waited >= 30000) return callback(false, version);
+    if (waited >= READY_WAIT_MS) return callback(false, '');
     if (!spawned) startRuntime();
     setTimeout(function () {
-      waitUntilReady(callback, attempts + 1);
+      waitUntilReady(callback, startedAt);
     }, 500);
   });
 }
@@ -313,13 +322,23 @@ service.register('start', function (message) {
       message.respond(reply);
     });
   }
+  function stopThenStart(version) {
+    stopStaleServers(version, function () {
+      startRuntime();
+      answer();
+    });
+  }
   healthVersion(function (version) {
     if (version === APP_VERSION) return answer();
-    if (version && !spawned)
-      return stopStaleServers(version, function () {
+    if (version === '?' && !spawned)
+      /* a busy server may just be slow: it counts as stuck only if it stays silent 5 s more */
+      return healthVersion(function (again) {
+        if (again === APP_VERSION) return answer();
+        if (again) return stopThenStart(again === '?' ? 'silent' : again);
         startRuntime();
         answer();
-      });
+      }, 5000);
+    if (version && !spawned) return stopThenStart(version);
     if (!spawned) startRuntime();
     answer();
   });

@@ -21,7 +21,7 @@ function runningVersion(cb) {
     done = true;
     cb(v);
   }
-  var req = http.get({ host: '127.0.0.1', port: PORT, path: '/health', timeout: 2000 }, function (res) {
+  var req = http.get({ host: '127.0.0.1', port: PORT, path: '/health' }, function (res) {
     var body = '';
     res.on('data', function (d) {
       body += d;
@@ -34,8 +34,10 @@ function runningVersion(cb) {
       }
     });
   });
-  req.on('timeout', function () {
-    req.destroy();
+  /* setTimeout, not the timeout option: Node before 6.8 ignores the option, and a server that took
+     the port and answered nothing kept this waiting forever (webos#19) */
+  req.setTimeout(2000, function () {
+    req.abort();
     finish('?');
   });
   req.on('error', function () {
@@ -141,6 +143,14 @@ function stopOld(cb) {
 /* Listen on the app port. When it is taken: by this same version, this copy is not needed
    and exits; by another version (or a server that does not answer), that one is stopped and
    the port retried, a few times before giving up so the service restarts us. */
+/* Leaving is right for a server of its own; one run inside the webOS service (launch.js, where the
+   TV does not let the service start a Node) would take the service down with it, and the app's
+   start request would never be answered. */
+function leave(code) {
+  if (process.env.SC_IN_SERVICE) return dbg('inside the service: not leaving (' + code + ')');
+  process.exit(code);
+}
+
 function listenTakingOver(server, onListening) {
   var attempts = 0;
   function tryListen() {
@@ -153,13 +163,13 @@ function listenTakingOver(server, onListening) {
   function onError(e) {
     if (!e || e.code !== 'EADDRINUSE' || attempts >= 6) {
       dbg('listen failed: ' + ((e && e.code) || e) + ' after ' + attempts + ' attempts');
-      process.exit(1);
+      return leave(1);
     }
     attempts++;
     runningVersion(function (version) {
       if (version === APP_VERSION) {
         dbg('takeover: version ' + version + ' already serving :' + PORT + ', exiting');
-        process.exit(0);
+        return leave(0);
       }
       dbg('takeover: :' + PORT + ' held by version "' + version + '", replacing it with ' + APP_VERSION);
       stopOld(function () {
