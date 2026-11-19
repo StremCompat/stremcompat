@@ -1,6 +1,6 @@
 {
   "name": "stremcompat",
-  "version": "4.4.3",
+  "version": "4.5.0",
   "private": true,
   "license": "GPL-3.0-only",
   "description": "StremCompat: Stremio and Nuvio on older LG, Samsung and Android TVs",
