@@ -6,7 +6,9 @@ service/.imgcache/
 .build/
 dist/
 node_modules/
-/public-repo/
+service/subcache/
+homebrew-repo/
+.kombai/
 service/*.log
 service/profile.json
 *.log

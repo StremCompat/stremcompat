@@ -3,7 +3,15 @@
 // the phone approves, or an email and password. The QR comes as rows of modules to draw.
 
 var { fetchJson, readJsonBody, sendJson } = require('./http-util');
-var { avatars, chooseProfile, profiles, qrPoll, qrStart, saveProfile, setProfilePin } = require('./nuvio-account');
+var {
+  avatars,
+  chooseProfile,
+  profiles,
+  qrPoll,
+  qrStart,
+  saveProfile,
+  setProfilePin
+} = require('./nuvio-account');
 var { qrRows } = require('./qr');
 var runtime = require('./app-runtime');
 

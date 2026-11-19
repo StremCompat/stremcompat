@@ -28,7 +28,8 @@ var topNav = {
     else if (SCR === 'tv') {
       channelsView.paintCats();
       channelsView.paintList();
-    } else if (SCR === 'folder') folderPage.paint(); else if (SCR === 'set') settings.paint();
+    } else if (SCR === 'folder') folderPage.paint();
+    else if (SCR === 'set') settings.paint();
     else if (SCR === 'detail') {
       setF(detail.btnEls, -1);
       setF(detail.seasonEls, -1);

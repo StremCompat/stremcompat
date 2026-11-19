@@ -4,7 +4,7 @@
 // the manifest it and the app's update check read, the icon and the package. Anyone can add its address
 // in the channel's settings; it needs nobody's approval.
 //
-// Usage: node scripts/make-homebrew-repo.js <the .ipk> <output folder> [address it will be served from] [profile]
+// Usage: node scripts/make-homebrew-repo.js <the .ipk> <output folder> <address it will be served from> <profile>
 // (a profile with nativeApp, such as lg-native, makes the native app's repository)
 
 var crypto = require('crypto');
@@ -14,17 +14,15 @@ var path = require('path');
 var root = path.resolve(__dirname, '..');
 var ipk = process.argv[2];
 var out = process.argv[3];
-var base = (process.argv[4] || 'https://stremcompat.github.io/webos').replace(/\/$/, '');
-if (!ipk || !out) throw new Error('Usage: node make-homebrew-repo.js <the .ipk> <output folder> [address]');
-
-var appInfo = JSON.parse(fs.readFileSync(path.join(root, 'app', 'appinfo.json'), 'utf8'));
-var profile = process.argv[5]
-  ? JSON.parse(fs.readFileSync(path.join(root, 'profiles', process.argv[5] + '.json'), 'utf8'))
-  : null;
-var native = !!(profile && profile.nativeApp);
-var id = profile ? profile.appId : appInfo.id;
-var version = profile ? profile.version : appInfo.version;
-var title = profile ? profile.title : appInfo.title;
+/* the profile is required: app/appinfo.json is only a template, its version is not the release's */
+if (!ipk || !out || !process.argv[4] || !process.argv[5])
+  throw new Error('Usage: node make-homebrew-repo.js <the .ipk> <output folder> <address> <profile>');
+var base = process.argv[4].replace(/\/$/, '');
+var profile = JSON.parse(fs.readFileSync(path.join(root, 'profiles', process.argv[5] + '.json'), 'utf8'));
+var native = !!profile.nativeApp;
+var id = profile.appId;
+var version = profile.version;
+var title = profile.title;
 var fileName = id + '_' + version + (native ? '_arm.ipk' : '_all.ipk');
 var data = fs.readFileSync(ipk);
 var summary = native

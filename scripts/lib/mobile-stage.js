@@ -80,7 +80,7 @@ function stageService(dest) {
     recursive: true,
     filter: function (source) {
       var name = path.relative(service, source).split(path.sep)[0];
-      return name !== 'bin' && name !== 'subcache' && !/\.log$/i.test(source);
+      return name !== 'bin' && name !== 'subcache' && name !== '.imgcache' && !/\.log$/i.test(source);
     }
   });
   /* esbuild's own interface: its command is a script on Windows and a program on macOS */

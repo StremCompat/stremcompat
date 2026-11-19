@@ -49,10 +49,13 @@ fs.cpSync(path.join(root, 'service', 'fonts'), path.join(stageApp, 'fonts'), { r
 fs.cpSync(path.join(root, 'service'), stageService, {
   recursive: true,
   filter: function (source) {
+    /* what a server run on this computer left behind: covers and subtitles it kept */
+    var top = path.relative(path.join(root, 'service'), source).split(path.sep)[0];
     return (
       !/\.log$/i.test(source) &&
       path.basename(source) !== 'profile.json' &&
-      source !== path.join(root, 'service', '.imgcache') &&
+      top !== '.imgcache' &&
+      top !== 'subcache' &&
       source !== path.join(root, 'service', 'server.js')
     );
   }

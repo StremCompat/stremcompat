@@ -3180,7 +3180,9 @@ function homeLibraryRows() {
   if (cwMapped.length) rows.push({ title: tx('continueWatching'), items: cwMapped, wide: true });
   var episodes = newEpisodeItems(),
     seen = Object.create(null);
-  episodes.forEach(function (item) { seen[item.id] = true; });
+  episodes.forEach(function (item) {
+    seen[item.id] = true;
+  });
   upcomingItems().forEach(function (item) {
     if (!seen[item.id]) episodes.push(item);
   });
@@ -4694,7 +4696,8 @@ var topNav = {
     else if (SCR === 'tv') {
       channelsView.paintCats();
       channelsView.paintList();
-    } else if (SCR === 'folder') folderPage.paint(); else if (SCR === 'set') settings.paint();
+    } else if (SCR === 'folder') folderPage.paint();
+    else if (SCR === 'set') settings.paint();
     else if (SCR === 'detail') {
       setF(detail.btnEls, -1);
       setF(detail.seasonEls, -1);
@@ -5423,7 +5426,9 @@ var disc = {
     return Math.max(3, Math.floor((gridWidth - 14) / step));
   },
   gridRowH: function () {
-    return ((document.documentElement.clientHeight || 1080) <= 800 ? 288 : 420) + titleUnderExtra(this.items[0]);
+    return (
+      ((document.documentElement.clientHeight || 1080) <= 800 ? 288 : 420) + titleUnderExtra(this.items[0])
+    );
   },
   renderGrid: function () {
     var host = $('discGrid'),

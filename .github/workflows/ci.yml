@@ -1,0 +1,29 @@
+name: Checks
+
+# Every push and pull request: the same checks a release runs, so a broken change is seen before a tag.
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - run: npm run lint
+      - run: npm run format:check
+      - run: node scripts/build-ui.js --check
+      - run: npm test

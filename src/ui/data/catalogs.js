@@ -363,7 +363,9 @@ function homeLibraryRows() {
   if (cwMapped.length) rows.push({ title: tx('continueWatching'), items: cwMapped, wide: true });
   var episodes = newEpisodeItems(),
     seen = Object.create(null);
-  episodes.forEach(function (item) { seen[item.id] = true; });
+  episodes.forEach(function (item) {
+    seen[item.id] = true;
+  });
   upcomingItems().forEach(function (item) {
     if (!seen[item.id]) episodes.push(item);
   });
