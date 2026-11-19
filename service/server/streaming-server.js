@@ -151,9 +151,11 @@ function startEngine(folder, disk) {
     return false;
   }
   var child;
-  /* the engine's own default for how long a paused film keeps its link, and the cache limit;
-     without one, the engine sizes the cache by itself */
-  var limits = [String(15 * 60 * 1000)],
+  /* How long a link nobody reads keeps its torrent, and the cache limit (without one, the engine
+     sizes the cache by itself). 5 min, not the engine's 15: an app closed during a film cannot say
+     so, and its torrent kept the TV's memory that long; a film paused longer opens its source again
+     (reopenSource in the player). */
+  var limits = [String(5 * 60 * 1000)],
     limit = disk && cacheLimitMiB(disk.freeMb);
   if (limit) limits.push(String(limit));
   try {

@@ -17,6 +17,10 @@ var runtime = require('./app-runtime');
 
 var LINK = 'https://link.stremio.com/api/';
 var STREMIO_POLL_S = 2.5; /* as the web sign-in asks */
+/* Stremio's link service never says a code ran out: after this the screen gets a new one instead of
+   asking for a dead code forever */
+var STREMIO_CODE_MS = 10 * 60 * 1000;
+var stremioCodes = {}; /* code -> when it was made */
 
 /* the account's library (Continue Watching, progress), waited for at most a few seconds */
 var LIBRARY_WAIT_MS = 6000;
@@ -51,6 +55,8 @@ function start(req, res, q) {
     });
   fetchJson(LINK + 'create', function (j) {
     if (!j || !j.code || !j.link) return sendJson(res, { error: 'unavailable' });
+    stremioCodes = {};
+    stremioCodes[j.code] = Date.now();
     sendJson(res, { id: j.code, code: j.code, link: j.link, qr: qrRows(j.link), every: STREMIO_POLL_S });
   });
 }
@@ -63,7 +69,10 @@ function poll(req, res, q) {
       var over = r && (r.status === 'expired' || r.status === 'used' || r.status === 'cancelled');
       sendJson(res, over ? { expired: true } : { waiting: true });
     });
-  fetchJson(LINK + 'read?code=' + encodeURIComponent(String(q.id || '')), function (r) {
+  var id = String(q.id || ''),
+    made = stremioCodes[id];
+  if (!made || Date.now() - made > STREMIO_CODE_MS) return sendJson(res, { expired: true });
+  fetchJson(LINK + 'read?code=' + encodeURIComponent(id), function (r) {
     var ak = r && r.result && (r.result.authKey || r.result.auth_key);
     if (ak) return signedIn(res, ak, null);
     sendJson(res, { waiting: true });
