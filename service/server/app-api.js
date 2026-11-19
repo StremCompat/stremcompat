@@ -75,6 +75,8 @@ function answerState(res) {
     signedIn: !!L.authKey(),
     provider: L.authKey() ? (L.isNuvioAccount() ? 'nuvio' : 'stremio') : '',
     email: (u && u.email) || '',
+    /* the profile at the top of the native rail: { name, color, avatar } (a Stremio account has none) */
+    face: JSON.parse(runtime.storage.getItem('profileFace') || 'null'),
     /* Settings > Interface: the Magic Remote pointer, off for those who press it by mistake */
     pointer: L.setting('pointer', 'on') !== 'off'
   });
@@ -289,6 +291,15 @@ function sourceList(s, quality, lang, addon, pref) {
     best = L.bestOf(s.items),
     /* for the next episode: the source like the one just played (matchingNextSource) */
     match = pref ? L.matchingNextSource(s.items, pref) : null;
+  /* The recommended source (the one Best plays) leads the list, after a playback to continue, so the
+     focus starts on it; it could sit far down, among the sources of the addon that answered last. */
+  if (list.recommended > 0) {
+    var top = 0;
+    while (top < list.items.length && list.items[top].stored) top++;
+    var rec = list.items.splice(list.recommended, 1)[0];
+    list.items.splice(top, 0, rec);
+    list.recommended = top;
+  }
   return {
     match: match ? match._seq : 0,
     version: s.version,
