@@ -315,6 +315,22 @@ assert.strictEqual(subtitlePrefs({ enableDefaultAudioTrack: 'true' }).aud, 'por'
   assert.strictEqual(ctx.state, 'emb:2', 'the menu lost the subtitle in use');
 })();
 
+// ---- the line on screen takes a new style at once, even paused (subtitles.js restyleSub) ----
+(function () {
+  var spans = [], sub = element('sub');
+  sub.appendChild = function (el) { spans.push(el); };
+  var ctx = {
+    ID: 'tt9', TYPE: '', VID: '', URL: '', localStorage: memoryStorage({}), HAS_MEDIA_TOOLS: true,
+    v: { addEventListener: function () {}, textTracks: [], currentTime: 5, paused: true },
+    document: { getElementById: element, createElement: element },
+    xhr: function () {}, showToast: function () {}, subEl: sub, P: {}, window: { innerHeight: 1080 },
+    defaultMediaLanguage: function () { return 'por'; }
+  };
+  vm.runInNewContext(src('player/subtitles.js') + ';curSub="ext:a";cues=[{s:0,e:10,t:"Hello"}];renderSub();subSize=80;restyleSub();', ctx);
+  assert.strictEqual(spans.length, 2, 'the line on screen was not drawn again with the new style');
+  assert.ok(/font-size:80px/.test(spans[1].style.cssText), 'the line drawn again did not take the new size');
+})();
+
 // ---- backup languages, and a subtitle from inside the file chosen before (subtitles.js) ----
 function languagePlayer(stored, tracks, audio) {
   var listeners = {}, chosen = { ext: '', emb: -1 };
@@ -665,9 +681,9 @@ assert.strictEqual(pushed, true, 'leaving the player would wait for a push that 
       menu: menu, P: P, curSub: curSub, extSubs: extSubs || [], embTracks: more.emb || [], embTracksLoading: false, extSubsLoading: false,
       languageCode: function (l) { return l; }, embErr: '', embTimeout: false,
       setExtSub: function (u) { calls.push('ext ' + u); }, setEmbSub: function (n) { calls.push('emb ' + n); },
-      saveTitlePrefs: function () {}, holdForSubtitle: function () {},
+      saveTitlePrefs: function () {}, holdForSubtitle: function () {}, restyleSub: function () { calls.push('restyle'); },
       v: Object.assign({ audioTracks: tracks || [], addEventListener: function () {}, style: {}, currentTime: 0, playbackRate: 1 }, more.video),
-      subColor: '#ffffff', subBgOp: 0, subBottom: 8, subOpacity: 1, subDelay: 0, subEl: { style: {} },
+      subColor: '#ffffff', subBgOp: 0, subSize: 57, subBottom: 8, subOpacity: 1, subDelay: 0, subEl: { style: {} },
       eh: function (s) { return s; }, audioName: function () { return ''; }, subtitleName: function () { return ''; },
       ensureEmbTracks: function () {}, goBack: function () {}, paintBtns: function () {}, showBar: function () {},
       ensureTechProbe: function () {}, showToast: function () {}, saveTitlePref: function () {},
@@ -825,6 +841,9 @@ assert.strictEqual(pushed, true, 'leaving the player would wait for a push that 
   assert.strictEqual(styled.stored.subsBottom, '12', 'the subtitle position was not kept');
   styled.press(6);
   assert.strictEqual(styled.get().opacity, 0.8, 'the opacity did not change');
+  assert.strictEqual(styled.calls[styled.calls.length - 1], 'restyle', 'a new style waited for the next line to show');
+  styled.press(0);
+  assert.strictEqual(styled.calls[styled.calls.length - 1], 'restyle', 'a new size waited for the next line to show');
   styled.openMenu('delay');
   now = 10000;
   styled.press(0);

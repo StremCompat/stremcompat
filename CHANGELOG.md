@@ -4,6 +4,10 @@ What changed in each version, newest first. The full notes of each release are i
 
 ## Unreleased
 
+## 4.5.7
+
+- A change in the player's subtitle Style or Delay shows on the line on screen at once, also paused; it waited for the next line.
+
 ## 4.5.6 / Native 5.2.6
 
 - Subtitles in one menu: each language once, with the file's own subtitles first and then each addon; an addon with several subtitles opens them, and a language or an addon with one is chosen at once.

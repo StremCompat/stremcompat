@@ -589,6 +589,13 @@ function placeSub(look) {
   subEl.style.bottom = row === 'bottom' ? subBottom + '%' : 'auto';
   subEl.style.textAlign = a % 3 === 1 ? 'left' : a % 3 === 0 ? 'right' : 'center';
 }
+/* A style or the delay changed in the menu: the line on screen now shows it at once. Waiting for the
+   next time update left it as it was until the next line when paused, and on the TVs whose own
+   player hands the lines over one by one. */
+function restyleSub() {
+  subEl._t = null;
+  renderSub();
+}
 function renderSub() {
   if (curSub === 'off') return;
   var txt = '';

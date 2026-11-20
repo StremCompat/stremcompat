@@ -386,25 +386,25 @@ function chooseMenu() {
   }
   if (it.k === 'size+') {
     subSize = Math.min(Math.round((window.innerHeight || 1080) * 0.1), subSize + 4);
-    subEl._t = null;
+    restyleSub();
     reopen();
     return;
   }
   if (it.k === 'size-') {
     subSize = Math.max(Math.round((window.innerHeight || 1080) * 0.025), subSize - 4);
-    subEl._t = null;
+    restyleSub();
     reopen();
     return;
   }
   if (it.k === 'color') {
     subColor = subColor.toLowerCase() === '#ffe600' ? '#ffffff' : '#ffe600';
-    subEl._t = null;
+    restyleSub();
     reopen();
     return;
   }
   if (it.k === 'bg') {
     subBgOp = subBgOp > 0 ? 0 : 0.6;
-    subEl._t = null;
+    restyleSub();
     reopen();
     return;
   }
@@ -417,7 +417,7 @@ function chooseMenu() {
   }
   if (it.k === 'opacity') {
     subOpacity = subOpacity <= 0.45 ? 1 : Math.round((subOpacity - 0.2) * 10) / 10;
-    subEl._t = null;
+    restyleSub();
     keepSetting('subsOpacity', subOpacity);
     reopen();
     return;
@@ -425,6 +425,7 @@ function chooseMenu() {
   if (it.k === 'd+' || it.k === 'd-') {
     subDelay = Math.round((subDelay + (it.k === 'd+' ? 1 : -1) * delayStep()) * 10) / 10;
     saveTitlePref('delay', subDelay);
+    restyleSub();
     reopen();
     return;
   }
@@ -459,6 +460,7 @@ function chooseMenu() {
   if (it.k === 'd0') {
     subDelay = 0;
     saveTitlePref('delay', 0);
+    restyleSub();
     reopen();
     return;
   }
