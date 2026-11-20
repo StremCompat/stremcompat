@@ -1,6 +1,8 @@
 # StremCompat Native 5.2.5 beta
 
-> **Beta, for LG only.** The stable version is StremCompat 4.5.5. The Native app installs next to it as a separate app.
+> **Beta.** The stable version is StremCompat 4.5.5. The Native app installs next to it as a separate app.
+>
+> The fix below is for LG. On Samsung and Android TV this version is the same app as the previous Native, released so the version matches on every TV.
 
 ## Fixed
 

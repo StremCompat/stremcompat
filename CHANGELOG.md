@@ -4,9 +4,10 @@ What changed in each version, newest first. The full notes of each release are i
 
 ## Unreleased
 
-## 4.5.5 / Native 5.2.5 (LG)
+## 4.5.5 / Native 5.2.5
 
 - The bolt of a cached source no longer repeats over its "TB" letters on the source in focus.
+- Native 5.2.5 changes only the LG app (its service); on Samsung and Android TV it brings the version level.
 - LG: the app's service no longer ends itself 5 s after starting on TVs that refuse it an activity (webOS 10 seems to), which took the local server with it and showed "... is not running" (webos#14). The launcher also asks the service again twice before showing an error.
 
 ## 4.5.4 / Native 5.2.4 (Samsung only)
