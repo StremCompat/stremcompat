@@ -4,6 +4,10 @@ What changed in each version, newest first. The full notes of each release are i
 
 ## Unreleased
 
+## 4.5.4 / Native 5.2.4 (Samsung only)
+
+- Samsung: the local service also starts the way newer TVs need (Samsung's `wrt:service` module), and is asked again while the app waits for it. On recent TVs the old way answered but brought nothing up, so the app stopped on "could not finish loading" or a black screen.
+
 ## 4.5.3 / Native 5.2.3
 
 - Native: the Nuvio profile's picture at the top of the side menu again, and it can be selected (who is watching, or the account for Stremio).

@@ -1,17 +1,13 @@
-// Starts the local service, then the interface. Runs inline in index.html, before anything
-// that needs the service. A server of another version is asked to leave first.
+// Starts the local service, then the interface. Runs inline in index.html, after
+// service-start.js and before anything that needs the service. A server of another version is
+// asked to leave first.
 (function () {
+  /* a TV can accept the first request and still bring nothing up: ask again now and then */
+  var ASK_AGAIN_EVERY = 10;
   var tries = 0,
     replaced = false;
   function launch() {
-    try {
-      tizen.application.launchAppControl(
-        new tizen.ApplicationControl('http://tizen.org/appcontrol/operation/service'),
-        '__SERVICE_ID__',
-        function () {},
-        function () {}
-      );
-    } catch (e) {}
+    tizenStartService('__SERVICE_ID__', function () {});
   }
   function start() {
     window.__STREMCOMPAT_APP__();
@@ -23,6 +19,7 @@
       window.__SC_BOOT_ERROR__('The app service did not start.', 'SERVICE');
       return;
     }
+    if (tries % ASK_AGAIN_EVERY === 0) launch();
     setTimeout(ping, 500);
   }
   function get(path, done) {

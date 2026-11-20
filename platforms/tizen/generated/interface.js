@@ -25,21 +25,9 @@ function isRemoteBack(k) {
 function isBackKey(k) {
   return isRemoteBack(k) || k === 8;
 }
+/* platforms/tizen/service-start.js, inlined on every page before this script */
 function startService(serviceId, cb) {
-  try {
-    tizen.application.launchAppControl(
-      new tizen.ApplicationControl('http://tizen.org/appcontrol/operation/service'),
-      serviceId,
-      function () {
-        cb(true);
-      },
-      function () {
-        cb(false);
-      }
-    );
-  } catch (e) {
-    cb(false);
-  }
+  tizenStartService(serviceId, cb);
 }
 /* Only Back, the arrows and OK reach a page by default. */
 (function () {

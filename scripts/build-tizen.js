@@ -55,13 +55,16 @@ function inlineAssets(text) {
   var logo = fs.readFileSync(path.join(root, 'service', 'app-logo.png')).toString('base64');
   return text.split('/logo.png').join('data:image/png;base64,' + logo);
 }
-var baseTag = '<base href="http://127.0.0.1:' + profile.port + '/">';
+/* Every page can start the service (service-start.js); the opening pages start it first (boot.js). */
+function serviceStart() { return inlineScript(read(path.join(root, 'platforms', 'tizen', 'service-start.js'))); }
+function bootScript() { return serviceStart() + '\n' + inlineScript(tokens(read(path.join(root, 'platforms', 'tizen', 'boot.js')))); }
+var baseTag ='<base href="http://127.0.0.1:' + profile.port + '/">';
 var viewportTag = '<meta name="viewport" content="width=1920">';
 
 function interfacePage() {
   var html = read(path.join(root, 'service', 'interface.html'));
   var app = read(path.join(root, 'platforms', 'tizen', 'generated', 'interface.js'));
-  var boot = tokens(read(path.join(root, 'platforms', 'tizen', 'boot.js')));
+  var boot = bootScript();
   var profileScript = '<script>window.__SC_PROFILE__=' + JSON.stringify(profileModule.interfaceProfile(profile)) + ';</script>';
   var scriptTag = /<script src="\/interface\.js[^>]*><\/script>/;
   if (!scriptTag.test(html)) throw new Error('service/interface.html no longer loads /interface.js');
@@ -73,7 +76,7 @@ function interfacePage() {
     .replace('},25000);', function () { return '},70000);'; })
     .replace('<!--@profile-->', function () { return profileScript; })
     .replace(scriptTag, function () {
-      return '<script>window.__STREMCOMPAT_APP__=function(){\n' + inlineScript(app) + '\n};</script>\n<script>' + inlineScript(boot) + '</script>';
+      return '<script>window.__STREMCOMPAT_APP__=function(){\n' + inlineScript(app) + '\n};</script>\n<script>' + boot + '</script>';
     });
 }
 
@@ -102,13 +105,13 @@ function playerPage() {
     '<script src="$WEBAPIS/webapis/webapis.js"></script>' + baseTag +
     '<style>' + css + '\nhtml,body{background:transparent}#v{background:transparent}</style></head><body>' +
     body.replace(videoTag, '<object id="v" type="application/avplayer"></object>') +
-    '<script>' + loader + '</script></body></html>'
+    '<script>' + serviceStart() + '</script><script>' + loader + '</script></body></html>'
   );
 }
 
 /* The native interface: boot.js starts the service, then the page loads LG-C's build. */
 function nativePage() {
-  var boot = tokens(read(path.join(root, 'platforms', 'tizen', 'boot.js')));
+  var boot = bootScript();
   /* the base names the server for boot.js; the app's own files are read from the package */
   var setup =
     'var ROOT=String(location.href).replace(/[?#].*$/,"").replace(/[^\/]*$/,"");' +
@@ -124,7 +127,7 @@ function nativePage() {
     '#v{position:absolute;left:0;top:0;width:1920px;height:1080px;z-index:-1}</style></head><body>' +
     '<object id="v" type="application/avplayer"></object><div id="boot"></div>' +
     '<canvas id="canvas" width="1920" height="1080"></canvas>' +
-    '<script>' + setup + '</script><script>' + inlineScript(boot) + '</script></body></html>'
+    '<script>' + setup + '</script><script>' + boot + '</script></body></html>'
   );
 }
 

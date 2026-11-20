@@ -123,10 +123,13 @@ function bootRun(hasTizen, reloads) {
         }
       }
     };
-  vm.runInNewContext(fs.readFileSync(path.join(root, 'platforms', 'tizen', 'boot.js'), 'utf8'), ctx);
+  vm.runInNewContext(serviceStartCode + fs.readFileSync(path.join(root, 'platforms', 'tizen', 'boot.js'), 'utf8'), ctx);
   timers.shift()();
   return { reloaded: reloaded, launched: launched, errors: errors, stored: stored };
 }
+var serviceStartCode = fs.readFileSync(path.join(root, 'platforms', 'tizen', 'service-start.js'), 'utf8') + '\n';
+assert.ok(index.indexOf('function tizenStartService') > 0, 'the opening page cannot start the service');
+assert.ok(player.indexOf('function tizenStartService') > 0, 'the player page cannot start the service');
 var firstLoad = bootRun(false);
 assert.strictEqual(firstLoad.reloaded, 1, 'a page without the system objects stayed loading forever');
 assert.strictEqual(firstLoad.stored.tizenBootReloads, '1', 'the reload was not counted');
@@ -137,6 +140,95 @@ var recovered = bootRun(true, 2);
 assert.strictEqual(recovered.launched, 1, 'the service was not started');
 assert.ok(!('tizenBootReloads' in recovered.stored), 'the reload count stayed after a good start');
 assert.ok(player.indexOf('tizenPlayerReloads') > 0, 'the player page must recover the same way');
+
+// ---- the service starts by launchAppControl or by wrt:service (service-start.js) ----
+/* launch: 'ok', 'fail' or 'throw'; module: null (none), or { start: 'ok' | 'fail' } */
+function startRun(launch, module) {
+  var timers = [],
+    calls = [],
+    answers = [],
+    scripts = [];
+  var ctx = {
+    window: {},
+    setTimeout: function (f) {
+      timers.push(f);
+    },
+    document: {
+      createElement: function () {
+        return {};
+      },
+      head: {
+        appendChild: function (s) {
+          scripts.push(s);
+        }
+      }
+    },
+    tizen: {
+      ApplicationControl: function () {},
+      application: {
+        launchAppControl: function (control, id, ok, bad) {
+          calls.push('launch ' + id);
+          if (launch === 'throw') throw new Error('no');
+          if (launch === 'ok') ok();
+          else bad();
+        }
+      }
+    }
+  };
+  vm.runInNewContext(serviceStartCode, ctx);
+  function answer(ok) {
+    answers.push(ok);
+  }
+  ctx.tizenStartService('pkg.Service', answer);
+  assert.strictEqual(scripts.length, 1, 'wrt:service was not asked for');
+  assert.strictEqual(scripts[0].type, 'module', 'wrt:service needs a module script');
+  var settle = Promise.resolve();
+  if (module) {
+    var m = {
+      startService: function (id) {
+        calls.push('module ' + id);
+        return module.start === 'ok' ? Promise.resolve() : Promise.reject(new Error('no'));
+      }
+    };
+    ctx.window.__SC_WRT_SERVICE__(m);
+  } else timers.forEach(function (f) {
+    f();
+  });
+  return settle
+    .then(function () {
+      return new Promise(function (done) {
+        setImmediate(done);
+      });
+    })
+    .then(function () {
+      /* a second start uses the module already found, without asking for it again */
+      ctx.tizenStartService('pkg.Service', function () {});
+      assert.strictEqual(scripts.length, 1, 'wrt:service was asked for twice');
+      return { calls: calls, answers: answers };
+    });
+}
+var startChecks = Promise.all([
+  startRun('ok', null).then(function (r) {
+    assert.deepStrictEqual(r.answers, [true], 'an older TV without wrt:service must start as before');
+  }),
+  startRun('ok', { start: 'fail' }).then(function (r) {
+    assert.deepStrictEqual(r.answers, [true], 'one accepted way is enough');
+  }),
+  startRun('fail', { start: 'ok' }).then(function (r) {
+    assert.ok(r.calls.indexOf('module pkg.Service') >= 0, 'wrt:service was not used');
+    assert.deepStrictEqual(r.answers, [true], 'a newer TV must start through wrt:service');
+  }),
+  startRun('throw', { start: 'fail' }).then(function (r) {
+    assert.deepStrictEqual(r.answers, [false], 'neither way working must answer once, with false');
+  }),
+  startRun('fail', null).then(function (r) {
+    assert.deepStrictEqual(r.answers, [false], 'no way at all must answer false');
+  })
+]);
+startChecks.catch(function (e) {
+  console.error(e);
+  process.exit(1);
+});
 
 // ---- every constant of the player page has a variable ----
 var script = fs.readFileSync(path.join(root, 'scripts', 'build-tizen.js'), 'utf8');

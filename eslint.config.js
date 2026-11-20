@@ -100,14 +100,19 @@ module.exports = [
     rules: browserCorrectness
   },
   {
-    // The Tizen launcher, inline in index.html.
-    files: ['platforms/tizen/boot.js'],
+    // The Tizen launcher and the service start, inline in the pages before everything else.
+    files: ['platforms/tizen/boot.js', 'platforms/tizen/service-start.js'],
     languageOptions: {
       ecmaVersion: 5,
       sourceType: 'script',
       globals: Object.assign({}, globals.browser, { tizen: 'readonly' })
     },
     rules: browserCorrectness
+  },
+  {
+    // What service-start.js defines for the Samsung pages that come after it.
+    files: ['platforms/tizen/boot.js', 'platforms/tizen/generated/*.js'],
+    languageOptions: { globals: { tizenStartService: 'readonly' } }
   },
   {
     // The Tizen service, on the TV's Node 4.4.3.
