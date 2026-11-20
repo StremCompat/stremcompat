@@ -8,7 +8,110 @@ function onPop() {
   goBack();
 }
 window.addEventListener('popstate', onPop);
-// ---- menus (subtitles = Off + external English-first + embedded; audio = embedded) ----
+// ---- menus (subtitles = Off + languages, each with the file's own and every addon's; audio = embedded) ----
+/* ---- subtitles: languages, then the file's own and each addon's, then an addon's subtitles ----
+   Every subtitle, inside the file or from an addon, is an entry with its language; entries of the
+   same language (pt, por and pob alike) form one row. */
+var subLang = '',
+  subLangFrom = 'subsroot',
+  subAddon = '',
+  embReopenArmed = false;
+function subKey(lang) {
+  return languageCode(lang) || '?';
+}
+function subEntries() {
+  var list = [],
+    i;
+  for (i = 0; embTracks && i < embTracks.length; i++)
+    list.push({ emb: embTracks[i], lang: embTracks[i].lang });
+  for (i = 0; i < extSubs.length; i++) list.push({ ext: extSubs[i], lang: extSubs[i].lang });
+  return list;
+}
+/* the language's name as the server wrote it, without a track's own title ("Portuguese — Forced") */
+function entryLanguageName(e) {
+  return String((e.emb || e.ext).name || e.lang || '').split(' — ')[0];
+}
+/* the subtitle language asked for first, then the second one, then the rest as they came */
+function subLanguageRank(lang) {
+  if (sameLanguage(lang, WANTSUB)) return 0;
+  if (sameLanguage(lang, WANTSUB2)) return 1;
+  return 2;
+}
+function subLanguages() {
+  var entries = subEntries(),
+    byKey = {},
+    found = [];
+  for (var i = 0; i < entries.length; i++) {
+    var key = subKey(entries[i].lang);
+    if (!byKey[key]) {
+      byKey[key] = {
+        key: key,
+        name: entryLanguageName(entries[i]),
+        wanted: wantedSubtitleLanguage(entries[i].lang),
+        rank: subLanguageRank(entries[i].lang),
+        subs: []
+      };
+      found.push(byKey[key]);
+    }
+    byKey[key].subs.push(entries[i]);
+  }
+  var out = [];
+  for (var rank = 0; rank <= 2; rank++)
+    for (var j = 0; j < found.length; j++) if (found[j].rank === rank) out.push(found[j]);
+  out.anyWanted = false;
+  for (var w = 0; w < out.length; w++) if (out[w].wanted) out.anyWanted = true;
+  return out;
+}
+function subLanguage(key) {
+  var langs = subLanguages();
+  for (var i = 0; i < langs.length; i++) if (langs[i].key === key) return langs[i];
+  return null;
+}
+/* inside one language: each of the file's own tracks first, then one group per addon */
+function subAddons(lang) {
+  var groups = [],
+    bySrc = {};
+  for (var i = 0; i < lang.subs.length; i++) {
+    var e = lang.subs[i];
+    if (e.emb) {
+      var title = String(e.emb.name || '').split(' — ')[1];
+      groups.push({ src: 'emb:' + e.emb.n, label: P.embedded + (title ? '  ·  ' + title : ''), subs: [e] });
+      continue;
+    }
+    var src = e.ext.src || P.external;
+    if (!bySrc[src]) {
+      bySrc[src] = { src: src, label: src, subs: [] };
+      groups.push(bySrc[src]);
+    }
+    bySrc[src].subs.push(e);
+  }
+  return groups;
+}
+/* the menu row that picks this subtitle (chooseMenu) */
+function subChoice(e) {
+  if (e.emb)
+    return { k: 'emb', idx: e.emb.n, ti: e.emb.ti, lang: e.emb.lang, on: curSub === 'emb:' + e.emb.n };
+  return { k: 'ext', u: e.ext.u, lang: e.ext.lang, src: e.ext.src, on: curSub === 'ext:' + e.ext.u };
+}
+function subRowName(e, at) {
+  return (e.ext ? e.ext.name : e.emb.name) + ' ' + (at + 1);
+}
+function currentSubKey() {
+  var entries = subEntries();
+  for (var i = 0; i < entries.length; i++) if (subChoice(entries[i]).on) return subKey(entries[i].lang);
+  return '';
+}
+/* the languages come from two lists read apart: the menu opens again once both are in */
+function reopenWhenTracksCome() {
+  if (embReopenArmed) return;
+  embReopenArmed = true;
+  var iv = setInterval(function () {
+    if (embTracksLoading || extSubsLoading) return;
+    clearInterval(iv);
+    embReopenArmed = false;
+    if (mode === 'menu' && (subView === 'subsroot' || subView === 'submore')) reopen();
+  }, 400);
+}
 /* the lists of the buttons on the left open on the left, next to them */
 var menuAtLeft = false;
 function choiceRow(label, on, tail) {
@@ -18,7 +121,7 @@ function openMenu(view) {
   subView = view;
   menuItems = [];
   var html = '';
-  if (view === 'subsroot' || view === 'embedded') ensureEmbTracks();
+  if (view === 'subsroot' || view === 'submore') ensureEmbTracks();
   if (view === 'root' || view === 'media' || view === 'audio') ensureTechProbe();
   if (view === 'root') ensureTorrentFiles();
   if (view === 'episodes') ensureSeasonList();
@@ -77,13 +180,14 @@ function openMenu(view) {
     }
   } else if (view === 'sources') {
     html += '<div class=mh>' + P.sources + '</div>';
-    if (!sourceList) html += '<div class=mi style="opacity:.5">' + P.readingTracks + '</div>';
-    else if (!sourceList.length) html += '<div class=mi style="opacity:.5">' + P.none + '</div>';
     for (var so = 0; sourceList && so < sourceList.length; so++) {
       var here = sourceList[so].url === URL;
       html += choiceRow(sourceRowText(sourceList[so]), here);
       menuItems.push({ k: 'source', at: so, on: here });
     }
+    if (sourcesLeft > 0) html += '<div class=mi style="opacity:.5">' + P.readingTracks + '</div>';
+    else if (!sourceList || !sourceList.length)
+      html += '<div class=mi style="opacity:.5">' + P.none + '</div>';
   } else if (view === 'files') {
     html += '<div class=mh>' + P.files + '</div>';
     for (var tf = 0; tf < torrentFileList.length; tf++) {
@@ -109,103 +213,86 @@ function openMenu(view) {
       }
     } catch (e) {}
     if (!menuItems.length) html += '<div class=mi style="opacity:.5">' + P.none + '</div>';
-  } else if (view === 'subsroot') {
+  } else if (view === 'subsroot' || view === 'submore') {
+    /* the languages of every subtitle, inside the file and from the addons alike; the ones asked
+       for come first and the others wait under "More languages" */
+    var more = view === 'submore';
     html += '<div class=mh>' + P.subtitles + ': ' + eh(subtitleName()) + '</div>';
-    var f0 = curSub === 'off';
-    html += choiceRow(P.off, f0);
-    menuItems.push({ k: 'off', on: f0 });
-    /* the row that leads to the current subtitle says so, before opening it */
-    var inEmb = curSub.indexOf('emb:') === 0,
-      inExt = curSub.indexOf('ext:') === 0;
-    html += choiceRow(P.embedded, inEmb, ' \u203a');
-    menuItems.push({ k: 'go', to: 'embedded', on: inEmb });
-    html += choiceRow(P.external, inExt, ' \u203a');
-    menuItems.push({ k: 'go', to: 'external', on: inExt });
-    html += '<div class=mi>' + P.style + ' \u203a</div>';
-    menuItems.push({ k: 'go', to: 'style' });
-    if (inExt) {
-      html += '<div class=mi>' + P.delay + ' \u203a</div>';
-      menuItems.push({ k: 'go', to: 'delay' });
+    if (!more) {
+      html += choiceRow(P.off, curSub === 'off');
+      menuItems.push({ k: 'off', on: curSub === 'off' });
     }
-  } else if (view === 'embedded') {
-    html += '<div class=mh>' + P.embedded + '</div>';
-    if (embTracksLoading || embTracks === null) {
-      html += '<div class=mi style="opacity:.5">' + P.readingTracks + '</div>';
-      if (!embReopenArmed) {
-        embReopenArmed = true;
-        var iv = setInterval(function () {
-          if (!embTracksLoading) {
-            clearInterval(iv);
-            embReopenArmed = false;
-            if (subView === 'embedded') reopen();
-          }
-        }, 400);
+    var langs = subLanguages(),
+      curKey = currentSubKey(),
+      others = 0,
+      otherInUse = false;
+    for (var g = 0; g < langs.length; g++) {
+      var lg = langs[g],
+        lgOn = lg.key === curKey;
+      if (langs.anyWanted && lg.wanted === more) {
+        others++;
+        if (lgOn) otherInUse = true;
+        continue;
       }
+      /* a language with one subtitle is that subtitle */
+      if (lg.subs.length === 1) {
+        html += choiceRow(lg.name, lgOn);
+        menuItems.push(subChoice(lg.subs[0]));
+      } else {
+        html += choiceRow(lg.name + '  ·  ' + lg.subs.length, lgOn, ' ›');
+        menuItems.push({ k: 'sublang', key: lg.key, on: lgOn });
+      }
+    }
+    if (!more && others) {
+      html += choiceRow(P.moreLanguages, otherInUse, ' ›');
+      menuItems.push({ k: 'go', to: 'submore', on: otherInUse });
+    }
+    if (embTracksLoading || embTracks === null || extSubsLoading) {
+      html += '<div class=mi style="opacity:.5">' + P.readingTracks + '</div>';
+      reopenWhenTracksCome();
     } else if (embErr) {
       html +=
         '<div class=mi style="opacity:.6;white-space:normal;font-size:22px">' +
-        eh(embTimeout ? P.tracksStillLoading : embErr) +
+        eh(P.embedded + ': ' + (embTimeout ? P.tracksStillLoading : embErr)) +
         '</div>';
       html += '<div class=mi>' + P.tryAgain + '</div>';
       menuItems.push({ k: 'embretry' });
-    } else if (!embTracks.length) {
-      html += '<div class=mi style="opacity:.5">' + P.noneInFile + '</div>';
-    } else {
-      for (var j = 0; j < embTracks.length; j++) {
-        var et = embTracks[j];
-        var fb = curSub === 'emb:' + et.n;
-        html += choiceRow(et.name || P.embedded + ' ' + (j + 1), fb);
-        menuItems.push({ k: 'emb', idx: et.n, ti: et.ti, lang: et.lang, on: fb });
+    } else if (!langs.length) html += '<div class=mi style="opacity:.5">' + P.none + '</div>';
+    if (!more) {
+      html += '<div class=mi>' + P.style + ' ›</div>';
+      menuItems.push({ k: 'go', to: 'style' });
+      if (curSub.indexOf('ext:') === 0) {
+        html += '<div class=mi>' + P.delay + ' ›</div>';
+        menuItems.push({ k: 'go', to: 'delay' });
       }
     }
-  } else if (view === 'external' || view === 'extmore') {
-    /* the languages asked for come first; the others wait under "More languages" */
-    var more = view === 'extmore';
-    html += '<div class=mh>' + P.external + ' \u2014 ' + (more ? P.moreLanguages : P.language) + '</div>';
-    if (!extSubs.length) html += '<div class=mi style="opacity:.5">' + P.none + '</div>';
-    var seen = {},
-      curLang = null,
-      anyWanted = false,
-      others = 0,
-      otherInUse = false;
-    for (var i = 0; i < extSubs.length; i++) {
-      if (curSub === 'ext:' + extSubs[i].u) curLang = extSubs[i].lang;
-      if (wantedSubtitleLanguage(extSubs[i].lang)) anyWanted = true;
-    }
-    for (var i = 0; i < extSubs.length; i++) {
-      var L = extSubs[i].lang;
-      if (seen[L]) continue;
-      seen[L] = 1;
-      if (anyWanted && wantedSubtitleLanguage(L) === more) {
-        others++;
-        if (L === curLang) otherInUse = true;
-        continue;
-      }
-      html += choiceRow(extSubs[i].name, L === curLang, ' \u203a');
-      menuItems.push({ k: 'lang', lang: L, on: L === curLang });
-    }
-    if (!more && others) {
-      html += choiceRow(P.moreLanguages, otherInUse, ' \u203a');
-      menuItems.push({ k: 'go', to: 'extmore', on: otherInUse });
-    }
-  } else if (view === 'extlang') {
-    var nm = '';
-    for (var i = 0; i < extSubs.length; i++) {
-      if (extSubs[i].lang === extLang) {
-        nm = extSubs[i].name;
-        break;
+  } else if (view === 'sublang') {
+    /* one language: the file's own subtitles first, then each addon; an addon with several opens them */
+    var lang = subLanguage(subLang);
+    html += '<div class=mh>' + eh(lang ? lang.name : '') + '</div>';
+    var addons = lang ? subAddons(lang) : [];
+    for (var ad = 0; ad < addons.length; ad++) {
+      var group = addons[ad],
+        groupOn = false;
+      for (var gs = 0; gs < group.subs.length; gs++) if (subChoice(group.subs[gs]).on) groupOn = true;
+      if (group.subs.length === 1) {
+        html += choiceRow(group.label, groupOn);
+        menuItems.push(subChoice(group.subs[0]));
+      } else {
+        html += choiceRow(group.label + '  ·  ' + group.subs.length, groupOn, ' ›');
+        menuItems.push({ k: 'subaddon', src: group.src, on: groupOn });
       }
     }
-    html += '<div class=mh>' + eh(nm) + ' ' + P.subtitles.toLowerCase() + '</div>';
-    var c = 0;
-    for (var i = 0; i < extSubs.length; i++) {
-      if (extSubs[i].lang === extLang) {
-        c++;
-        var fe = curSub === 'ext:' + extSubs[i].u;
-        var srcName = extSubs[i].src ? '  ·  ' + extSubs[i].src : '';
-        html += choiceRow(nm + ' ' + c + srcName, fe);
-        menuItems.push({ k: 'ext', u: extSubs[i].u, lang: extSubs[i].lang, src: extSubs[i].src, on: fe });
-      }
+  } else if (view === 'subaddon') {
+    var lang2 = subLanguage(subLang),
+      list = [];
+    var groups = lang2 ? subAddons(lang2) : [];
+    for (var ga = 0; ga < groups.length; ga++) if (groups[ga].src === subAddon) list = groups[ga].subs;
+    html += '<div class=mh>' + eh((lang2 ? lang2.name + '  ·  ' : '') + subAddon) + '</div>';
+    for (var sa = 0; sa < list.length; sa++) {
+      var item = subChoice(list[sa]);
+      html += choiceRow(subRowName(list[sa], sa), item.on);
+      menuItems.push(item);
     }
   } else if (view === 'style') {
     html += '<div class=mh>' + P.style + '</div>';
@@ -258,9 +345,9 @@ function reopen() {
   paintMenu();
 }
 function menuBack() {
-  if (subView === 'embedded' || subView === 'external' || subView === 'style' || subView === 'delay')
-    openMenu('subsroot');
-  else if (subView === 'extlang' || subView === 'extmore') openMenu('external');
+  if (subView === 'style' || subView === 'delay' || subView === 'submore') openMenu('subsroot');
+  else if (subView === 'sublang') openMenu(subLangFrom);
+  else if (subView === 'subaddon') openMenu('sublang');
   else if (subView === 'audio' || subView === 'subsroot') openMenu('media');
   else if (subView === 'chapters' || subView === 'files' || subView === 'speed') openMenu('root');
   else {
@@ -279,9 +366,15 @@ function chooseMenu() {
     openMenu(it.to);
     return;
   }
-  if (it.k === 'lang') {
-    extLang = it.lang;
-    openMenu('extlang');
+  if (it.k === 'sublang') {
+    subLang = it.key;
+    subLangFrom = subView;
+    openMenu('sublang');
+    return;
+  }
+  if (it.k === 'subaddon') {
+    subAddon = it.src;
+    openMenu('subaddon');
     return;
   }
   if (it.k === 'embretry') {
@@ -292,13 +385,13 @@ function chooseMenu() {
     return;
   }
   if (it.k === 'size+') {
-    subSize = Math.min(76, subSize + 4);
+    subSize = Math.min(Math.round((window.innerHeight || 1080) * 0.1), subSize + 4);
     subEl._t = null;
     reopen();
     return;
   }
   if (it.k === 'size-') {
-    subSize = Math.max(20, subSize - 4);
+    subSize = Math.max(Math.round((window.innerHeight || 1080) * 0.025), subSize - 4);
     subEl._t = null;
     reopen();
     return;

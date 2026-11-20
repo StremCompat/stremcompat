@@ -487,7 +487,7 @@ var UI_TEXT = {
     retry: 'Try again',
     nothingHere: 'Nothing here yet',
     moreText: 'More',
-    titleUnavailable: 'This title couldn\'t be loaded',
+    titleUnavailable: "This title couldn't be loaded",
     watchedShort: 'Watched',
     episodesTitle: 'Episodes',
     searchInSources: 'Search in sources',
@@ -540,9 +540,9 @@ var UI_TEXT = {
     endsAt: 'Ends at {0}',
     nextCardHint: 'OK to play it now · Back to keep watching',
     cachedTag: 'Cached',
-    audioNotPlayable: 'This TV can\'t play this audio. Try another audio track or source.',
+    audioNotPlayable: "This TV can't play this audio. Try another audio track or source.",
     addonsLeft: 'Still answering: {0}',
-    notOnThisTv: 'Didn\'t play on this TV: {0}',
+    notOnThisTv: "Didn't play on this TV: {0}",
     folderAddonMissing: 'Install the {0} addon in Nuvio to see this list.',
     folderLists: '{0} lists',
     folderExplore: 'OK to explore',
@@ -559,7 +559,8 @@ var UI_TEXT = {
     store_subtitles: 'Subtitles',
     store_catalogs: 'Catalogs',
     storeConfigure: 'Configure on your phone',
-    storeConfigureHint: 'This addon has to be set up first. Scan the code, set it up on your phone, then add it here with "Add by address" (the phone can send the address too).',
+    storeConfigureHint:
+      'This addon has to be set up first. Scan the code, set it up on your phone, then add it here with "Add by address" (the phone can send the address too).',
     m3uManage: 'Manage lists',
     noLists: 'No M3U list added yet',
     liveLabel: 'LIVE',
@@ -841,7 +842,6 @@ var UI_TEXT = {
       subtitles: 'Subtitles',
       none: 'None',
       readingTracks: 'Reading tracks…',
-      noneInFile: 'None in this file',
       tracksStillLoading: 'The file is still loading. Try again in a few seconds.',
       tryAgain: 'Try again',
       style: 'Style',
@@ -863,8 +863,7 @@ var UI_TEXT = {
       restoreFailed: 'Could not restore the local service',
       ready: 'Subtitles ready',
       loaded: 'Subtitles loaded',
-      extracting: 'extracting',
-      language: 'language'
+      extracting: 'extracting'
     }
   },
   'pt-BR': {
@@ -1136,7 +1135,8 @@ var UI_TEXT = {
     store_subtitles: 'Legendas',
     store_catalogs: 'Catálogos',
     storeConfigure: 'Configurar no celular',
-    storeConfigureHint: 'Este addon precisa ser configurado antes. Escaneie o código, configure no celular e depois adicione aqui em "Adicionar por endereço" (o celular também pode enviar o endereço).',
+    storeConfigureHint:
+      'Este addon precisa ser configurado antes. Escaneie o código, configure no celular e depois adicione aqui em "Adicionar por endereço" (o celular também pode enviar o endereço).',
     m3uManage: 'Gerenciar listas',
     noLists: 'Nenhuma lista M3U adicionada ainda',
     liveLabel: 'AO VIVO',
@@ -1420,7 +1420,6 @@ var UI_TEXT = {
       subtitles: 'Legendas',
       none: 'Nenhuma',
       readingTracks: 'Lendo faixas…',
-      noneInFile: 'Nenhuma neste arquivo',
       tracksStillLoading: 'O arquivo ainda está carregando. Tente de novo em alguns segundos.',
       tryAgain: 'Tentar de novo',
       style: 'Estilo',
@@ -1442,8 +1441,7 @@ var UI_TEXT = {
       restoreFailed: 'Não foi possível restaurar o serviço local',
       ready: 'Prontas',
       loaded: 'Legendas carregadas',
-      extracting: 'extraindo',
-      language: 'idioma'
+      extracting: 'extraindo'
     }
   }
 };

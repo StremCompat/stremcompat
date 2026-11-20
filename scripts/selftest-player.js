@@ -159,13 +159,15 @@ function subtitlePrefs(stored) {
     ID: 'tt9', TYPE: 'series', VID: '', URL: '', localStorage: storage, HAS_MEDIA_TOOLS: true,
     v: { addEventListener: function () {}, textTracks: [], currentTime: 0 },
     document: { getElementById: element, createElement: element },
-    xhr: function () {}, showToast: function () {}, subEl: element('sub'),
+    xhr: function () {}, showToast: function () {}, subEl: element('sub'), window: { innerHeight: 720 },
     defaultMediaLanguage: function () { return 'por'; }
   };
-  vm.runInNewContext(src('player/subtitles.js') + ';this.__out={sub:WANTSUB,aud:WANTAUD,delay:subDelay};', ctx);
+  vm.runInNewContext(src('player/subtitles.js') + ';this.__out={sub:WANTSUB,aud:WANTAUD,delay:subDelay,size:subSize};', ctx);
   return ctx.__out;
 }
 assert.strictEqual(subtitlePrefs({}).sub, 'por', 'never configured, the subtitle language did not follow the interface');
+assert.strictEqual(subtitlePrefs({}).size, 38, 'the usual subtitle size is not 5.3% of the screen (38 px at 720)');
+assert.strictEqual(subtitlePrefs({ subtitleSize: '4' }).size, 53, 'the size of Settings did not scale the usual one');
 assert.strictEqual(subtitlePrefs({ enableDefaultAudioTrack: 'true' }).aud, 'por', 'the audio language shown in Settings was not used');
 
 // ---- the source list keeps its focus while addons answer (ui/views/streams.js) ----
@@ -304,7 +306,7 @@ assert.strictEqual(subtitlePrefs({ enableDefaultAudioTrack: 'true' }).aud, 'por'
     v: { addEventListener: function () {}, textTracks: [], currentTime: 0 },
     document: { getElementById: element, createElement: element },
     xhr: function (url, cb) { requests.push(url); cb({ cached: true, done: true, final: true, cues: [{ s: 0, e: 1, t: 'x' }], gone: url.indexOf('/subtitle-cues') === 0 }); },
-    showToast: function () { toasts++; }, subEl: element('sub'), P: {},
+    showToast: function () { toasts++; }, subEl: element('sub'), P: {}, window: {},
     defaultMediaLanguage: function () { return 'por'; }
   };
   vm.runInNewContext(src('player/subtitles.js') + ';setEmbSub(2,0);pollEmbCues();pollEmbCues();this.state=curSub;', ctx);
@@ -320,7 +322,7 @@ function languagePlayer(stored, tracks, audio) {
     ID: 'tt9', TYPE: '', VID: '', URL: '', localStorage: memoryStorage(stored), HAS_MEDIA_TOOLS: true,
     v: { addEventListener: function (name, fn) { listeners[name] = fn; }, textTracks: [], currentTime: 0, audioTracks: audio || [] },
     document: { getElementById: element, createElement: element },
-    xhr: function (url, cb) { cb({ tracks: tracks || [] }); }, showToast: function () {}, subEl: element('sub'), P: { subtitles: '' },
+    xhr: function (url, cb) { cb({ tracks: tracks || [] }); }, showToast: function () {}, subEl: element('sub'), P: { subtitles: '' }, window: {},
     defaultMediaLanguage: function () { return 'por'; }
   };
   vm.runInNewContext(src('player/subtitles.js') + ';' +
@@ -386,7 +388,7 @@ var busyCtx = {
   ID: 'tt9', TYPE: 'series', VID: '', URL: 'u', localStorage: memoryStorage({}), mode: 'menu', HAS_MEDIA_TOOLS: true,
   v: { addEventListener: function () {}, textTracks: [], currentTime: 0, readyState: 4 },
   document: { getElementById: element, createElement: element }, location: { search: '' },
-  xhr: function () {}, showToast: function () {}, subEl: element('sub')
+  xhr: function () {}, showToast: function () {}, subEl: element('sub'), window: {}
 };
 vm.runInNewContext('function defaultMediaLanguage(){return "por"}' + src('player/subtitles.js'), busyCtx);
 assert.strictEqual(vm.runInNewContext('playerBusy()', busyCtx), false, 'the controls were held with nothing loading');
@@ -412,7 +414,7 @@ function holdSession(paused) {
     },
     document: { getElementById: element, createElement: element }, location: { search: '' },
     xhr: function (u, cb) { xhrs.push(cb); }, showToast: function (m) { toasts.push(m); }, subEl: element('sub'),
-    P: { loadingSubtitle: 'loading', preparingSubs: 'late' },
+    P: { loadingSubtitle: 'loading', preparingSubs: 'late' }, window: {},
     setTimeout: function (f) { timers.push(f); return timers.length; }, clearTimeout: function (i) { timers[i - 1] = null; },
     setInterval: function () { return 99; }, clearInterval: function () {}
   };
@@ -660,7 +662,10 @@ assert.strictEqual(pushed, true, 'leaving the player would wait for a push that 
     names.forEach(function (name) { P[name] = name; });
     var context = {
       history: { pushState: function () {} },
-      menu: menu, P: P, curSub: curSub, extSubs: extSubs || [], embTracks: [], embTracksLoading: false,
+      menu: menu, P: P, curSub: curSub, extSubs: extSubs || [], embTracks: more.emb || [], embTracksLoading: false, extSubsLoading: false,
+      languageCode: function (l) { return l; }, embErr: '', embTimeout: false,
+      setExtSub: function (u) { calls.push('ext ' + u); }, setEmbSub: function (n) { calls.push('emb ' + n); },
+      saveTitlePrefs: function () {}, holdForSubtitle: function () {},
       v: Object.assign({ audioTracks: tracks || [], addEventListener: function () {}, style: {}, currentTime: 0, playbackRate: 1 }, more.video),
       subColor: '#ffffff', subBgOp: 0, subBottom: 8, subOpacity: 1, subDelay: 0, subEl: { style: {} },
       eh: function (s) { return s; }, audioName: function () { return ''; }, subtitleName: function () { return ''; },
@@ -676,12 +681,12 @@ assert.strictEqual(pushed, true, 'leaving the player would wait for a push that 
       seekTo: function (t) { calls.push('seek ' + t); }, saveProgress: function () {}, pushLib: function () {},
       rememberNextSource: function (vid) { calls.push('remember ' + vid); }, openEpisodeDirect: function (vid, page) { calls.push('open ' + vid + ' ' + page); },
       postStreamRef: function (source, cb) { calls.push('ref ' + source.url); cb('R9'); },
-      nextEpisodeAddons: function () { return [{ name: 'Addon', base: 'https://a.example' }]; },
-      nextSources: function (ad, vid, cb) { calls.push('sources ' + vid); cb({ streams: more.sources || [] }); },
+      nextEpisodeAddons: function () { return [{ name: 'Addon', base: 'https://a.example' }].concat(more.slowAddon ? [{ name: 'Slow', base: 'https://s.example' }] : []); },
+      nextSources: function (ad, vid, cb) { calls.push('sources ' + vid); if (ad.name !== 'Slow') cb({ streams: more.sources || [] }); },
       sourceItem: function (s, name) { return { url: s.url, quality: s.quality, title: s.title, addon: name }; }, location: { replace: function (u) { calls.push('go ' + u); } },
       appUrl: function (p) { return p; }, nextStarting: false, setTimeout: function () {}, dropButton: function () {}
     };
-    vm.runInNewContext(label + src('player/options.js') + src('player/menus.js') + ';var menuItems,mIdx,subView,mode;this.menuRows=function(){return menu.querySelectorAll()};this.focus=function(){return mIdx};this.setFocus=function(i){mIdx=i;paintMenu()};this.texts=function(){return menu.querySelectorAll().map(function(r){return r.text})};this.press=function(i){mIdx=i;chooseMenu()};this.set=function(k,v){if(k==="mediaInfo")mediaInfo=v;};this.get=function(){return{bottom:subBottom,opacity:subOpacity,delay:subDelay,view:subView}};', context);
+    vm.runInNewContext(label + src('player/options.js') + src('player/menus.js') + ';var menuItems,mIdx,subView,mode;this.menuRows=function(){return menu.querySelectorAll()};this.focus=function(){return mIdx};this.setFocus=function(i){mIdx=i;paintMenu()};this.texts=function(){return menu.querySelectorAll().map(function(r){return r.text})};this.press=function(i){mIdx=i;chooseMenu()};this.set=function(k,v){if(k==="mediaInfo")mediaInfo=v;};this.get=function(){return{bottom:subBottom,opacity:subOpacity,delay:subDelay,view:subView}};this.back=function(){menuBack()};', context);
     context.calls = calls;
     context.stored = stored;
     return context;
@@ -697,15 +702,37 @@ assert.strictEqual(pushed, true, 'leaving the player would wait for a push that 
 
   var external = player('ext:b', [], [{ lang: 'eng', name: 'English', u: 'a' }, { lang: 'por', name: 'Portuguese', u: 'b' }]);
   external.openMenu('subsroot');
-  assert.strictEqual(external.focus(), 2, 'the subtitle menu did not open on the kind in use');
-  external.openMenu('external');
-  assert.strictEqual(external.focus(), 1, 'the language list did not open on the language in use');
-  assert.ok(external.menuRows()[1].text.indexOf('selected') >= 0);
-  assert.ok(external.menuRows()[0].text.indexOf('selected') < 0);
+  assert.strictEqual(external.focus(), 2, 'the subtitle menu did not open on the row that leads to the one in use');
+  external.press(2);
+  assert.strictEqual(external.focus(), 0, 'More languages did not open on the language in use');
+  assert.deepStrictEqual(external.texts(), ['Portuguese — selected'], 'a language with one subtitle is not that subtitle');
 
-  var embedded = player('emb:3');
+  var embedded = player('emb:3', [], [], { emb: [{ n: 3, ti: 0, lang: 'eng', name: 'English' }] });
   embedded.openMenu('subsroot');
-  assert.strictEqual(embedded.focus(), 1, 'the subtitle menu did not open on the embedded row');
+  assert.strictEqual(embedded.focus(), 1, 'the subtitle menu did not open on the language of the file\'s track in use');
+
+  /* one language: the file's own track first, then each addon; an addon with several opens them */
+  var mixed = player('ext:p2', [], [{ lang: 'por', name: 'Portuguese', src: 'Subs A', u: 'p1' }, { lang: 'por', name: 'Portuguese', src: 'Subs A', u: 'p2' }, { lang: 'por', name: 'Portuguese', src: 'Subs B', u: 'p3' }], { subtitle: 'por', emb: [{ n: 1, ti: 0, lang: 'por', name: 'Portuguese \u2014 Forced' }] });
+  mixed.openMenu('subsroot');
+  assert.deepStrictEqual(mixed.texts().slice(0, 2), ['off', 'Portuguese  ·  4 — selected \u203a'], 'the file\'s and the addons\' subtitles of one language are not one row');
+  mixed.press(1);
+  assert.deepStrictEqual(mixed.texts(), ['embedded  ·  Forced', 'Subs A  ·  2 — selected \u203a', 'Subs B'], 'the file\'s track does not come first, or the addons are not grouped');
+  assert.strictEqual(mixed.focus(), 1, 'the language did not open on the addon in use');
+  mixed.press(1);
+  assert.deepStrictEqual(mixed.texts(), ['Portuguese 1', 'Portuguese 2 — selected'], 'an addon with several subtitles does not list them');
+  mixed.press(0);
+  assert.strictEqual(mixed.calls[mixed.calls.length - 1], 'ext p1', 'choosing an addon\'s subtitle did not show it');
+  mixed.openMenu('sublang');
+  mixed.press(2);
+  assert.strictEqual(mixed.calls[mixed.calls.length - 1], 'ext p3', 'an addon with one subtitle did not show it at once');
+  mixed.openMenu('sublang');
+  mixed.press(0);
+  assert.strictEqual(mixed.calls[mixed.calls.length - 1], 'emb 1', 'the file\'s own track was not chosen');
+  mixed.openMenu('subaddon');
+  mixed.back();
+  assert.strictEqual(mixed.get().view, 'sublang', 'Back from an addon\'s subtitles did not return to its language');
+  mixed.back();
+  assert.strictEqual(mixed.get().view, 'subsroot', 'Back from a language did not return to the languages');
   var off = player('off');
   off.openMenu('subsroot');
   assert.strictEqual(off.focus(), 0, 'Off in use is the first row');
@@ -722,10 +749,10 @@ assert.strictEqual(pushed, true, 'leaving the player would wait for a push that 
   /* subtitle languages: the asked ones and English first, the rest behind one row */
   var many = [{ lang: 'eng', name: 'English', u: 'a' }, { lang: 'fre', name: 'French', u: 'b' }, { lang: 'ger', name: 'German', u: 'c' }, { lang: 'por', name: 'Portuguese', u: 'd' }];
   var grouped = player('ext:b', [], many, { subtitle: 'por' });
-  grouped.openMenu('external');
-  assert.deepStrictEqual(grouped.texts(), ['English ›', 'Portuguese ›', 'moreLanguages — selected ›'].map(function (t) { return t.replace(' ›', ' \u203a'); }), 'the other languages were not gathered under one row');
-  grouped.press(2);
-  assert.deepStrictEqual(grouped.texts(), ['French — selected \u203a', 'German \u203a'], 'More languages does not list the rest');
+  grouped.openMenu('subsroot');
+  assert.deepStrictEqual(grouped.texts(), ['off', 'Portuguese', 'English', 'moreLanguages — selected \u203a', 'style \u203a', 'delay \u203a'], 'the asked language is not first, or the others were not gathered under one row');
+  grouped.press(3);
+  assert.deepStrictEqual(grouped.texts(), ['French — selected', 'German'], 'More languages does not list the rest');
 
   /* the main menu offers only what this video has */
   var film = player('off', [], [], { video: { tagName: 'VIDEO', videoWidth: 1920, videoHeight: 800 } });
@@ -784,6 +811,9 @@ assert.strictEqual(pushed, true, 'leaving the player would wait for a push that 
   assert.deepStrictEqual(switching.texts(), ['1080p  ·  Addon  ·  Film.A — selected', '720p  ·  Addon  ·  Film.B'], 'the sources of this film are not listed, or the one playing is not marked');
   switching.press(1);
   assert.deepStrictEqual(switching.calls.slice(-2), ['ref http://x/b.mkv', 'go /play?ref=R9&type=movie&id=tt5&vid=&back=' + encodeURIComponent('beta#detail/x')], 'another source did not open in the player');
+  var waiting = player('off', [], [], { slowAddon: true, sources: [{ url: 'http://x/a.mp4', quality: '1080p', title: 'Film.A' }] });
+  waiting.openMenu('sources');
+  assert.deepStrictEqual(waiting.texts(), ['1080p  ·  Addon  ·  Film.A — selected', 'readingTracks'], 'the sources that came were not shown while a slow addon was still asked');
 
   /* subtitles: position, opacity and a delay that speeds up when the key is held */
   var now = 0, clock = { now: function () { return now; } };

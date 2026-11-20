@@ -2,14 +2,13 @@
 // ---- external subtitles (English first) ----
 var extSubs = [],
   cues = null,
-  subSize = 38,
+  subSize = 0,
   subColor = '#fff',
   subOutline = '#000000',
   subBgOp = 0,
   curSub = 'off',
   subDelay = 0,
-  subView = 'root',
-  extLang = '';
+  subView = 'root';
 // ---- pull the interface Settings (same-origin localStorage) so they drive OUR player ----
 function lsGet(k, d) {
   try {
@@ -20,7 +19,13 @@ function lsGet(k, d) {
   }
 }
 var SIZEPCT = { '0': 72, '1': 80, '2': 100, '3': 120, '4': 140, '5': 160, '6': 180 };
-subSize = Math.round(38 * ((SIZEPCT[lsGet('subtitleSize', '2')] || 100) / 100));
+/* the usual size is Nuvio's TV app's: about 5.3% of the screen's height (57 px at 1080, 38 at 720);
+   the outline is 3.5% of the size */
+var SUB_SCREEN_RATIO = 0.053,
+  SUB_OUTLINE_RATIO = 0.035;
+subSize = Math.round(
+  (window.innerHeight || 1080) * SUB_SCREEN_RATIO * ((SIZEPCT[lsGet('subtitleSize', '2')] || 100) / 100)
+);
 subColor = lsGet('subsColor', '#ffffff');
 subOutline = lsGet('subsOutlineColor', '#000000');
 subBgOp = parseFloat(lsGet('subsBgStyle', '0')) || 0;
@@ -135,7 +140,6 @@ var embTracks = null,
   embTracksLoaded = false,
   embErr = '',
   embTimeout = false,
-  embReopenArmed = false,
   embN = -1,
   embFirst = false,
   embFailed = false;
@@ -417,6 +421,9 @@ var BUSY_LIMIT_MS = 45000,
 function playerBusy() {
   var now = Date.now();
   if (mode === 'menu' && (embTracksLoading || extSubsLoading)) return true;
+  /* the episodes and sources of the menu are still being asked: it stays until they come */
+  if (mode === 'menu' && subView === 'sources' && sourcesLeft > 0) return true;
+  if (mode === 'menu' && subView === 'episodes' && !seasonList) return true;
   if (now - trackChosenAt < BUSY_LIMIT_MS) {
     if (curSub.indexOf('ext:') === 0 && cues === null) return true;
     if (curSub.indexOf('emb:') === 0 && !embFirst && !embFailed) return true;
@@ -505,26 +512,33 @@ function eh(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+/* As Nuvio's TV app draws them by default: regular letters with a solid outline all around in the
+   outline colour (a 2 px stroke at the usual size), no shadow and no box. A stroke needs paint-order,
+   which old TV browsers lack, so the outline is the line drawn at sixteen points around itself. */
+var OUTLINE_POINTS = 16;
+function subOutlineShadow(color) {
+  var r = Math.max(1, subSize * SUB_OUTLINE_RATIO),
+    sh = [];
+  for (var i = 0; i < OUTLINE_POINTS; i++) {
+    var a = (i / OUTLINE_POINTS) * 2 * Math.PI;
+    sh.push((Math.cos(a) * r).toFixed(2) + 'px ' + (Math.sin(a) * r).toFixed(2) + 'px 0 ' + color);
+  }
+  return sh.join(',');
+}
 function subStyle() {
-  var o = subOutline;
-  var sh =
-    'text-shadow:-2px 0 ' +
-    o +
-    ',2px 0 ' +
-    o +
-    ',0 -2px ' +
-    o +
-    ',0 2px ' +
-    o +
-    ',-1px -1px ' +
-    o +
-    ',1px 1px ' +
-    o +
-    ',0 0 5px ' +
-    o +
-    ';';
   var bg = subBgOp > 0 ? 'background:rgba(0,0,0,' + subBgOp + ');padding:2px 16px;border-radius:8px;' : '';
-  return 'font-size:' + subSize + 'px;color:' + subColor + ';opacity:' + subOpacity + ';' + sh + bg;
+  return (
+    'font-size:' +
+    subSize +
+    'px;color:' +
+    subColor +
+    ';opacity:' +
+    subOpacity +
+    ';text-shadow:' +
+    subOutlineShadow(subOutline) +
+    ';' +
+    bg
+  );
 }
 /* Cues can arrive out of order (an extraction restarted from 0 appends earlier lines),
    so the first matching cue is found by a full scan. The scan also records when the

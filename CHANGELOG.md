@@ -4,6 +4,13 @@ What changed in each version, newest first. The full notes of each release are i
 
 ## Unreleased
 
+## 4.5.6 / Native 5.2.6
+
+- Subtitles in one menu: each language once, with the file's own subtitles first and then each addon; an addon with several subtitles opens them, and a language or an addon with one is chosen at once.
+- Subtitles look like those of Nuvio's TV app: regular letters with a solid outline all around, no shadow, at Nuvio's usual size (larger on 1080p TVs).
+- The Sources of the player show each addon's sources as they come and the menu stays while addons are still asked (it used to close empty).
+- Native: Back in a subtitle language or addon goes up one level.
+
 ## 4.5.5 / Native 5.2.5
 
 - The bolt of a cached source no longer repeats over its "TB" letters on the source in focus.

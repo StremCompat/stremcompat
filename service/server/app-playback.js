@@ -114,9 +114,10 @@ function answerStream(res, q, ref) {
         L.setting('enableDefaultAudioTrack', 'false') === 'true'
           ? L.setting('defaultAudioTrack', L.defaultMediaLanguage())
           : '',
-      /* Settings > Subtitles: size, colour, outline and background (web: subtitles.js) */
+      /* Settings > Subtitles: size, colour, outline and background (web: subtitles.js); the usual
+         size is Nuvio's TV app's, 5.3% of the 1080 lines the native interface draws on */
       subtitleStyle: {
-        size: Math.round((38 * (SUBTITLE_SIZES[L.setting('subtitleSize', '2')] || 100)) / 100),
+        size: Math.round((57 * (SUBTITLE_SIZES[L.setting('subtitleSize', '2')] || 100)) / 100),
         color: L.setting('subsColor', '#ffffff'),
         outline: L.setting('subsOutlineColor', '#000000'),
         background: parseFloat(L.setting('subsBgStyle', '0')) || 0

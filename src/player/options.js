@@ -160,26 +160,27 @@ function playTorrentFile(index) {
 
 /* ---- another source of the same film or episode, from the place it was left ----
    The addons are asked as for the next episode (up-next.js); the new player resumes from the
-   progress saved here, like any film taken up again. */
+   progress saved here, like any film taken up again. Each addon's sources show as they come: waiting
+   for the slowest one left the list empty until the menu went away. */
 var sourceList = null,
+  sourcesLeft = 0,
   sourcesAsked = false,
   SOURCE_LIST_CAP = 40;
 function ensureSources() {
   if (sourcesAsked) return;
   sourcesAsked = true;
-  var ads = nextEpisodeAddons(),
-    pending = ads.length,
-    found = [];
-  if (!pending) sourceList = [];
+  var ads = nextEpisodeAddons();
+  sourcesLeft = ads.length;
+  if (!sourcesLeft) sourceList = [];
   ads.forEach(function (ad) {
     nextSources(ad, VID || ID, function (j) {
       var st = (j && j.streams) || [];
-      for (var k = 0; k < st.length && found.length < SOURCE_LIST_CAP; k++) {
+      sourcesLeft--;
+      if (!sourceList) sourceList = [];
+      for (var k = 0; k < st.length && sourceList.length < SOURCE_LIST_CAP; k++) {
         var item = sourceItem(st[k], ad.name, ad.base);
-        if (item) found.push(item);
+        if (item) sourceList.push(item);
       }
-      if (--pending > 0) return;
-      sourceList = found;
       if (mode === 'menu' && subView === 'sources') reopen();
     });
   });
