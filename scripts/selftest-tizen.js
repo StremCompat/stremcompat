@@ -71,7 +71,8 @@ var stageMb = sizeOf(stage) / 1048576;
 assert.ok(stageMb < 4, 'the Samsung package grew to ' + stageMb.toFixed(1) + ' MB');
 
 // ---- a launch without the TV's system objects recovers by itself (boot.js) ----
-function bootRun(hasTizen, reloads) {
+/* pings: how many failed health checks to run after the start */
+function bootRun(hasTizen, reloads, pings) {
   var stored = {},
     timers = [],
     reloaded = 0,
@@ -107,7 +108,10 @@ function bootRun(hasTizen, reloads) {
     },
     XMLHttpRequest: function () {
       this.open = function () {};
-      this.send = function () {};
+      var self = this;
+      this.send = function () {
+        if (pings && self.onerror) self.onerror();
+      };
     },
     Date: Date,
     JSON: JSON,
@@ -125,6 +129,7 @@ function bootRun(hasTizen, reloads) {
     };
   vm.runInNewContext(serviceStartCode + fs.readFileSync(path.join(root, 'platforms', 'tizen', 'boot.js'), 'utf8'), ctx);
   timers.shift()();
+  for (var i = 0; i < (pings || 0) && timers.length; i++) timers.shift()();
   return { reloaded: reloaded, launched: launched, errors: errors, stored: stored };
 }
 var serviceStartCode = fs.readFileSync(path.join(root, 'platforms', 'tizen', 'service-start.js'), 'utf8') + '\n';
@@ -138,6 +143,7 @@ assert.strictEqual(gaveUp.reloaded, 0, 'the page kept reloading past the limit')
 assert.strictEqual(gaveUp.errors.length, 1, 'giving up must say why');
 var recovered = bootRun(true, 2);
 assert.strictEqual(recovered.launched, 1, 'the service was not started');
+assert.strictEqual(bootRun(true, 0, 25).launched, 3, 'a service that does not come up must be asked again');
 assert.ok(!('tizenBootReloads' in recovered.stored), 'the reload count stayed after a good start');
 assert.ok(player.indexOf('tizenPlayerReloads') > 0, 'the player page must recover the same way');
 
@@ -182,7 +188,6 @@ function startRun(launch, module) {
   ctx.tizenStartService('pkg.Service', answer);
   assert.strictEqual(scripts.length, 1, 'wrt:service was not asked for');
   assert.strictEqual(scripts[0].type, 'module', 'wrt:service needs a module script');
-  var settle = Promise.resolve();
   if (module) {
     var m = {
       startService: function (id) {
@@ -194,7 +199,7 @@ function startRun(launch, module) {
   } else timers.forEach(function (f) {
     f();
   });
-  return settle
+  return Promise.resolve()
     .then(function () {
       return new Promise(function (done) {
         setImmediate(done);

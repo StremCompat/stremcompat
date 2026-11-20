@@ -156,23 +156,42 @@ function ping() {
     setTimeout(ping, 400);
 }
 
-try {
-    var bridge = new PalmServiceBridge();
-    bridge.onservicecallback = function (response) {
-        try {
-            var data = JSON.parse(response);
-            /* a service of another version means the old service is still the one running */
-            if (data.ready && (!data.version || data.version === '__APP_VERSION__')) openApp();
-            else if (data.ready) staleFailure('OLD_SERVICE ' + data.version);
-            else if (data.reason === 'STALE_SERVICE') staleFailure('STALE_SERVICE ' + data.staleVersion + ' · ' + (data.detail || ''));
-            /* the TV refused or could not run the service: say what it answered, at once */
-            else if (data.errorText || data.errorCode) fail(TEXT.failed, TEXT.failedHint, 'SERVICE_ERROR · ' + escapeText((data.errorCode || '') + ' ' + (data.errorText || '')) + ' · __APP_VERSION__');
-            else if (data.returnValue === false) fail(TEXT.failed, TEXT.failedHint, 'RUNTIME_START_TIMEOUT · __APP_VERSION__<br>' + escapeText(data.log || ''));
-        } catch (ignore) {}
-    };
-    bridge.call('luna://__SERVICE_ID__/start', '{}');
-} catch (ignore) {}
+/* A service that ended mid-start is started again by the next call. Its error is shown only after
+   the last try, while the server's own answer (ping) can still open the app meanwhile. */
+var SERVICE_TRIES = 3;
+var SERVICE_RETRY_MS = 2000;
+var serviceTries = 0;
+var bridge = null;
+function serviceError(code) {
+    if (finished) return;
+    if (serviceTries < SERVICE_TRIES) {
+        setTimeout(callService, SERVICE_RETRY_MS);
+        return;
+    }
+    fail(TEXT.failed, TEXT.failedHint, code);
+}
+function callService() {
+    if (finished) return;
+    serviceTries++;
+    try {
+        bridge = new PalmServiceBridge();
+        bridge.onservicecallback = function (response) {
+            try {
+                var data = JSON.parse(response);
+                /* a service of another version means the old service is still the one running */
+                if (data.ready && (!data.version || data.version === '__APP_VERSION__')) openApp();
+                else if (data.ready) staleFailure('OLD_SERVICE ' + data.version);
+                else if (data.reason === 'STALE_SERVICE') staleFailure('STALE_SERVICE ' + data.staleVersion + ' · ' + (data.detail || ''));
+                /* the TV refused or could not run the service: try again, then say what it answered */
+                else if (data.errorText || data.errorCode) serviceError('SERVICE_ERROR · ' + escapeText((data.errorCode || '') + ' ' + (data.errorText || '')) + ' · ' + serviceTries + 'x · __APP_VERSION__');
+                else if (data.returnValue === false) fail(TEXT.failed, TEXT.failedHint, 'RUNTIME_START_TIMEOUT · __APP_VERSION__<br>' + escapeText(data.log || ''));
+            } catch (ignore) {}
+        };
+        bridge.call('luna://__SERVICE_ID__/start', '{}');
+    } catch (ignore) {}
+}
 
+callService();
 ping();
 </script>
 </body>

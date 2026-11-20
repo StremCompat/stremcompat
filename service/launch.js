@@ -17,6 +17,13 @@ var DIR = __dirname;
 var SUPERVISOR = path.join(DIR, 'local-server.js');
 var APP_PORT = PROFILE.port;
 var APP_VERSION = PROFILE.version;
+/* webos-service ends the service 5 s after it starts unless the system's activity manager accepts
+   an activity (the keepAlive below, or one per request). Where it does not (webOS 10 seems to
+   refuse apps installed in developer mode), the service died mid-start with the server it was
+   running inside it, and the app showed "... is not running". The library's own switch turns
+   that off; older TVs, where keepAlive is accepted, already kept the service running. Read when
+   the Service is created. */
+process.argv.push('--disable-timeouts');
 var service = new Service(PROFILE.serviceId);
 var spawned = false;
 /* the server has answered at least once since this service started */
