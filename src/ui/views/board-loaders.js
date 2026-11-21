@@ -263,9 +263,12 @@ function openItem(it) {
     var backHash =
       'beta#detail/' + it.type + '/' + it.id + (it.videoId && it.videoId !== it.id ? '/' + it.videoId : '');
     if (q) {
-      playStored(q, backHash);
+      /* a source the server no longer has: that episode's sources */
+      playStored(q, backHash, function () {
+        streamsUI.show(it.type, it.id, it.videoId || it.id, it.name || '', '', '', backHash);
+      });
       return;
     }
   }
-  goScr('detail', { type: it.type, id: it.id, vid: it.videoId || null });
+  goScr('detail', { type: it.type, id: it.id, vid: it.videoId || null, preview: it });
 }

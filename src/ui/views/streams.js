@@ -88,25 +88,28 @@ var streamsUI = {
       (title || '') +
       (vid && vid.indexOf(':') > 0 ? '  ·  T' + vid.split(':')[1] + ' E' + vid.split(':')[2] : '');
     $('stInner').innerHTML = '<div class="stmsg">' + tx('findingSources') + '</div>';
+    /* the source played last, while the server still has it */
     var q = resumeSearch(id, vid);
-    if (q) {
-      this.push(
-        [
-          {
-            addon: tx('lastSource'),
-            name: tx('continuePlayback'),
-            title: tx('sameSource'),
-            stored: q,
-            quality: 'Recent',
-            seeders: 999999,
-            compatLabels: [],
-            compatRank: 0
-          }
-        ],
-        0,
-        tx('lastSource')
-      );
-    }
+    if (q)
+      storedAlive(q, function (alive) {
+        if (!alive || !self.open || self.requestSeq !== request) return;
+        self.push(
+          [
+            {
+              addon: tx('lastSource'),
+              name: tx('continuePlayback'),
+              title: tx('sameSource'),
+              stored: q,
+              quality: 'Recent',
+              seeders: 999999,
+              compatLabels: [],
+              compatRank: 0
+            }
+          ],
+          0,
+          tx('lastSource')
+        );
+      });
     fetchStreams(
       type,
       vid,
@@ -469,7 +472,10 @@ var streamsUI = {
       if (this.failed.length) this.show(this.type, this.id, this.vid, this.title);
       return true;
     }
-    if (s.stored) playStored(s.stored, this.backHash());
+    if (s.stored)
+      playStored(s.stored, this.backHash(), function () {
+        toast(tx('sourcePrepareFailed'));
+      });
     else playUrl(s, this.type, this.id, this.vid, this.backHash());
     return true;
   },

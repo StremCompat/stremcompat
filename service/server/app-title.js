@@ -47,6 +47,7 @@ function episodeOf(L, v, m, st, watched, now, showDates, spoilers) {
     ownThumbnail: !!own,
     badge: L.episodeBadge(v, now),
     date: aired ? L.episodeDay(aired) : '',
+    rating: L.episodeRating(v),
     progress: inProgress && !L.watchFinished(st.timeOffset, st.duration) ? st.timeOffset / st.duration : 0,
     watched: !!watched[v.id]
   };

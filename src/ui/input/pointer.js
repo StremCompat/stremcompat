@@ -187,7 +187,12 @@ function pointerUI(target, activate) {
       similar.idx = i;
       similar.paint();
       if (activate && similar.items[i])
-        goScr('detail', { type: similar.items[i].type, id: similar.items[i].id, vid: null });
+        goScr('detail', {
+          type: similar.items[i].type,
+          id: similar.items[i].id,
+          vid: null,
+          preview: similar.items[i]
+        });
       return true;
     }
   }

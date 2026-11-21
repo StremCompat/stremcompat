@@ -203,7 +203,8 @@ on(
     if (h.down && !h.menu && h.item) {
       /* short press = the card's normal action */
       if (h.item.episode || h.item.season) detail.key(13);
-      else if (SCR === 'sim') goScr('detail', { type: h.item.type, id: h.item.id, vid: null });
+      else if (SCR === 'sim')
+        goScr('detail', { type: h.item.type, id: h.item.id, vid: null, preview: h.item });
       else openItem(h.item);
     }
   },

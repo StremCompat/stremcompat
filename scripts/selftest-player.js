@@ -726,6 +726,10 @@ assert.strictEqual(pushed, true, 'leaving the player would wait for a push that 
   var embedded = player('emb:3', [], [], { emb: [{ n: 3, ti: 0, lang: 'eng', name: 'English' }] });
   embedded.openMenu('subsroot');
   assert.strictEqual(embedded.focus(), 1, 'the subtitle menu did not open on the language of the file\'s track in use');
+  assert.ok(embedded.texts().indexOf('delay \u203a') >= 0, 'a track read out of the file offers no delay');
+  var tvTrack = player('emb:3', [], [], { emb: [{ n: 3, ti: 0, lang: 'eng', name: 'English' }], video: { selectTextTrack: function () {} } });
+  tvTrack.openMenu('subsroot');
+  assert.ok(tvTrack.texts().indexOf('delay \u203a') < 0, 'a delay was offered for a track the TV draws itself');
 
   /* one language: the file's own track first, then each addon; an addon with several opens them */
   var mixed = player('ext:p2', [], [{ lang: 'por', name: 'Portuguese', src: 'Subs A', u: 'p1' }, { lang: 'por', name: 'Portuguese', src: 'Subs A', u: 'p2' }, { lang: 'por', name: 'Portuguese', src: 'Subs B', u: 'p3' }], { subtitle: 'por', emb: [{ n: 1, ti: 0, lang: 'por', name: 'Portuguese \u2014 Forced' }] });

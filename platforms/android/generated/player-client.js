@@ -4021,6 +4021,12 @@ function reopenWhenTracksCome() {
     if (mode === 'menu' && (subView === 'subsroot' || subView === 'submore')) reopen();
   }, 400);
 }
+/* The delay moves the lines the player holds: an addon's, or those the server reads out of the
+   file. Not the tracks a TV's own player draws line by line as it plays (Samsung, Android TV). */
+function canDelaySub() {
+  if (curSub.indexOf('ext:') === 0) return true;
+  return curSub.indexOf('emb:') === 0 && !v.selectTextTrack;
+}
 /* the lists of the buttons on the left open on the left, next to them */
 var menuAtLeft = false;
 function choiceRow(label, on, tail) {
@@ -4170,7 +4176,7 @@ function openMenu(view) {
     if (!more) {
       html += '<div class=mi>' + P.style + ' ›</div>';
       menuItems.push({ k: 'go', to: 'style' });
-      if (curSub.indexOf('ext:') === 0) {
+      if (canDelaySub()) {
         html += '<div class=mi>' + P.delay + ' ›</div>';
         menuItems.push({ k: 'go', to: 'delay' });
       }

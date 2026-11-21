@@ -185,6 +185,52 @@ var firstRun = run(emptyStorage(), 'scrLogin', null, 'en-US');
   d.switchEpisodeList(function () { d.seasonIdx = 1; });
   assert.strictEqual(d.epIdx, 3, 'the other season lost its episode');
 })();
+/* an episode's rating, as the metadata addon gives it, and none without one (episodes.js) */
+(function () {
+  var ctx = { window: {} };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'data', 'episodes.js'), 'utf8'), ctx);
+  assert.strictEqual(ctx.episodeRating({ rating: '7.6' }), '7.6', 'the episode rating was not shown');
+  assert.strictEqual(ctx.episodeRating({ rating: 8 }), '8.0', 'a whole rating did not keep its decimal');
+  assert.strictEqual(ctx.episodeRating({}), '', 'an episode without a rating showed one');
+  assert.strictEqual(ctx.episodeRating({ rating: 'N/A' }), '', 'a rating that is not a number was shown');
+})();
+/* Continue plays the source the server still has, and offers the sources when it is gone (playback.js) */
+(function () {
+  var asked = [], went = [], alive = true;
+  var ctx = {
+    window: {}, matchingNextSource: function () {}, localStorage: { getItem: function () { return null; } },
+    xhrJson: function (u, cb) { asked.push(u); cb({ alive: alive }); },
+    location: { assign: function (u) { went.push(u); } },
+    appUrl: function (u) { return u; }
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'data', 'playback.js'), 'utf8'), ctx);
+  var gone = 0;
+  ctx.playStored('?ref=abc&type=series&id=tt1&vid=tt1:1:2&back=x', 'beta#detail/series/tt1', function () { gone++; });
+  assert.strictEqual(asked[0], '/streamref-alive?ref=abc', 'Continue did not ask whether its source is still there');
+  assert.deepStrictEqual(went, ['/play?ref=abc&type=series&id=tt1&vid=tt1:1:2&back=' + encodeURIComponent('beta#detail/series/tt1')], 'a source still there was not played');
+  alive = false;
+  ctx.playStored('?ref=abc&type=series&id=tt1&vid=tt1:1:2', 'beta#detail/series/tt1', function () { gone++; });
+  assert.strictEqual(went.length, 1, 'a source the server no longer has was opened, and the player went back');
+  assert.strictEqual(gone, 1, 'a source the server no longer has did not offer the sources');
+})();
+/* a title opens at once with what its card knew, before its metadata comes (detail.js) */
+(function () {
+  var els = {};
+  function el(id) {
+    return els[id] || (els[id] = { id: id, style: {}, textContent: '', innerHTML: '', src: '' });
+  }
+  var ctx = {
+    window: {}, $: el, BLANK_IMG: '', SCR: 'detail', Image: function () {},
+    getMeta: function () {}, heroMetaHtml: function (m) { return 'meta:' + m.releaseInfo; }, esc: function (t) { return t; },
+    setBg: function (u) { ctx.bg = u; }, bgOf: function () { return ''; }
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'views', 'detail.js'), 'utf8'), ctx);
+  ctx.detail.enter({ type: 'series', id: 'tt9', preview: { name: 'Quiet Signal', releaseInfo: '2014', description: 'Plot.', background: 'https://x/bg.jpg' } });
+  assert.strictEqual(els.dTitle.textContent, 'Quiet Signal', 'the title page stayed empty until its metadata came');
+  assert.strictEqual(els.dDesc.textContent, 'Plot.', 'the synopsis the card knew was not shown');
+  assert.strictEqual(els.dMeta.innerHTML, 'meta:2014', 'the line of facts the card knew was not shown');
+  assert.strictEqual(ctx.bg, 'https://x/bg.jpg', 'the picture the card knew was not put behind');
+})();
 /* the remote meter in Diagnostics: the typical and slowest answer, and late frames */
 (function () {
   var frames = [], clock = 0;
@@ -232,7 +278,7 @@ assert.strictEqual(seededKept.filter(function (item) { return item.addon === 'To
 assert.ok(!sourceHas(source, "location.assign('/play?u='"), 'beta player fallback leaked a source URL into browser history');
 assert.ok(!sourceHas(source, 'self.poll=setInterval'), 'QR polling still allows overlapping interval requests');
 assert.ok(sourceHas(source, "if(this.type!=='series')this.addBtn(tx(simpleMode()?'sourcesButton':'watch')"), 'movie details do not expose an explicit Watch action, or the whole list in Simple');
-assert.ok(sourceHas(source, 'detail.meta===m&&detail.id===mediaId'), 'late detail artwork can overwrite the current title');
+assert.ok(sourceHas(source, 'detail.head===m&&detail.id===mediaId'), 'late detail artwork can overwrite the current title');
 assert.ok(sourceHas(source, 'function queuePointerHover(target)'), 'Magic Remote hover navigation is not debounced');
 assert.ok(sourceHas(source, "def.k==='__reload'"), 'Settings recovery action is not wired');
 assert.ok(sourceHas(source, "$('bg2').style.backgroundImage='none'"), 'inactive backdrop texture is not released');

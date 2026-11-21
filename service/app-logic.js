@@ -3697,9 +3697,27 @@ function playChannel(ch, backHash) {
     20000
   );
 }
-function playStored(q, backHash) {
-  q = q.replace(/&back=[^&]*/, '');
-  location.assign(appUrl('/play' + q + '&back=' + encodeURIComponent(backHash)));
+/* whether the server still has the source of a remembered playback (it keeps them twelve hours
+   after their last use, also when it starts again: stream-refs.js) */
+var STORED_CHECK_MS = 4000;
+function storedAlive(q, cb) {
+  var ref = /[?&]ref=([^&]+)/.exec(q || '');
+  if (!ref) return cb(false);
+  xhrJson(
+    '/streamref-alive?ref=' + ref[1],
+    function (j) {
+      cb(!!(j && j.alive));
+    },
+    STORED_CHECK_MS
+  );
+}
+/* the remembered source again, or gone() when the server no longer has it: the player would only
+   show its loading screen and go back */
+function playStored(q, backHash, gone) {
+  storedAlive(q, function (alive) {
+    if (!alive) return gone();
+    location.assign(appUrl('/play' + q.replace(/&back=[^&]*/, '') + '&back=' + encodeURIComponent(backHash)));
+  });
 }
 /* Left by the player when a source would not play (player controls.js): the title page
    reopens the sources and plays the next one, skipping the failed source. */
@@ -3964,6 +3982,11 @@ function explicitAbsoluteEpisode(v) {
 function releasedTime(v) {
   var t = Date.parse((v && (v.released || v.firstAired)) || '');
   return isNaN(t) ? 0 : t;
+}
+/* the episode's rating as the metadata addon gives it (Cinemeta: IMDb's), "" without one */
+function episodeRating(v) {
+  var r = parseFloat(v && v.rating);
+  return r > 0 && r <= 10 ? r.toFixed(1) : '';
 }
 /* an episode without a date counts as released: addons often omit it */
 function episodeReleased(v, now) {
@@ -5196,6 +5219,7 @@ window.__logic = {
   enrichEpisodeMetadata: enrichEpisodeMetadata,
   episodesUpTo: episodesUpTo,
   episodeBadge: episodeBadge,
+  episodeRating: episodeRating,
   episodeDay: episodeDay,
   episodeFallback: episodeFallback,
   episodeImage: episodeImage,

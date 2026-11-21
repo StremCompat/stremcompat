@@ -4052,9 +4052,27 @@ function playChannel(ch, backHash) {
     20000
   );
 }
-function playStored(q, backHash) {
-  q = q.replace(/&back=[^&]*/, '');
-  location.assign(appUrl('/play' + q + '&back=' + encodeURIComponent(backHash)));
+/* whether the server still has the source of a remembered playback (it keeps them twelve hours
+   after their last use, also when it starts again: stream-refs.js) */
+var STORED_CHECK_MS = 4000;
+function storedAlive(q, cb) {
+  var ref = /[?&]ref=([^&]+)/.exec(q || '');
+  if (!ref) return cb(false);
+  xhrJson(
+    '/streamref-alive?ref=' + ref[1],
+    function (j) {
+      cb(!!(j && j.alive));
+    },
+    STORED_CHECK_MS
+  );
+}
+/* the remembered source again, or gone() when the server no longer has it: the player would only
+   show its loading screen and go back */
+function playStored(q, backHash, gone) {
+  storedAlive(q, function (alive) {
+    if (!alive) return gone();
+    location.assign(appUrl('/play' + q.replace(/&back=[^&]*/, '') + '&back=' + encodeURIComponent(backHash)));
+  });
 }
 /* Left by the player when a source would not play (player controls.js): the title page
    reopens the sources and plays the next one, skipping the failed source. */
@@ -6050,11 +6068,14 @@ function openItem(it) {
     var backHash =
       'beta#detail/' + it.type + '/' + it.id + (it.videoId && it.videoId !== it.id ? '/' + it.videoId : '');
     if (q) {
-      playStored(q, backHash);
+      /* a source the server no longer has: that episode's sources */
+      playStored(q, backHash, function () {
+        streamsUI.show(it.type, it.id, it.videoId || it.id, it.name || '', '', '', backHash);
+      });
       return;
     }
   }
-  goScr('detail', { type: it.type, id: it.id, vid: it.videoId || null });
+  goScr('detail', { type: it.type, id: it.id, vid: it.videoId || null, preview: it });
 }
 // Trailer resolution (via /yt) and the trailer player.
 /* ================= trailers (server /yt resolves a direct mp4) ================= */
@@ -7045,7 +7066,7 @@ var cwMenu = {
     );
     add(ICON.info, tx('details'), function () {
       self.close();
-      goScr('detail', { type: it.type, id: it.id, vid: it.videoId || null });
+      goScr('detail', { type: it.type, id: it.id, vid: it.videoId || null, preview: it });
     });
     if (it.cw)
       add(ICON.check, tx('markWatched'), function () {
@@ -7241,7 +7262,7 @@ var similar = {
       if (this.idx - this.cols >= 0) this.idx -= this.cols;
     } else if (k === 13) {
       var it = this.items[this.idx];
-      if (it) goScr('detail', { type: it.type, id: it.id, vid: null });
+      if (it) goScr('detail', { type: it.type, id: it.id, vid: null, preview: it });
       return true;
     }
     this.paint();
@@ -7264,6 +7285,11 @@ function explicitAbsoluteEpisode(v) {
 function releasedTime(v) {
   var t = Date.parse((v && (v.released || v.firstAired)) || '');
   return isNaN(t) ? 0 : t;
+}
+/* the episode's rating as the metadata addon gives it (Cinemeta: IMDb's), "" without one */
+function episodeRating(v) {
+  var r = parseFloat(v && v.rating);
+  return r > 0 && r <= 10 ? r.toFixed(1) : '';
 }
 /* an episode without a date counts as released: addons often omit it */
 function episodeReleased(v, now) {
@@ -7641,6 +7667,7 @@ var descRoll = {
 // Title detail screen: actions, seasons, episode ranges and episode list.
 var detail = {
   meta: null,
+  head: null,
   type: '',
   id: '',
   vid: null,
@@ -7690,6 +7717,9 @@ var detail = {
     $('dBtns').innerHTML = '';
     $('dSeasons').style.display = 'none';
     $('dEps').style.display = 'none';
+    /* What the card knew is drawn at once, as Stremio and Nuvio open a title, instead of an empty
+       page until the addon answers; the rest fills in when it does. */
+    if (p.preview) this.paintHead(p.preview);
     var self = this;
     getMeta(this.type, this.id, function (m) {
       if (!m) {
@@ -7709,8 +7739,10 @@ var detail = {
       });
     });
   },
-  render: function () {
-    var m = this.meta;
+  /* the name or logo, the line of facts, the synopsis and the picture behind */
+  paintHead: function (m) {
+    /* what is drawn now: the card's preview, then the full metadata */
+    this.head = m;
     $('dTitle').textContent = m.name || '';
     var lg = $('dLogo');
     var mediaId = this.id;
@@ -7721,34 +7753,39 @@ var detail = {
       $('dTitle').style.display = 'none';
       var im = new Image();
       im.onload = function () {
-        if (detail.meta === m && detail.id === mediaId) lg.src = m.logo;
+        if (detail.head === m && detail.id === mediaId) lg.src = m.logo;
       };
       im.onerror = function () {
-        if (detail.meta === m && detail.id === mediaId) {
+        if (detail.head === m && detail.id === mediaId) {
           lg.style.display = 'none';
           $('dTitle').style.display = 'block';
         }
       };
       im.src = m.logo;
     } else {
+      lg.style.display = 'none';
       $('dTitle').style.display = 'block';
     }
     /* the same info line as the Home hero, followed by the genres */
     $('dMeta').innerHTML =
       heroMetaHtml(m) +
       (m.genres && m.genres.length ? '<span>' + esc(m.genres.slice(0, 3).join(' · ')) + '</span>' : '');
+    $('dDesc').textContent = m.description || '';
+    setBg(m.background || bgOf({ id: this.id, poster: m.poster }));
+  },
+  render: function () {
+    var m = this.meta;
+    this.paintHead(m);
     var people = m.cast && m.cast.length ? m.cast : m.director || [];
     var info = people.length ? '<div>' + esc(people.slice(0, 4).join(', ')) + '</div>' : '';
     var facts = titleFacts(m, people === m.cast);
     if (facts) info += '<div class="facts">' + esc(facts) + '</div>';
     if (m.awards) info += '<div class="awards">' + esc(m.awards) + '</div>';
     $('dInfo').innerHTML = info;
-    $('dDesc').textContent = m.description || '';
     descRoll.arm();
     this.baseMeta = $('dMeta').innerHTML;
     this.baseInfo = info;
     this.baseDesc = m.description || '';
-    setBg(m.background || bgOf({ id: this.id, poster: m.poster }));
     var bt = $('dBtns');
     bt.innerHTML = '';
     this.btnEls = [];
@@ -7850,11 +7887,15 @@ var detail = {
   },
   /* the same source when it was remembered, otherwise the source list for that video */
   playFrom: function (c) {
-    var q = resumeSearch(this.id, c.videoId);
+    var q = resumeSearch(this.id, c.videoId),
+      self = this;
     if (q && !c.upNext)
       playStored(
         q,
-        'beta#detail/' + this.type + '/' + this.id + (c.videoId !== this.id ? '/' + c.videoId : '')
+        'beta#detail/' + this.type + '/' + this.id + (c.videoId !== this.id ? '/' + c.videoId : ''),
+        function () {
+          self.openStreams(c.videoId);
+        }
       );
     else this.openStreams(c.videoId);
   },
@@ -8283,6 +8324,14 @@ detail.buildEps = function () {
       ad.className = 'epdate';
       ad.textContent = episodeDay(aired);
       th.appendChild(ad);
+    }
+    /* its rating at the bottom right, as the title's own: the number, then IMDb's mark */
+    var rating = episodeRating(v);
+    if (rating) {
+      var rt = document.createElement('div');
+      rt.className = 'eprating';
+      rt.innerHTML = rating + '<b>IMDb</b>';
+      th.appendChild(rt);
     }
     d.appendChild(th);
     var bd = document.createElement('div');
@@ -9317,25 +9366,28 @@ var streamsUI = {
       (title || '') +
       (vid && vid.indexOf(':') > 0 ? '  ·  T' + vid.split(':')[1] + ' E' + vid.split(':')[2] : '');
     $('stInner').innerHTML = '<div class="stmsg">' + tx('findingSources') + '</div>';
+    /* the source played last, while the server still has it */
     var q = resumeSearch(id, vid);
-    if (q) {
-      this.push(
-        [
-          {
-            addon: tx('lastSource'),
-            name: tx('continuePlayback'),
-            title: tx('sameSource'),
-            stored: q,
-            quality: 'Recent',
-            seeders: 999999,
-            compatLabels: [],
-            compatRank: 0
-          }
-        ],
-        0,
-        tx('lastSource')
-      );
-    }
+    if (q)
+      storedAlive(q, function (alive) {
+        if (!alive || !self.open || self.requestSeq !== request) return;
+        self.push(
+          [
+            {
+              addon: tx('lastSource'),
+              name: tx('continuePlayback'),
+              title: tx('sameSource'),
+              stored: q,
+              quality: 'Recent',
+              seeders: 999999,
+              compatLabels: [],
+              compatRank: 0
+            }
+          ],
+          0,
+          tx('lastSource')
+        );
+      });
     fetchStreams(
       type,
       vid,
@@ -9698,7 +9750,10 @@ var streamsUI = {
       if (this.failed.length) this.show(this.type, this.id, this.vid, this.title);
       return true;
     }
-    if (s.stored) playStored(s.stored, this.backHash());
+    if (s.stored)
+      playStored(s.stored, this.backHash(), function () {
+        toast(tx('sourcePrepareFailed'));
+      });
     else playUrl(s, this.type, this.id, this.vid, this.backHash());
     return true;
   },
@@ -12241,7 +12296,12 @@ function pointerUI(target, activate) {
       similar.idx = i;
       similar.paint();
       if (activate && similar.items[i])
-        goScr('detail', { type: similar.items[i].type, id: similar.items[i].id, vid: null });
+        goScr('detail', {
+          type: similar.items[i].type,
+          id: similar.items[i].id,
+          vid: null,
+          preview: similar.items[i]
+        });
       return true;
     }
   }
@@ -12876,7 +12936,8 @@ on(
     if (h.down && !h.menu && h.item) {
       /* short press = the card's normal action */
       if (h.item.episode || h.item.season) detail.key(13);
-      else if (SCR === 'sim') goScr('detail', { type: h.item.type, id: h.item.id, vid: null });
+      else if (SCR === 'sim')
+        goScr('detail', { type: h.item.type, id: h.item.id, vid: null, preview: h.item });
       else openItem(h.item);
     }
   },

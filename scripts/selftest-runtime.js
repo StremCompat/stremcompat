@@ -18,6 +18,23 @@ var childLogGlobal = '';
 process.env.SC_SERVER_LOG = path.join(os.tmpdir(), 'stremcompat-selftest-modules-' + process.pid + '.log');
 
 var nextEpisodeId = require(path.join(root, 'service', 'server', 'episodes.js')).nextEpisodeId;
+// the source Continue reopens is still there after the server starts again (stream-refs.js)
+(function () {
+  var home = fs.mkdtempSync(path.join(os.tmpdir(), 'stremcompat-refs-')),
+    oldHome = process.env.HOME,
+    file = require.resolve(path.join(root, 'service', 'server', 'stream-refs.js'));
+  process.env.HOME = home;
+  delete require.cache[file];
+  var ref = require(file).storeStreamRef({ url: 'https://cdn.example/a.mkv', addon: 'Addon A' });
+  delete require.cache[file];
+  var restarted = require(file).getStreamRef(ref);
+  assert.ok(restarted && restarted.addon === 'Addon A', 'a server started again lost the source Continue reopens');
+  process.env.HOME = oldHome;
+  delete require.cache[file];
+  try {
+    fs.rmSync(home, { recursive: true, force: true });
+  } catch (e) {}
+})();
 // subtitle decoding without the streaming server's converter (what the TV does when it is not ready)
 var subtitleLib = require(path.join(root, 'service', 'server', 'subtitles.js'));
 var directCues = subtitleLib.parseSrt(

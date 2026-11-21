@@ -51,6 +51,7 @@ window.__logic = {
   enrichEpisodeMetadata: enrichEpisodeMetadata,
   episodesUpTo: episodesUpTo,
   episodeBadge: episodeBadge,
+  episodeRating: episodeRating,
   episodeDay: episodeDay,
   episodeFallback: episodeFallback,
   episodeImage: episodeImage,

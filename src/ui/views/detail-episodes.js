@@ -217,6 +217,14 @@ detail.buildEps = function () {
       ad.textContent = episodeDay(aired);
       th.appendChild(ad);
     }
+    /* its rating at the bottom right, as the title's own: the number, then IMDb's mark */
+    var rating = episodeRating(v);
+    if (rating) {
+      var rt = document.createElement('div');
+      rt.className = 'eprating';
+      rt.innerHTML = rating + '<b>IMDb</b>';
+      th.appendChild(rt);
+    }
     d.appendChild(th);
     var bd = document.createElement('div');
     bd.className = 'bd';

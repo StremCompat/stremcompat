@@ -15,6 +15,11 @@ function releasedTime(v) {
   var t = Date.parse((v && (v.released || v.firstAired)) || '');
   return isNaN(t) ? 0 : t;
 }
+/* the episode's rating as the metadata addon gives it (Cinemeta: IMDb's), "" without one */
+function episodeRating(v) {
+  var r = parseFloat(v && v.rating);
+  return r > 0 && r <= 10 ? r.toFixed(1) : '';
+}
 /* an episode without a date counts as released: addons often omit it */
 function episodeReleased(v, now) {
   var t = releasedTime(v);

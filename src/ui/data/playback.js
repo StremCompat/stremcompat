@@ -91,9 +91,27 @@ function playChannel(ch, backHash) {
     20000
   );
 }
-function playStored(q, backHash) {
-  q = q.replace(/&back=[^&]*/, '');
-  location.assign(appUrl('/play' + q + '&back=' + encodeURIComponent(backHash)));
+/* whether the server still has the source of a remembered playback (it keeps them twelve hours
+   after their last use, also when it starts again: stream-refs.js) */
+var STORED_CHECK_MS = 4000;
+function storedAlive(q, cb) {
+  var ref = /[?&]ref=([^&]+)/.exec(q || '');
+  if (!ref) return cb(false);
+  xhrJson(
+    '/streamref-alive?ref=' + ref[1],
+    function (j) {
+      cb(!!(j && j.alive));
+    },
+    STORED_CHECK_MS
+  );
+}
+/* the remembered source again, or gone() when the server no longer has it: the player would only
+   show its loading screen and go back */
+function playStored(q, backHash, gone) {
+  storedAlive(q, function (alive) {
+    if (!alive) return gone();
+    location.assign(appUrl('/play' + q.replace(/&back=[^&]*/, '') + '&back=' + encodeURIComponent(backHash)));
+  });
 }
 /* Left by the player when a source would not play (player controls.js): the title page
    reopens the sources and plays the next one, skipping the failed source. */

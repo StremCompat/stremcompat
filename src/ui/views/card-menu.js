@@ -174,7 +174,7 @@ var cwMenu = {
     );
     add(ICON.info, tx('details'), function () {
       self.close();
-      goScr('detail', { type: it.type, id: it.id, vid: it.videoId || null });
+      goScr('detail', { type: it.type, id: it.id, vid: it.videoId || null, preview: it });
     });
     if (it.cw)
       add(ICON.check, tx('markWatched'), function () {

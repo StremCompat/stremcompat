@@ -1,6 +1,9 @@
 // Opaque stream references that keep provider URLs and headers out of the browser.
 
 var crypto = require('crypto');
+var fs = require('fs');
+var path = require('path');
+var { DIR } = require('./config');
 var { safeText } = require('./text');
 var { streamingUrl } = require('./server-address');
 
@@ -9,6 +12,37 @@ var { streamingUrl } = require('./server-address');
 var streamRefs = {};
 
 var streamRefOrder = [];
+var KEEP = 40,
+  IDLE_LIMIT_MS = 12 * 3600 * 1000;
+
+/* The references are also kept in the app's own folder: Continue reopens the last one, and a server
+   started again (an update, the TV turned off, a server that left while idle) knew none of them, so
+   the player only showed its loading screen and went back. */
+function refsFile() {
+  return path.join(process.env.HOME || DIR, '.stremcompat', 'stream-refs.json');
+}
+function loadRefs() {
+  try {
+    var kept = JSON.parse(fs.readFileSync(refsFile(), 'utf8')) || {};
+    (kept.order || []).forEach(function (ref) {
+      var s = kept.refs && kept.refs[ref];
+      if (s && s.url && Date.now() - s.at <= IDLE_LIMIT_MS) {
+        streamRefs[ref] = s;
+        streamRefOrder.push(ref);
+      }
+    });
+  } catch (e) {}
+}
+function saveRefs() {
+  var file = refsFile(),
+    temp = file + '.tmp';
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(temp, JSON.stringify({ order: streamRefOrder, refs: streamRefs }));
+    fs.renameSync(temp, file);
+  } catch (e) {}
+}
+loadRefs();
 
 function safeProxyHeaders(raw) {
   var out = {},
@@ -70,18 +104,20 @@ function storeStreamRef(raw) {
     at: Date.now()
   };
   streamRefOrder.push(ref);
-  while (streamRefOrder.length > 40) delete streamRefs[streamRefOrder.shift()];
+  while (streamRefOrder.length > KEEP) delete streamRefs[streamRefOrder.shift()];
+  saveRefs();
   return ref;
 }
 
 function getStreamRef(ref) {
   ref = String(ref || '');
   var s = streamRefs[ref];
-  if (!s || Date.now() - s.at > 12 * 3600 * 1000) return null;
+  if (!s || Date.now() - s.at > IDLE_LIMIT_MS) return null;
   s.at = Date.now();
   var at = streamRefOrder.indexOf(ref);
   if (at >= 0) streamRefOrder.splice(at, 1);
   streamRefOrder.push(ref);
+  saveRefs();
   return s;
 }
 

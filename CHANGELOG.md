@@ -4,6 +4,13 @@ What changed in each version, newest first. The full notes of each release are i
 
 ## Unreleased
 
+## 4.5.9 / Native 5.2.8
+
+- Continue (S1 E2 and the like) works after an update or a restart: the local server keeps the recent sources on disk, and a source it no longer has opens that episode's sources instead of a loading screen that went back.
+- Each episode shows its rating (IMDb's, from the metadata addon) beside its air date.
+- A title opens at once with what its card knew (name, picture, synopsis and facts), as Stremio and Nuvio do, instead of an empty page until the addon answered.
+- The subtitle delay is offered for every subtitle it can move (also those read out of the file on LG), and in the Native app's subtitles list too.
+
 ## 4.5.8 / Native 5.2.7
 
 - LG, webOS 10 (webOS 25): the app's start request reaches the service even where the TV's activity manager never answers (it waited forever and showed RUNTIME_START_TIMEOUT), and the service starts the local server as soon as it loads, so the start screen finds it by itself.

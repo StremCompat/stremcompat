@@ -83,7 +83,7 @@ var similar = {
       if (this.idx - this.cols >= 0) this.idx -= this.cols;
     } else if (k === 13) {
       var it = this.items[this.idx];
-      if (it) goScr('detail', { type: it.type, id: it.id, vid: null });
+      if (it) goScr('detail', { type: it.type, id: it.id, vid: null, preview: it });
       return true;
     }
     this.paint();

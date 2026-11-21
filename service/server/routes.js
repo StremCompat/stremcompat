@@ -113,6 +113,11 @@ function serverConfig(req, res) {
   });
 }
 
+/* whether a remembered source can still be played (Continue: web playback.js) */
+function streamAlive(req, res, q) {
+  sendJson(res, { alive: !!getStreamRef(q.ref || '') });
+}
+
 function storeStream(req, res) {
   readJsonBody(req, 16384, function (body) {
     var ref = body && storeStreamRef(body);
@@ -280,6 +285,7 @@ var ROUTES = {
   '/interface.js': interfaceScript,
   '/play': play,
   '/playinfo': playInfo,
+  '/streamref-alive': streamAlive,
   '/meta': titleArt,
   '/subs': subtitleList,
   '/watchedset': watchedSet,

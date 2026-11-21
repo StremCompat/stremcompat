@@ -58,6 +58,7 @@ var descRoll = {
 // Title detail screen: actions, seasons, episode ranges and episode list.
 var detail = {
   meta: null,
+  head: null,
   type: '',
   id: '',
   vid: null,
@@ -107,6 +108,9 @@ var detail = {
     $('dBtns').innerHTML = '';
     $('dSeasons').style.display = 'none';
     $('dEps').style.display = 'none';
+    /* What the card knew is drawn at once, as Stremio and Nuvio open a title, instead of an empty
+       page until the addon answers; the rest fills in when it does. */
+    if (p.preview) this.paintHead(p.preview);
     var self = this;
     getMeta(this.type, this.id, function (m) {
       if (!m) {
@@ -126,8 +130,10 @@ var detail = {
       });
     });
   },
-  render: function () {
-    var m = this.meta;
+  /* the name or logo, the line of facts, the synopsis and the picture behind */
+  paintHead: function (m) {
+    /* what is drawn now: the card's preview, then the full metadata */
+    this.head = m;
     $('dTitle').textContent = m.name || '';
     var lg = $('dLogo');
     var mediaId = this.id;
@@ -138,34 +144,39 @@ var detail = {
       $('dTitle').style.display = 'none';
       var im = new Image();
       im.onload = function () {
-        if (detail.meta === m && detail.id === mediaId) lg.src = m.logo;
+        if (detail.head === m && detail.id === mediaId) lg.src = m.logo;
       };
       im.onerror = function () {
-        if (detail.meta === m && detail.id === mediaId) {
+        if (detail.head === m && detail.id === mediaId) {
           lg.style.display = 'none';
           $('dTitle').style.display = 'block';
         }
       };
       im.src = m.logo;
     } else {
+      lg.style.display = 'none';
       $('dTitle').style.display = 'block';
     }
     /* the same info line as the Home hero, followed by the genres */
     $('dMeta').innerHTML =
       heroMetaHtml(m) +
       (m.genres && m.genres.length ? '<span>' + esc(m.genres.slice(0, 3).join(' · ')) + '</span>' : '');
+    $('dDesc').textContent = m.description || '';
+    setBg(m.background || bgOf({ id: this.id, poster: m.poster }));
+  },
+  render: function () {
+    var m = this.meta;
+    this.paintHead(m);
     var people = m.cast && m.cast.length ? m.cast : m.director || [];
     var info = people.length ? '<div>' + esc(people.slice(0, 4).join(', ')) + '</div>' : '';
     var facts = titleFacts(m, people === m.cast);
     if (facts) info += '<div class="facts">' + esc(facts) + '</div>';
     if (m.awards) info += '<div class="awards">' + esc(m.awards) + '</div>';
     $('dInfo').innerHTML = info;
-    $('dDesc').textContent = m.description || '';
     descRoll.arm();
     this.baseMeta = $('dMeta').innerHTML;
     this.baseInfo = info;
     this.baseDesc = m.description || '';
-    setBg(m.background || bgOf({ id: this.id, poster: m.poster }));
     var bt = $('dBtns');
     bt.innerHTML = '';
     this.btnEls = [];
@@ -267,11 +278,15 @@ var detail = {
   },
   /* the same source when it was remembered, otherwise the source list for that video */
   playFrom: function (c) {
-    var q = resumeSearch(this.id, c.videoId);
+    var q = resumeSearch(this.id, c.videoId),
+      self = this;
     if (q && !c.upNext)
       playStored(
         q,
-        'beta#detail/' + this.type + '/' + this.id + (c.videoId !== this.id ? '/' + c.videoId : '')
+        'beta#detail/' + this.type + '/' + this.id + (c.videoId !== this.id ? '/' + c.videoId : ''),
+        function () {
+          self.openStreams(c.videoId);
+        }
       );
     else this.openStreams(c.videoId);
   },

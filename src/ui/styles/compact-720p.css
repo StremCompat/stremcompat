@@ -48,6 +48,8 @@
   .cwlabel .sub{margin-top:1px;font-size:15px}
   .epbadge{left:7px;top:7px;padding:3px 7px;font-size:14px}
   .epdate{left:7px;bottom:18px;padding:3px 7px;font-size:13px}
+  .eprating{right:7px;bottom:18px;padding:3px 6px 3px 7px;font-size:13px}
+  .eprating b{margin-left:5px;padding:0 3px;font-size:10px;line-height:13px;vertical-align:1px}
   .wbadge{top:8px;right:8px;width:31px;height:31px}
   .wbadge svg{width:19px;height:19px}
   #streams{top:70px;width:620px;padding:20px}
