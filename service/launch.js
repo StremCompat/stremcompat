@@ -17,13 +17,14 @@ var DIR = __dirname;
 var SUPERVISOR = path.join(DIR, 'local-server.js');
 var APP_PORT = PROFILE.port;
 var APP_VERSION = PROFILE.version;
-/* webos-service ends the service 5 s after it starts unless the system's activity manager accepts
-   an activity (the keepAlive below, or one per request). Where it does not (webOS 10 seems to
-   refuse apps installed in developer mode), the service died mid-start with the server it was
-   running inside it, and the app showed "... is not running". The library's own switch turns
-   that off; older TVs, where keepAlive is accepted, already kept the service running. Read when
-   the Service is created. */
-process.argv.push('--disable-timeouts');
+/* webos-service leans on the system's activity manager twice: it ends the service 5 s after it
+   starts unless an activity was accepted, and it hands a request to its method only once the
+   activity manager has answered for it. On webOS 10 (webOS 25) neither happens for apps installed
+   in developer mode: the service died mid-start ("... is not running"), and once kept alive the app's
+   start request never reached this file (RUNTIME_START_TIMEOUT). The library's own switches turn
+   both off: no idle exit, and an activity of its own for each request. Older TVs, where keepAlive
+   was accepted, already kept the service running. Read when the Service is created. */
+process.argv.push('--disable-timeouts', '--disable-activity-creation');
 var service = new Service(PROFILE.serviceId);
 var spawned = false;
 /* the server has answered at least once since this service started */
@@ -309,9 +310,51 @@ function claimPort() {
   }
 }
 
-service.register('start', function (message) {
+/* This version's server on its way: a server of another version asked to leave or stopped first,
+   then this one started; done() once it is started or already up. It runs as soon as the service
+   loads, so the server comes up even where the app's start request is held back, and the launcher
+   finds it by its own /health checks. */
+var PREPARE_IDLE = 0,
+  PREPARE_RUNNING = 1,
+  PREPARE_DONE = 2;
+var prepareState = PREPARE_IDLE,
+  prepareWaiting = [];
+function prepareServer(done) {
+  if (prepareState === PREPARE_DONE) return done();
+  prepareWaiting.push(done);
+  if (prepareState === PREPARE_RUNNING) return;
+  prepareState = PREPARE_RUNNING;
   claimPort();
-  function answer() {
+  function prepared() {
+    prepareState = PREPARE_DONE;
+    prepareWaiting.splice(0).forEach(function (fn) {
+      fn();
+    });
+  }
+  function stopThenStart(version) {
+    stopStaleServers(version, function () {
+      startRuntime();
+      prepared();
+    });
+  }
+  healthVersion(function (version) {
+    if (version === APP_VERSION) return prepared();
+    if (version === '?' && !spawned)
+      /* a busy server may just be slow: it counts as stuck only if it stays silent 5 s more */
+      return healthVersion(function (again) {
+        if (again === APP_VERSION) return prepared();
+        if (again) return stopThenStart(again === '?' ? 'silent' : again);
+        startRuntime();
+        prepared();
+      }, 5000);
+    if (version && !spawned) return stopThenStart(version);
+    if (!spawned) startRuntime();
+    prepared();
+  });
+}
+
+service.register('start', function (message) {
+  prepareServer(function () {
     waitUntilReady(function (ready, staleVersion) {
       var reply = {
         returnValue: ready,
@@ -331,26 +374,6 @@ service.register('start', function (message) {
       }
       message.respond(reply);
     });
-  }
-  function stopThenStart(version) {
-    stopStaleServers(version, function () {
-      startRuntime();
-      answer();
-    });
-  }
-  healthVersion(function (version) {
-    if (version === APP_VERSION) return answer();
-    if (version === '?' && !spawned)
-      /* a busy server may just be slow: it counts as stuck only if it stays silent 5 s more */
-      return healthVersion(function (again) {
-        if (again === APP_VERSION) return answer();
-        if (again) return stopThenStart(again === '?' ? 'silent' : again);
-        startRuntime();
-        answer();
-      }, 5000);
-    if (version && !spawned) return stopThenStart(version);
-    if (!spawned) startRuntime();
-    answer();
   });
 });
 
@@ -387,3 +410,4 @@ service.register('install', function (message) {
 });
 
 log('Legacy bootstrap loaded on system Node ' + process.version);
+prepareServer(function () {});

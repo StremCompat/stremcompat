@@ -4,6 +4,11 @@ What changed in each version, newest first. The full notes of each release are i
 
 ## Unreleased
 
+## 4.5.8 / Native 5.2.7
+
+- LG, webOS 10 (webOS 25): the app's start request reaches the service even where the TV's activity manager never answers (it waited forever and showed RUNTIME_START_TIMEOUT), and the service starts the local server as soon as it loads, so the start screen finds it by itself.
+- Native 5.2.7 changes only the LG app (its service); on Samsung and Android TV it keeps the versions level.
+
 ## 4.5.7
 
 - A change in the player's subtitle Style or Delay shows on the line on screen at once, also paused; it waited for the next line.

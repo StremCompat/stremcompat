@@ -1,9 +1,9 @@
 'use strict';
-// The webOS service (service/launch.js) where the TV gives it the least: the system's activity
-// manager refuses every activity and the service may not start a Node of its own, so the local
-// server runs inside the service (webOS 10). The real webos-service then ends the process 5 s
-// after it starts unless it was given --disable-timeouts; the stand-in below does the same.
-// The service must answer the app's start and still be running well after those 5 s.
+// The webOS service (service/launch.js) where the TV gives it the least: the service may not start
+// a Node of its own, so the local server runs inside the service, and the system's activity manager
+// either refuses every activity or never answers (webOS 10). The real webos-service then ends the
+// process 5 s after it starts unless given --disable-timeouts, and holds each request until the
+// activity manager answers unless given --disable-activity-creation; the stand-in below does both.
 
 var assert = require('assert');
 var childProcess = require('child_process');
@@ -16,31 +16,42 @@ var work = fs.mkdtempSync(path.join(os.tmpdir(), 'stremcompat-webos-service-'));
 var modules = path.join(work, 'node_modules', 'webos-service');
 fs.mkdirSync(modules, { recursive: true });
 
-/* webos-service as webOS has it, reduced to what launch.js uses: methods, and the idle exit of its
-   ActivityManager, which only an accepted activity or --disable-timeouts stops */
+/* webos-service as webOS has it, reduced to what launch.js uses. AM=refuse: the activity manager
+   refuses; AM=silent: it never answers. A request reaches its method only once an activity came
+   back (at once with --disable-activity-creation), and the idle exit stops only for an accepted
+   activity or --disable-timeouts. */
 fs.writeFileSync(
   path.join(modules, 'index.js'),
   [
     'var IDLE_MS = 5000;',
     'function Service(id) {',
-    '  var exitOnTimeout = process.argv.indexOf("--disable-timeouts") < 0;',
+    '  var exitOnTimeout = process.argv.indexOf("--disable-timeouts") < 0,',
+    '    dummy = process.argv.indexOf("--disable-activity-creation") >= 0;',
     '  this.methods = {};',
-    '  this.activityManager = { create: function (name, cb) { if (cb) cb({ returnValue: false, errorText: "Denied" }); } };',
+    '  this.activityManager = { create: function (name, cb) {',
+    '    if (dummy) return cb && cb({ isDummyActivity: true });',
+    '    if (process.env.AM === "refuse" && cb) cb({ returnValue: false, errorText: "Denied" });',
+    '  } };',
     '  if (exitOnTimeout) setTimeout(function () { console.log("IDLE EXIT"); process.exit(0); }, IDLE_MS);',
     '  global.__service = this;',
     '}',
     'Service.prototype.register = function (name, fn) { this.methods[name] = fn; };',
+    'Service.prototype.request = function (name, message) {',
+    '  var fn = this.methods[name];',
+    '  this.activityManager.create(name, function () { fn(message); });',
+    '};',
     'Service.prototype.call = function () {};',
     'Service.prototype.subscribe = function () { return { on: function () {}, cancel: function () {} }; };',
     'module.exports = Service;'
   ].join('\n')
 );
 
-/* runs launch.js with a spawn the TV refuses, then asks for the start like the app does */
+/* runs launch.js with a spawn the TV refuses; SEND=start asks for the start like the app does,
+   SEND=none only asks the server for its health a few seconds later */
 fs.writeFileSync(
   path.join(work, 'run.js'),
   [
-    'var cp = require("child_process"), EventEmitter = require("events");',
+    'var cp = require("child_process"), EventEmitter = require("events"), http = require("http");',
     'cp.spawn = function () {',
     '  var child = new EventEmitter();',
     '  child.pid = 0; child.unref = function () {};',
@@ -48,45 +59,70 @@ fs.writeFileSync(
     '  return child;',
     '};',
     'require(process.argv[2]);',
-    'global.__service.methods.start({ respond: function (reply) {',
+    'var port = require(process.argv[3]).current.port;',
+    'if (process.env.SEND === "start") global.__service.request("start", { respond: function (reply) {',
     '  console.log("REPLY " + JSON.stringify(reply));',
     '  setTimeout(function () { console.log("ALIVE"); process.exit(0); }, 7000);',
-    '} });'
+    '} });',
+    'else setTimeout(function () {',
+    '  http.get("http://127.0.0.1:" + port + "/health", function (res) {',
+    '    var body = ""; res.on("data", function (c) { body += c; });',
+    '    res.on("end", function () { console.log("HEALTH " + res.statusCode + " " + body.slice(0, 80)); process.exit(0); });',
+    '  }).on("error", function (e) { console.log("HEALTH ERROR " + e.message); process.exit(0); });',
+    '}, 7000);'
   ].join('\n')
 );
 
-var env = {};
-Object.keys(process.env).forEach(function (key) {
-  env[key] = process.env[key];
-});
-/* launch.js adds the TV's module folders after a ':', so the list must end where they begin */
-env.NODE_PATH = path.join(work, 'node_modules') + (process.platform === 'win32' ? ';' : ':');
-env.HOME = work;
-env.SC_SERVER_LOG = path.join(work, 'server.log');
+function runService(am, send) {
+  var env = {};
+  Object.keys(process.env).forEach(function (key) {
+    env[key] = process.env[key];
+  });
+  /* launch.js adds the TV's module folders after a ':', so the list must end where they begin */
+  env.NODE_PATH = path.join(work, 'node_modules') + (process.platform === 'win32' ? ';' : ':');
+  env.HOME = work;
+  env.SC_SERVER_LOG = path.join(work, 'server.log');
+  env.AM = am;
+  env.SEND = send;
+  var result = childProcess.spawnSync(
+    process.execPath,
+    [
+      path.join(work, 'run.js'),
+      path.join(root, 'service', 'launch.js'),
+      path.join(root, 'service', 'profile.js')
+    ],
+    { env: env, encoding: 'utf8', timeout: 60000 }
+  );
+  return String(result.stdout || '') + String(result.stderr || '');
+}
 
-var result = childProcess.spawnSync(
-  process.execPath,
-  [path.join(work, 'run.js'), path.join(root, 'service', 'launch.js')],
-  {
-    env: env,
-    encoding: 'utf8',
-    timeout: 60000
-  }
+['refuse', 'silent'].forEach(function (am) {
+  var out = runService(am, 'start');
+  assert.ok(
+    out.indexOf('IDLE EXIT') < 0,
+    'the service ended itself 5 s after it started (' + am + '):\n' + out
+  );
+  var reply = /REPLY (.*)/.exec(out);
+  assert.ok(reply, 'the start never reached the service (' + am + '):\n' + out);
+  assert.strictEqual(
+    JSON.parse(reply[1]).ready,
+    true,
+    'the server inside the service did not come up (' + am + '):\n' + out
+  );
+  assert.ok(
+    out.indexOf('ALIVE') >= 0,
+    'the service did not stay running after the start (' + am + '):\n' + out
+  );
+});
+/* the server comes up as soon as the service loads, even with no start request at all */
+var unasked = runService('silent', 'none');
+assert.ok(
+  /HEALTH 200 .*"version"/.test(unasked),
+  'the server did not come up before any request:\n' + unasked
 );
-var out = String(result.stdout || '') + String(result.stderr || '');
 try {
   fs.rmSync(work, { recursive: true, force: true });
 } catch (e) {}
-
-assert.ok(out.indexOf('IDLE EXIT') < 0, 'the service ended itself 5 s after it started:\n' + out);
-var reply = /REPLY (.*)/.exec(out);
-assert.ok(reply, 'the service never answered the start:\n' + out);
-assert.strictEqual(
-  JSON.parse(reply[1]).ready,
-  true,
-  'the server inside the service did not come up:\n' + out
-);
-assert.ok(out.indexOf('ALIVE') >= 0, 'the service did not stay running after the start:\n' + out);
 
 // ---- the launcher asks the service again when it ended mid-start (app/index.html) ----
 var vm = require('vm');
@@ -153,5 +189,5 @@ assert.ok(
 );
 
 console.log(
-  'OK: webOS service keeps running where the TV refuses activities and its own Node, and answers the start; the launcher asks it again before giving up.'
+  'OK: webOS service keeps running and answers the start where the TV refuses or never answers activities and refuses its own Node, its server comes up before any request, and the launcher asks again before giving up.'
 );
