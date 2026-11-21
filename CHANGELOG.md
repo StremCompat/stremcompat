@@ -4,6 +4,11 @@ What changed in each version, newest first. The full notes of each release are i
 
 ## Unreleased
 
+## Native 5.3.1
+
+- The Native app opens again on LG and Samsung: Native 5.2.5 to 5.3.0 were built before their version was changed, so they waited for a local server of the version before and stayed on the opening screen. Packaging now refuses a native build of another version.
+- The opening screen says after 20 s where the service and the server stand.
+
 ## 4.6.0 / Native 5.3.0
 
 - Faster playback: since 4.5.9 the local server wrote its list of sources to disk for every piece of a playing video; it now writes it at most once a minute.

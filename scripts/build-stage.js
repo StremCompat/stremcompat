@@ -13,6 +13,7 @@ var fs = require('fs');
 var path = require('path');
 var tls = require('tls');
 var legacyNode = require('./lib/legacy-node');
+var { assertNativeVersion } = require('./lib/native-version');
 
 var root = path.resolve(__dirname, '..');
 var profileName = process.argv[2];
@@ -68,6 +69,7 @@ if (profile.nativeApp) {
     fs.rmSync(path.join(stageApp, name), { recursive: true, force: true });
   });
   fs.cpSync(path.resolve(root, profile.nativeApp), stageApp, { recursive: true });
+  assertNativeVersion([path.join(stageApp, 'stremcompat')], profile.version);
 }
 
 var appInfoPath = path.join(stageApp, 'appinfo.json');

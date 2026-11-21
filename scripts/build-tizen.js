@@ -10,6 +10,7 @@
 
 var fs = require('fs');
 var legacyNode = require('./lib/legacy-node');
+var { assertNativeVersion } = require('./lib/native-version');
 var path = require('path');
 var tls = require('tls');
 
@@ -138,6 +139,8 @@ write('config.xml', tokens(read(path.join(root, 'platforms', 'tizen', 'config.xm
 copy('app/icon.png', 'icon.png');
 if (profile.nativeApp) {
   var nativeDir = path.resolve(root, profile.nativeApp);
+  /* the WebAssembly build (its JavaScript fallback for Tizen 4 is made from it, in the same build) */
+  assertNativeVersion([path.join(nativeDir, 'stremcompat.wasm')], profile.version);
   write('index.html', nativePage());
   fs.readdirSync(nativeDir).forEach(function (name) {
     fs.copyFileSync(path.join(nativeDir, name), path.join(stage, name));
