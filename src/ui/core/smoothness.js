@@ -29,9 +29,29 @@ function watchFrames() {
     }
     last = now;
     if (Date.now() < frameWatchUntil) requestAnimationFrame(tick);
-    else frameWatching = false;
+    else {
+      frameWatching = false;
+      checkCalm();
+    }
   }
   requestAnimationFrame(tick);
+}
+/* Motion that fits the TV: where the standard look's transitions cannot keep up (a quarter of the
+   frames late while keys arrive, over enough of them), it drops only its motion, as the light look
+   does, and keeps its pictures and shadows. Kept for the next starts; choosing a look again measures
+   anew (lookChosen). */
+var CALM_MIN_FRAMES = 150,
+  CALM_LATE_SHARE = 0.25;
+function checkCalm() {
+  if (uiLook() !== 'standard' || lsRaw('calmMotion', '') === '1') return;
+  var seen = smooth.frames + smooth.late;
+  if (seen < CALM_MIN_FRAMES || smooth.late / seen < CALM_LATE_SHARE) return;
+  lsRawSet('calmMotion', '1');
+  applyCalm();
+}
+function applyCalm() {
+  if (uiLook() === 'standard' && lsRaw('calmMotion', '') === '1') bodyAdd('calm');
+  else bodyRemove('calm');
 }
 function noteKey() {
   keyAnswered(window.performance && performance.now ? performance.now() : Date.now());

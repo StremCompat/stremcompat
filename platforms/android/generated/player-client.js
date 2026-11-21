@@ -2497,14 +2497,24 @@ function lsGet(k, d) {
     return d;
   }
 }
-var SIZEPCT = { '0': 72, '1': 80, '2': 100, '3': 120, '4': 140, '5': 160, '6': 180 };
+/* the size steps of Settings > Subtitles, which the player's Bigger and Smaller move along and keep */
+var SIZEPCT = [72, 80, 100, 120, 140, 160, 180];
 /* the usual size is Nuvio's TV app's: about 5.3% of the screen's height (57 px at 1080, 38 at 720);
    the outline is 3.5% of the size */
 var SUB_SCREEN_RATIO = 0.053,
   SUB_OUTLINE_RATIO = 0.035;
-subSize = Math.round(
-  (window.innerHeight || 1080) * SUB_SCREEN_RATIO * ((SIZEPCT[lsGet('subtitleSize', '2')] || 100) / 100)
-);
+var subSizeStep = parseInt(lsGet('subtitleSize', '2'), 10);
+if (!(subSizeStep >= 0 && subSizeStep < SIZEPCT.length)) subSizeStep = 2;
+function subSizeOf(step) {
+  return Math.round(((window.innerHeight || 1080) * SUB_SCREEN_RATIO * SIZEPCT[step]) / 100);
+}
+subSize = subSizeOf(subSizeStep);
+/* one step bigger (1) or smaller (-1), kept as the Settings size */
+function stepSubSize(by) {
+  subSizeStep = Math.max(0, Math.min(SIZEPCT.length - 1, subSizeStep + by));
+  subSize = subSizeOf(subSizeStep);
+  keepSetting('subtitleSize', subSizeStep);
+}
 subColor = lsGet('subsColor', '#ffffff');
 subOutline = lsGet('subsOutlineColor', '#000000');
 subBgOp = parseFloat(lsGet('subsBgStyle', '0')) || 0;
@@ -4299,26 +4309,24 @@ function chooseMenu() {
     reopen();
     return;
   }
-  if (it.k === 'size+') {
-    subSize = Math.min(Math.round((window.innerHeight || 1080) * 0.1), subSize + 4);
-    restyleSub();
-    reopen();
-    return;
-  }
-  if (it.k === 'size-') {
-    subSize = Math.max(Math.round((window.innerHeight || 1080) * 0.025), subSize - 4);
+  /* every style chosen here is kept as Settings keeps it, so the next video starts with it */
+  if (it.k === 'size+' || it.k === 'size-') {
+    stepSubSize(it.k === 'size+' ? 1 : -1);
     restyleSub();
     reopen();
     return;
   }
   if (it.k === 'color') {
     subColor = subColor.toLowerCase() === '#ffe600' ? '#ffffff' : '#ffe600';
+    keepSetting('subsColor', subColor);
     restyleSub();
     reopen();
     return;
   }
   if (it.k === 'bg') {
     subBgOp = subBgOp > 0 ? 0 : 0.6;
+    /* written as Settings writes its Transparent and None */
+    keepSetting('subsBgStyle', subBgOp > 0 ? '.6' : '0');
     restyleSub();
     reopen();
     return;

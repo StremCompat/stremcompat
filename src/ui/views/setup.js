@@ -8,6 +8,12 @@ function applyLook() {
   else if (!PROFILE_LOW_MEMORY) bodyRemove('lowmem');
   if (light) bodyAdd('lite');
   else bodyRemove('lite');
+  applyCalm();
+}
+/* a look chosen in Settings or the first questions: its motion is measured anew (smoothness.js) */
+function lookChosen() {
+  lsRawSet('calmMotion', '');
+  applyLook();
 }
 /* Draws the panel shared by the first-start questions and the interface languages: a title, rows of { name, help, cls } and a hint. Returns the rows' elements. */
 function drawChoices(title, rows, hint) {
@@ -254,7 +260,7 @@ var setupPanel = {
     var q = this.questions()[this.step];
     if (i >= q.options.length) return this.close();
     lsRawSet(q.key, q.options[i][0]);
-    if (q.key === 'uiLook') applyLook();
+    if (q.key === 'uiLook') lookChosen();
     this.step++;
     if (this.step >= this.questions().length) return this.close();
     this.build();

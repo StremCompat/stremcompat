@@ -43,6 +43,18 @@ function saveRefs() {
   } catch (e) {}
 }
 loadRefs();
+/* The video proxy asks for the source of every piece of a video it plays, which renews its time:
+   that is written at most once a minute, never once per piece (it slowed playback down). */
+var TOUCH_SAVE_MS = 60000,
+  touchSave = null;
+function saveSoon() {
+  if (touchSave) return;
+  touchSave = setTimeout(function () {
+    touchSave = null;
+    saveRefs();
+  }, TOUCH_SAVE_MS);
+  if (touchSave.unref) touchSave.unref();
+}
 
 function safeProxyHeaders(raw) {
   var out = {},
@@ -117,7 +129,7 @@ function getStreamRef(ref) {
   var at = streamRefOrder.indexOf(ref);
   if (at >= 0) streamRefOrder.splice(at, 1);
   streamRefOrder.push(ref);
-  saveRefs();
+  saveSoon();
   return s;
 }
 

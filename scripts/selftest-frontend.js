@@ -139,7 +139,7 @@ var firstRun = run(emptyStorage(), 'scrLogin', null, 'en-US');
     };
     /* uiLook lives with the artwork sizes it decides (data/artwork.js) */
     vm.createContext(ctx);
-    ['data/artwork.js', 'views/setup.js'].forEach(function (file) {
+    ['data/artwork.js', 'core/smoothness.js', 'views/setup.js'].forEach(function (file) {
       vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', file), 'utf8'), ctx);
     });
     ctx.data = data;
@@ -169,6 +169,20 @@ var firstRun = run(emptyStorage(), 'scrLogin', null, 'en-US');
   assert.strictEqual(skipped.uiLook(), 'light', 'a small TV that skipped lost its light look');
   assert.strictEqual(skipped.simpleMode(), false, 'skipping did not keep the complete mode');
   assert.strictEqual(skipped.data.setupDone, '1', 'skipping did not count as answered');
+  /* motion that fits the TV: a TV that cannot keep up drops only the transitions of the standard look */
+  var slowTv = setup({});
+  slowTv.applyLook();
+  slowTv.smooth.frames = 100; slowTv.smooth.late = 20;
+  slowTv.checkCalm();
+  assert.ok(!/\bcalm\b/.test(slowTv.body.className), 'a TV that keeps up lost its motion');
+  slowTv.smooth.frames = 110; slowTv.smooth.late = 60;
+  slowTv.checkCalm();
+  assert.ok(/\bcalm\b/.test(slowTv.body.className) && slowTv.data.calmMotion === '1', 'a TV that cannot keep up kept its transitions');
+  var calmLater = setup({ calmMotion: '1' });
+  calmLater.applyLook();
+  assert.ok(/\bcalm\b/.test(calmLater.body.className), 'the calmer motion was not kept for the next start');
+  calmLater.lookChosen();
+  assert.ok(!/\bcalm\b/.test(calmLater.body.className) && calmLater.data.calmMotion === '', 'choosing a look again did not measure anew');
 })();
 /* going back to a season returns to the episode it was left on */
 (function () {
@@ -234,7 +248,7 @@ var firstRun = run(emptyStorage(), 'scrLogin', null, 'en-US');
 /* the remote meter in Diagnostics: the typical and slowest answer, and late frames */
 (function () {
   var frames = [], clock = 0;
-  var meter = { window: {}, performance: { now: function () { return clock; } }, Date: { now: function () { return clock; } }, Math: Math,
+  var meter = { window: {}, uiLook: function () { return 'light'; }, performance: { now: function () { return clock; } }, Date: { now: function () { return clock; } }, Math: Math,
     tx: function (k, a, b, c) { return [a, b, c].join(' '); } };
   meter.window.requestAnimationFrame = meter.requestAnimationFrame = function (f) { frames.push(f); };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'ui', 'core', 'smoothness.js'), 'utf8'), meter);

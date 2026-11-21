@@ -27,8 +27,14 @@ var nextEpisodeId = require(path.join(root, 'service', 'server', 'episodes.js'))
   delete require.cache[file];
   var ref = require(file).storeStreamRef({ url: 'https://cdn.example/a.mkv', addon: 'Addon A' });
   delete require.cache[file];
-  var restarted = require(file).getStreamRef(ref);
+  var refs = require(file),
+    restarted = refs.getStreamRef(ref);
   assert.ok(restarted && restarted.addon === 'Addon A', 'a server started again lost the source Continue reopens');
+  /* the video proxy asks for the source of every piece it plays: that must not write each time */
+  var kept = path.join(home, '.stremcompat', 'stream-refs.json');
+  fs.unlinkSync(kept);
+  for (var piece = 0; piece < 50; piece++) refs.getStreamRef(ref);
+  assert.ok(!fs.existsSync(kept), 'every piece of a playing video wrote the sources to disk');
   process.env.HOME = oldHome;
   delete require.cache[file];
   try {

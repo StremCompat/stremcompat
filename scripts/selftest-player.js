@@ -168,6 +168,20 @@ function subtitlePrefs(stored) {
 assert.strictEqual(subtitlePrefs({}).sub, 'por', 'never configured, the subtitle language did not follow the interface');
 assert.strictEqual(subtitlePrefs({}).size, 38, 'the usual subtitle size is not 5.3% of the screen (38 px at 720)');
 assert.strictEqual(subtitlePrefs({ subtitleSize: '4' }).size, 53, 'the size of Settings did not scale the usual one');
+(function () {
+  var kept = {}, storage = memoryStorage({ subtitleSize: '2' });
+  var ctx = {
+    ID: 'tt9', TYPE: 'series', VID: '', URL: '', localStorage: storage, HAS_MEDIA_TOOLS: true,
+    v: { addEventListener: function () {}, textTracks: [], currentTime: 0 },
+    document: { getElementById: element, createElement: element },
+    xhr: function () {}, showToast: function () {}, subEl: element('sub'), window: { innerHeight: 720 },
+    defaultMediaLanguage: function () { return 'por'; }, keepSetting: function (k, v) { kept[k] = String(v); }
+  };
+  vm.runInNewContext(src('player/subtitles.js') + ';stepSubSize(1);this.size=subSize;stepSubSize(9);this.top=subSize;', ctx);
+  assert.strictEqual(kept.subtitleSize, '6', 'Bigger in the player was not kept as the size of Settings');
+  assert.strictEqual(ctx.size, 46, 'Bigger did not grow the subtitles one step (120%)');
+  assert.strictEqual(ctx.top, 69, 'the size went past the largest step');
+})();
 assert.strictEqual(subtitlePrefs({ enableDefaultAudioTrack: 'true' }).aud, 'por', 'the audio language shown in Settings was not used');
 
 // ---- the source list keeps its focus while addons answer (ui/views/streams.js) ----
@@ -682,6 +696,7 @@ assert.strictEqual(pushed, true, 'leaving the player would wait for a push that 
       languageCode: function (l) { return l; }, embErr: '', embTimeout: false,
       setExtSub: function (u) { calls.push('ext ' + u); }, setEmbSub: function (n) { calls.push('emb ' + n); },
       saveTitlePrefs: function () {}, holdForSubtitle: function () {}, restyleSub: function () { calls.push('restyle'); },
+      stepSubSize: function (by) { calls.push('size ' + by); },
       v: Object.assign({ audioTracks: tracks || [], addEventListener: function () {}, style: {}, currentTime: 0, playbackRate: 1 }, more.video),
       subColor: '#ffffff', subBgOp: 0, subSize: 57, subBottom: 8, subOpacity: 1, subDelay: 0, subEl: { style: {} },
       eh: function (s) { return s; }, audioName: function () { return ''; }, subtitleName: function () { return ''; },
@@ -848,6 +863,11 @@ assert.strictEqual(pushed, true, 'leaving the player would wait for a push that 
   assert.strictEqual(styled.calls[styled.calls.length - 1], 'restyle', 'a new style waited for the next line to show');
   styled.press(0);
   assert.strictEqual(styled.calls[styled.calls.length - 1], 'restyle', 'a new size waited for the next line to show');
+  assert.strictEqual(styled.calls[styled.calls.length - 2], 'size 1', 'Bigger did not move the size one step');
+  styled.press(2);
+  assert.strictEqual(styled.stored.subsColor, '#ffe600', 'the colour chosen in the player was not kept for the next video');
+  styled.press(3);
+  assert.strictEqual(styled.stored.subsBgStyle, '.6', 'the background chosen in the player was not kept as Settings keeps it');
   styled.openMenu('delay');
   now = 10000;
   styled.press(0);

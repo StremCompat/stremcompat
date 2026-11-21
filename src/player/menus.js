@@ -390,26 +390,24 @@ function chooseMenu() {
     reopen();
     return;
   }
-  if (it.k === 'size+') {
-    subSize = Math.min(Math.round((window.innerHeight || 1080) * 0.1), subSize + 4);
-    restyleSub();
-    reopen();
-    return;
-  }
-  if (it.k === 'size-') {
-    subSize = Math.max(Math.round((window.innerHeight || 1080) * 0.025), subSize - 4);
+  /* every style chosen here is kept as Settings keeps it, so the next video starts with it */
+  if (it.k === 'size+' || it.k === 'size-') {
+    stepSubSize(it.k === 'size+' ? 1 : -1);
     restyleSub();
     reopen();
     return;
   }
   if (it.k === 'color') {
     subColor = subColor.toLowerCase() === '#ffe600' ? '#ffffff' : '#ffe600';
+    keepSetting('subsColor', subColor);
     restyleSub();
     reopen();
     return;
   }
   if (it.k === 'bg') {
     subBgOp = subBgOp > 0 ? 0 : 0.6;
+    /* written as Settings writes its Transparent and None */
+    keepSetting('subsBgStyle', subBgOp > 0 ? '.6' : '0');
     restyleSub();
     reopen();
     return;

@@ -295,7 +295,7 @@ var settings = {
     ci = (ci + dir + def.opts.length) % def.opts.length;
     storeSetting(def, def.opts[ci][0]);
     if (def.k === 'uiTextSize') applyTextSize();
-    if (def.k === 'uiLook') applyLook();
+    if (def.k === 'uiLook') lookChosen();
     if (def.k === 'uiMode' || def.k === UI_LANG_KEY) {
       if (def.k === UI_LANG_KEY) setUILanguage(def.opts[ci][0]);
       this.enter(true);

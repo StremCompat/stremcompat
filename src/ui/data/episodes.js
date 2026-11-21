@@ -168,7 +168,8 @@ function mergeEpisodeDetails(base, extra) {
       'absoluteEpisode',
       'absolute_episode',
       'absoluteNumber',
-      'absolute_number'
+      'absolute_number',
+      'rating'
     ];
   for (i = 0; i < extra.videos.length; i++) {
     x = extra.videos[i];
@@ -200,6 +201,15 @@ function enrichEpisodeMetadata(type, id, meta, cb) {
   var bases = metaAddonsFor(type, id),
     seen = {},
     queue = [];
+  /* Episodes from another metadata addon (TMDB, AIOMetadata) come without ratings: Cinemeta has
+     IMDb's for every episode of an IMDb title, so it is asked for those. */
+  var rated = meta.videos.some(function (v) {
+    return !!episodeRating(v);
+  });
+  if (!rated && isImdb(id)) {
+    seen[CIN] = 1;
+    queue.push(CIN);
+  }
   for (var i = 0; i < bases.length; i++) {
     var b = bases[i];
     if (b && b !== CIN && !seen[b]) {

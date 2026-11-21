@@ -4,6 +4,13 @@ What changed in each version, newest first. The full notes of each release are i
 
 ## Unreleased
 
+## 4.6.0 / Native 5.3.0
+
+- Faster playback: since 4.5.9 the local server wrote its list of sources to disk for every piece of a playing video; it now writes it at most once a minute.
+- The standard look measures how the TV keeps up and, where its transitions make frames late, drops only its motion (as the light look does), keeping its pictures and shadows.
+- Episode ratings also with metadata addons that give none (TMDB, AIOMetadata): Cinemeta completes them; the focused episode's line shows its rating.
+- The subtitle size, colour and background chosen in the player are kept for the next videos, as Settings keeps them.
+
 ## 4.5.9 / Native 5.2.8
 
 - Continue (S1 E2 and the like) works after an update or a restart: the local server keeps the recent sources on disk, and a source it no longer has opens that episode's sources instead of a loading screen that went back.

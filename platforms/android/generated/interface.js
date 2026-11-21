@@ -2293,9 +2293,29 @@ function watchFrames() {
     }
     last = now;
     if (Date.now() < frameWatchUntil) requestAnimationFrame(tick);
-    else frameWatching = false;
+    else {
+      frameWatching = false;
+      checkCalm();
+    }
   }
   requestAnimationFrame(tick);
+}
+/* Motion that fits the TV: where the standard look's transitions cannot keep up (a quarter of the
+   frames late while keys arrive, over enough of them), it drops only its motion, as the light look
+   does, and keeps its pictures and shadows. Kept for the next starts; choosing a look again measures
+   anew (lookChosen). */
+var CALM_MIN_FRAMES = 150,
+  CALM_LATE_SHARE = 0.25;
+function checkCalm() {
+  if (uiLook() !== 'standard' || lsRaw('calmMotion', '') === '1') return;
+  var seen = smooth.frames + smooth.late;
+  if (seen < CALM_MIN_FRAMES || smooth.late / seen < CALM_LATE_SHARE) return;
+  lsRawSet('calmMotion', '1');
+  applyCalm();
+}
+function applyCalm() {
+  if (uiLook() === 'standard' && lsRaw('calmMotion', '') === '1') bodyAdd('calm');
+  else bodyRemove('calm');
 }
 function noteKey() {
   keyAnswered(window.performance && performance.now ? performance.now() : Date.now());
@@ -7439,7 +7459,8 @@ function mergeEpisodeDetails(base, extra) {
       'absoluteEpisode',
       'absolute_episode',
       'absoluteNumber',
-      'absolute_number'
+      'absolute_number',
+      'rating'
     ];
   for (i = 0; i < extra.videos.length; i++) {
     x = extra.videos[i];
@@ -7471,6 +7492,15 @@ function enrichEpisodeMetadata(type, id, meta, cb) {
   var bases = metaAddonsFor(type, id),
     seen = {},
     queue = [];
+  /* Episodes from another metadata addon (TMDB, AIOMetadata) come without ratings: Cinemeta has
+     IMDb's for every episode of an IMDb title, so it is asked for those. */
+  var rated = meta.videos.some(function (v) {
+    return !!episodeRating(v);
+  });
+  if (!rated && isImdb(id)) {
+    seen[CIN] = 1;
+    queue.push(CIN);
+  }
   for (var i = 0; i < bases.length; i++) {
     var b = bases[i];
     if (b && b !== CIN && !seen[b]) {
@@ -8017,7 +8047,11 @@ var detail = {
       $('dInfo').style.display = 'none';
       $('dBtns').style.display = 'none';
       $('dDesc').style.display = '';
-      $('dMeta').textContent = cv ? episodeMetaLine(cv) : '';
+      /* the episode's line, then its own rating with the mark the title's rating has */
+      var rating = cv ? episodeRating(cv) : '';
+      $('dMeta').innerHTML =
+        (cv ? esc(episodeMetaLine(cv)) : '') +
+        (rating ? '<span>  ·  ' + rating + '<b class="imdb">IMDb</b></span>' : '');
       var hidden = cv && !this.watchedMap[cv.id] && spoilerMode() !== 'off';
       $('dDesc').textContent =
         hidden && spoilerMode() === 'all'
@@ -8491,6 +8525,12 @@ function applyLook() {
   else if (!PROFILE_LOW_MEMORY) bodyRemove('lowmem');
   if (light) bodyAdd('lite');
   else bodyRemove('lite');
+  applyCalm();
+}
+/* a look chosen in Settings or the first questions: its motion is measured anew (smoothness.js) */
+function lookChosen() {
+  lsRawSet('calmMotion', '');
+  applyLook();
 }
 /* Draws the panel shared by the first-start questions and the interface languages: a title, rows of { name, help, cls } and a hint. Returns the rows' elements. */
 function drawChoices(title, rows, hint) {
@@ -8737,7 +8777,7 @@ var setupPanel = {
     var q = this.questions()[this.step];
     if (i >= q.options.length) return this.close();
     lsRawSet(q.key, q.options[i][0]);
-    if (q.key === 'uiLook') applyLook();
+    if (q.key === 'uiLook') lookChosen();
     this.step++;
     if (this.step >= this.questions().length) return this.close();
     this.build();
@@ -11551,7 +11591,7 @@ var settings = {
     ci = (ci + dir + def.opts.length) % def.opts.length;
     storeSetting(def, def.opts[ci][0]);
     if (def.k === 'uiTextSize') applyTextSize();
-    if (def.k === 'uiLook') applyLook();
+    if (def.k === 'uiLook') lookChosen();
     if (def.k === 'uiMode' || def.k === UI_LANG_KEY) {
       if (def.k === UI_LANG_KEY) setUILanguage(def.opts[ci][0]);
       this.enter(true);

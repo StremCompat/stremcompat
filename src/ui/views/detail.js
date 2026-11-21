@@ -408,7 +408,11 @@ var detail = {
       $('dInfo').style.display = 'none';
       $('dBtns').style.display = 'none';
       $('dDesc').style.display = '';
-      $('dMeta').textContent = cv ? episodeMetaLine(cv) : '';
+      /* the episode's line, then its own rating with the mark the title's rating has */
+      var rating = cv ? episodeRating(cv) : '';
+      $('dMeta').innerHTML =
+        (cv ? esc(episodeMetaLine(cv)) : '') +
+        (rating ? '<span>  ·  ' + rating + '<b class="imdb">IMDb</b></span>' : '');
       var hidden = cv && !this.watchedMap[cv.id] && spoilerMode() !== 'off';
       $('dDesc').textContent =
         hidden && spoilerMode() === 'all'
